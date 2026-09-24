@@ -38,7 +38,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/' ~ theme ~ '/favicon-32.png') }}" data-brand="png">
 <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/' ~ theme ~ '/apple-touch-icon.png') }}" data-brand="apple">
 {% block head %}{% endblock %}
-<link rel="manifest" href="/manifest.webmanifest">
+<link rel="manifest" href="/manifest.webmanifest?theme={{ theme }}" data-brand="manifest">
 <link rel="preload" href="{{ url_for('static', filename='fonts/bricolage-latin.woff2') }}" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="{{ url_for('static', filename='fonts/figtree-latin.woff2') }}" as="font" type="font/woff2" crossorigin>
 <script src="{{ url_for('static', filename='js/boot.js') }}"></script>

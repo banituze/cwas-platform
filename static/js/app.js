@@ -84,7 +84,7 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
   const applyBrand = th => {
     if (!BRAND[th]) th = "saina";
     const set = (k, url) => { const l = $(`link[data-brand="${k}"]`); if (l) l.href = url; };
-    set("svg", `/static/img/brand/favicon-${th}.svg`); set("png", `/static/icons/${th}/favicon-32.png`); set("apple", `/static/icons/${th}/apple-touch-icon.png`);
+    set("svg", `/static/img/brand/favicon-${th}.svg`); set("png", `/static/icons/${th}/favicon-32.png`); set("apple", `/static/icons/${th}/apple-touch-icon.png`); set("manifest", `/manifest.webmanifest?theme=${th}`);
     const m = $('meta[name="theme-color"]'); if (m) m.content = BRAND[th];
   };
   applyBrand(document.documentElement.dataset.theme);
