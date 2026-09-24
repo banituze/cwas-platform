@@ -315,4 +315,7 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
     };
     setInterval(refresh, 25000);
   }
+
+  /* offline support (read-only pages are cached; money and booking actions always need the server) */
+  if ("serviceWorker" in navigator && location.pathname.startsWith("/app")) navigator.serviceWorker.register("/sw.js").catch(() => {});
 })();
