@@ -703,3 +703,130 @@ def fairness_check():
     return rows, flagged
 
 
+# ── bookings (FR4, FR5.1, FR6) ──────────────────────────────────────────────
+def create_booking(h, source_id, day, start_min, litres, channel="web", actor=None):
+    """Final confirmation for a booking. Rechecks everything, then debits the wallet and creates the linked booking
+    in one transaction. Nothing is created when any check fails."""
+    src = db.session.get(WaterSource, source_id)
+    if not src or src.status != "operational":
+        raise ServiceError("source_unavailable")
+    t = today_local()
+    if day < t or day >= t + timedelta(days=HORIZON_DAYS):
+        raise ServiceError("date_range")
+    if litres not in litre_options(src):
+        raise ServiceError("litres_invalid")
+    slot = next((s for s in slot_list(src, day) if s["start_min"] == start_min), None)
+    if not slot:
+        raise ServiceError("slot_unavailable")
+    if slot["state"] == "blocked":
+        raise ServiceError("slot_blocked", alts=alternatives(src, day, litres))
+    if slot["state"] == "full":
+        raise ServiceError("slot_full", alts=alternatives(src, day, litres))
+    h = lock_household(h.id)
+    if Booking.query.filter(Booking.household_id == h.id, Booking.date == day, Booking.status.in_(Booking.ACTIVE)).first():
+        raise ServiceError("one_per_day")
+    amount, pct, _ = price_quote(h, src, litres)
+    if h.balance < amount:
+        raise ServiceError("insufficient_funds", need=amount, balance=h.balance)
+    score, note, suggestion = assess_booking(h, litres, day)
+    ref = new_ref("CW")
+    b = Booking(ref=ref, household_id=h.id, source_id=src.id, date=day, start_min=slot["start_min"], end_min=slot["end_min"],
+                litres=litres, amount=amount, discount_pct=pct, status="pending", channel=channel, priority_score=score,
+                ai_note=note[:255], ai_suggestion=suggestion)
+    db.session.add(b)
+    db.session.flush()
+    wallet_post(h, "booking_debit", -amount, "wallet", note=f"Booking {ref}", booking=b, actor=actor)
+    audit("booking.create", "booking", ref, f"{src.name} {day} {fmt_min(b.start_min)} {litres}L {amount} MGA", actor=actor, channel=channel)
+    if get_setting("auto_approve") == "1" and suggestion == "approve":
+        b.status, b.decided_at, b.decision_note = "approved", utcnow(), "Auto-approved (low risk)"
+        audit("booking.auto_approve", "booking", ref, "AI low-risk auto approval", channel="system")
+        event(h.user, "Booking {ref} is approved: {source}, {date} {time}.", "booking", sms=True, ref=ref, source=src.name,
+              date=f"{day:%d/%m}", time=fmt_min(b.start_min))
+    else:
+        event(h.user, "Booked {ref}: {source} {date} {time}, {litres} L, {amount}. Status: pending approval.", "booking",
+              ref=ref, source=src.name, date=f"{day:%d/%m}", time=fmt_min(b.start_min), litres=litres, amount=fmt_ar(amount))
+    return b
+
+
+def _refund(b, reason, actor=None, channel="web"):
+    h = lock_household(b.household_id)
+    debit = WalletTxn.query.filter_by(booking_id=b.id, kind="booking_debit", status="posted").first()
+    already = WalletTxn.query.filter_by(booking_id=b.id, kind="booking_refund", status="posted").first()
+    if debit and not already:
+        wallet_post(h, "booking_refund", -debit.amount, "wallet", note=reason, booking=b, actor=actor)
+        return -debit.amount
+    return 0
+
+
+def cancel_booking(b, actor=None, channel="web"):
+    start = datetime.combine(b.date, datetime.min.time()) + timedelta(minutes=b.start_min)
+    if b.status not in ("pending", "approved"):
+        raise ServiceError("not_cancellable")
+    if start <= now_local():
+        raise ServiceError("too_late")
+    b.status = "cancelled"
+    amount = _refund(b, f"Refund for cancelled {b.ref}", actor, channel)
+    audit("booking.cancel", "booking", b.ref, f"refund {amount}", actor=actor, channel=channel)
+    event(b.household.user, "Booking {ref} was cancelled. {amount} returned to your wallet.", "booking", ref=b.ref, amount=fmt_ar(amount))
+    return b
+
+
+def decide_booking(b, approve, note="", actor=None, channel="web"):
+    if b.status != "pending":
+        raise ServiceError("not_pending")
+    b.decided_by, b.decided_at, b.decision_note = (actor.id if actor else None), utcnow(), clean_text(note, 250)
+    if approve:
+        b.status = "approved"
+        audit("booking.approve", "booking", b.ref, note, actor=actor, channel=channel)
+        event(b.household.user, "Booking {ref} is approved: {source}, {date} {time}.", "booking", sms=True, ref=b.ref,
+              source=b.source.name, date=f"{b.date:%d/%m}", time=fmt_min(b.start_min))
+    else:
+        b.status = "denied"
+        amount = _refund(b, f"Refund for denied {b.ref}", actor, channel)
+        audit("booking.deny", "booking", b.ref, note, actor=actor, channel=channel)
+        event(b.household.user, "Booking {ref} was not approved. {amount} returned to your wallet. Reason: {reason}", "booking", sms=True,
+              ref=b.ref, amount=fmt_ar(amount), reason=b.decision_note or "-")
+    return b
+
+
+def mark_collected(b, actor=None, channel="web"):
+    if b.status != "approved":
+        raise ServiceError("not_approved")
+    b.status = "collected"
+    audit("booking.collected", "booking", b.ref, "", actor=actor, channel=channel)
+    event(b.household.user, "Water collected for booking {ref}. Thank you!", "booking", ref=b.ref)
+    return b
+
+
+def mark_no_show(b, actor=None, channel="web"):
+    if b.status != "approved":
+        raise ServiceError("not_approved")
+    b.status = "no_show"
+    audit("booking.no_show", "booking", b.ref, "", actor=actor, channel=channel)
+    event(b.household.user, "Booking {ref} was marked as not collected.", "booking", ref=b.ref)
+    return b
+
+
+def sweep(now=None):
+    """Housekeeping: unreviewed requests whose slot has passed are cancelled and refunded; approved slots left
+    uncollected an hour after closing become no-shows."""
+    now = now or now_local()
+    grace = get_int("no_show_grace_min")
+    changed = 0
+    for b in Booking.query.filter(Booking.status.in_(("pending", "approved")), Booking.date <= now.date()).all():
+        end = datetime.combine(b.date, datetime.min.time()) + timedelta(minutes=b.end_min)
+        if b.status == "pending" and end <= now:
+            b.status = "cancelled"
+            amount = _refund(b, f"Refund for expired {b.ref}", None, "system")
+            audit("booking.expire", "booking", b.ref, "unreviewed until slot end", channel="system")
+            notify(b.household.user, "Booking {ref} expired before review. {amount} returned to your wallet.", "booking", ref=b.ref, amount=fmt_ar(amount))
+            changed += 1
+        elif b.status == "approved" and end + timedelta(minutes=grace) <= now:
+            b.status = "no_show"
+            audit("booking.no_show", "booking", b.ref, "auto", channel="system")
+            changed += 1
+    if changed:
+        db.session.commit()
+    return changed
+
+
