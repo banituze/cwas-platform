@@ -300,7 +300,7 @@ class Platform(unittest.TestCase):
         self.assertIn("Deposit recorded", out)
         self.assertIn("+5,000 MGA", out)
         self.assertRegex(out, r"Ref: WT-[0-9A-F]{8}")
-        self.assertIn("Balance: 5,000 MGA", out)
+        self.assertIn("Your balance is 5,000 MGA", out)
         book = self.play(phone, "2", "2", "1", "2", "1", "1", "1", "1234")
         self.assertTrue(book.startswith("END Booked!"), book)
         ref = re.search(r"Ref: (CW-[0-9A-F]{8})", book).group(1)
@@ -309,7 +309,7 @@ class Platform(unittest.TestCase):
         self.assertIn("Confirm booking", self.play(phone, "2", "2", "1", "2", "1", "1"))
         cancelled = self.play(phone, "2", "4", "1", "1", "1234")
         self.assertIn(f"Cancelled {ref}. Eligible payment was refunded once.", cancelled)
-        self.assertIn("Balance: 5,000 MGA", self.play(phone, "2", "5") + cancelled)
+        self.assertIn("Your balance is 5,000 MGA", self.play(phone, "2", "5") + cancelled)
         self.assertTrue(self.play(phone, "2", "4").startswith("END"))  # nothing left to cancel
         with self.app.app_context():
             self.assertTrue(S.reconcile_wallet(User.query.filter_by(phone=phone).first().household))
@@ -386,7 +386,7 @@ class Platform(unittest.TestCase):
         self.assertEqual(sms("BOOK 2 TOMORROW 08:00 20"), 200)
         bodies = self.sms_to(phone)
         joined = " || ".join(bodies)
-        for expect in ("CWAS SMS: BAL", "Balance:", "Forage", "recorded: +3,000 MGA", "Booked CW-"):
+        for expect in ("BAL, SOURCES", "Your balance is", "Forage", "recorded: +3,000 MGA", "Booked CW-"):
             self.assertIn(expect, joined)
         ref = re.search(r"Booked (CW-[0-9A-F]{8})", joined).group(1)
         self.assertEqual(sms(f"BOOKING {ref}"), 200)

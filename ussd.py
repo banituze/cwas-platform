@@ -466,7 +466,7 @@ def deposit_flow(ctx, user, h):
     except S.ServiceError as e:
         return _err(ctx, e)
     if txn.status == "posted":
-        return END(ctx, ctx.L("Deposit recorded"), ctx.L(label), "+" + M(amount), f"Ref: {txn.reference}", ctx.L("Balance: {balance}", balance=M(h.balance)))
+        return END(ctx, ctx.L("Deposit recorded"), ctx.L(label), "+" + M(amount), f"Ref: {txn.reference}", ctx.L("Your balance is {balance}", balance=M(h.balance)))
     return END(ctx, ctx.L("Deposit pending"), ctx.L(label), M(amount), f"Ref: {txn.reference}", ctx.L("Waiting for confirmation."))
 
 
@@ -549,12 +549,12 @@ def cancel_flow(ctx, user, h):
     except S.ServiceError as e:
         return _err(ctx, e)
     db.session.refresh(h)
-    return END(ctx, ctx.L("Cancelled {ref}. Eligible payment was refunded once.", ref=b.ref), ctx.L("Balance: {balance}", balance=M(h.balance)))
+    return END(ctx, ctx.L("Cancelled {ref}. Eligible payment was refunded once.", ref=b.ref), ctx.L("Your balance is {balance}", balance=M(h.balance)))
 
 
 def balance_flow(ctx, user, h):
     last = WalletTxn.query.filter_by(household_id=h.id, status="posted").order_by(WalletTxn.id.desc()).first()
-    lines = [ctx.L("Balance: {balance}", balance=M(h.balance))]
+    lines = [ctx.L("Your balance is {balance}", balance=M(h.balance))]
     if last:
         lines.append(f"{'+' if last.amount > 0 else ''}{M(last.amount)} {ctx.L(last.kind.replace('_', ' '))}")
     yield from info(ctx, *lines)
@@ -632,7 +632,7 @@ def receipts_flow(ctx, user, h):
     i = yield from menu(ctx, ctx.L("Receipts"), [f"{r.reference} {'+' if r.amount > 0 else ''}{r.amount:,}" for r in rows])
     r = rows[i]
     ok = yield from confirm(ctx, r.reference, f"{ctx.L(r.kind.replace('_', ' '))} {'+' if r.amount > 0 else ''}{M(r.amount)}",
-                            (r.created_at + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M"), ctx.L("Balance: {balance}", balance=M(r.balance_after or 0)),
+                            (r.created_at + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M"), ctx.L("Your balance is {balance}", balance=M(r.balance_after or 0)),
                             yes="Send to my SMS", no="Back")
     if ok:
         S.send_sms(user.phone, ctx.L("Receipt {ref}: {kind} {amount}, balance {balance}.", ref=r.reference, kind=ctx.L(r.kind.replace("_", " ")),
@@ -944,7 +944,7 @@ def cash_flow(ctx, user):
         db.session.commit()
     except S.ServiceError as e:
         return _err(ctx, e)
-    return END(ctx, ctx.L("Deposit recorded"), "+" + M(amount), f"Ref: {txn.reference}", ctx.L("Balance: {balance}", balance=M(m.household.balance)))
+    return END(ctx, ctx.L("Deposit recorded"), "+" + M(amount), f"Ref: {txn.reference}", ctx.L("Your balance is {balance}", balance=M(m.household.balance)))
 
 
 def announce_flow(ctx, user):
@@ -1155,11 +1155,11 @@ def handle_sms(phone, text):
             else:
                 reply = f"CWAS: dial {DIAL} to register, or text REGISTER MEMBER Name|Village|FamilySize|LANG|PIN|RecoveryCode to {SHORTCODE}."
         elif cmd == "HELP":
-            reply = (L("CWAS SMS: BAL, SOURCES, BOOKINGS, BOOKING <ref>, CANCEL <ref>, DEPOSIT <amount>, BOOK <n> <day> <HH:MM> <litres>, RECEIPT <ref>, NOTICES, PROFILE, PIN HELP, LANG MG/FR/EN. Menu: dial {dial}.", dial=DIAL)
-                     if not staff else L("CWAS staff SMS: PENDING, APPROVE <ref>, DENY <ref>, COLLECT <ref>, REG MEMBER Name|Phone|Village|Size|LANG|PIN, SOURCES, LANG MG/FR/EN."))
+            reply = (L("BAL, SOURCES, BOOKINGS, BOOKING <ref>, CANCEL <ref>, DEPOSIT <amount>, BOOK <n> <day> <HH:MM> <litres>, RECEIPT <ref>, NOTICES, PROFILE, PIN HELP, LANG MG/FR/EN. Menu: dial {dial}.", dial=DIAL)
+                     if not staff else L("PENDING, APPROVE <ref>, DENY <ref>, COLLECT <ref>, REG MEMBER Name|Phone|Village|Size|LANG|PIN, SOURCES, LANG MG/FR/EN."))
         elif cmd in ("BAL", "BALANCE", "WALLET") and h:
             last = WalletTxn.query.filter_by(household_id=h.id, status="posted").order_by(WalletTxn.id.desc()).first()
-            reply = L("Balance: {balance}", balance=M(h.balance)) + (f" ({'+' if last.amount > 0 else ''}{M(last.amount)})" if last else "")
+            reply = L("Your balance is {balance}", balance=M(h.balance)) + (f" ({'+' if last.amount > 0 else ''}{M(last.amount)})" if last else "")
         elif cmd == "SOURCES":
             reply = "; ".join(f"{i}. {short(s.name, 20)} [{_STATE.get(s.status, '?')}] {S.fmt_min(s.open_min)}-{S.fmt_min(s.close_min)}"
                               for i, s in enumerate(WaterSource.query.order_by(WaterSource.name).all(), 1))
@@ -1263,7 +1263,7 @@ def demo_script(lang):
     welcome = first(session_flow(Ctx(lang=lang)))
     main = first(menu(ctx, L("Hello {name}", name="Rasoa"), [L(n) for n in MEMBER_MENU], root=True))
     balance, deposit = 12500, 10000
-    bal = first(info(ctx, L("Balance: {balance}", balance=M(balance)), f"+{M(deposit)} {L('deposit')}"))
+    bal = first(info(ctx, L("Your balance is {balance}", balance=M(balance)), f"+{M(deposit)} {L('deposit')}"))
     script = {"ui": {"cancel": L("Cancel"), "send": L("Send"), "ok": L("OK")},
               "lite": [["dial", DIAL], ["call", ""], ["screen", welcome], ["key", lk], ["screen", main], ["key", str(MEMBER_MENU.index("Balance") + 1)], ["screen", bal]]}
     srcs = S.operational_sources()
@@ -1294,13 +1294,13 @@ def demo_script(lang):
         hhmm = S.fmt_min(t["start_min"])
         ref2 = "CW-7K3M9Q21"
         amt2 = S.price_quote(home, sms_src, litres)[0]
-        script["max"] = [["type", "BAL"], ["in", L("Balance: {balance}", balance=M(balance)) + f" (+{M(deposit)})"],
+        script["max"] = [["type", "BAL"], ["in", L("Your balance is {balance}", balance=M(balance)) + f" (+{M(deposit)})"],
                          ["type", f"BOOK {n} TOMORROW {hhmm} {litres}"],
                          ["in", L("Booked {ref}: {source} {date} {time}, {litres} L, {amount}. Status: pending approval.", ref=ref2, source=sms_src.name,
                                   date=f"{days[1]:%Y-%m-%d}", time=hhmm, litres=litres, amount=M(amt2))],
                          ["wait", 1600],
                          ["in", tt("Booking {ref} is approved: {source}, {date} {time}.", lang, ref=ref2, source=sms_src.name, date=f"{days[1]:%Y-%m-%d}", time=hhmm)]]
     else:
-        script["max"] = [["type", "BAL"], ["in", L("Balance: {balance}", balance=M(balance)) + f" (+{M(deposit)})"]]
+        script["max"] = [["type", "BAL"], ["in", L("Your balance is {balance}", balance=M(balance)) + f" (+{M(deposit)})"]]
     script["nova"] = nova
     return script

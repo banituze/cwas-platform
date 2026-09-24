@@ -370,7 +370,7 @@ def deposit(h, amount, provider, actor=None, channel="web"):
     audit("wallet.deposit", "wallet", txn.reference, f"{provider} {amount} MGA {status}", actor=actor, channel=channel)
     label = PROVIDER_LABEL.get(provider, provider)
     if status == "posted":
-        event(h.user, "Deposit {ref} recorded: +{amount} via {provider}. Balance {balance}.", "wallet", sms=True, ref=txn.reference,
+        event(h.user, "Deposit {ref} recorded: +{amount} via {provider}. Your balance is {balance}.", "wallet", sms=True, ref=txn.reference,
               amount=fmt_ar(amount), provider=label, balance=fmt_ar(h.balance))
     else:
         event(h.user, "Deposit {ref} of {amount} via {provider} is waiting for confirmation.", "wallet", ref=txn.reference,
@@ -386,7 +386,7 @@ def confirm_pending_deposit(txn, actor=None, channel="web"):
     h.balance += txn.amount
     txn.balance_after = h.balance
     audit("wallet.confirm", "wallet", txn.reference, f"{txn.provider} {txn.amount} MGA confirmed", actor=actor, channel=channel)
-    event(h.user, "Your deposit {ref} of {amount} was confirmed. New balance: {balance}.", "wallet", sms=True,
+    event(h.user, "Your deposit {ref} of {amount} was confirmed. Your new balance is {balance}.", "wallet", sms=True,
           ref=txn.reference, amount=fmt_ar(txn.amount), balance=fmt_ar(h.balance))
     return txn
 
