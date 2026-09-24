@@ -61,7 +61,7 @@ html[data-theme="saina"]{
   --pb:rgba(255,255,255,.66);--pb-line:rgba(21,41,28,.12);--pc-ink:#15291C;--pc4:#E3EDE7;--pc-edge:#C5D5CB;
   --rc:#007E3A;--rc-arc:#FC3D32;--stamp:#007E3A;--bc:#007E3A;--bc-panel:transparent;--gt-ink:#15291C;--wall-ink:#15291C;
   --phone-body:#FFFFFF;--phone-edge:#D9E3DD;--phone-accent:#007E3A;--phone-ink:#15291C;
-  --paper:#FFFFFF;--paper-ink:#15291C;--paper-mute:#5E6E64;--paper-rule:#C8D5CD;--stamp-ink:#FFFFFF;--accent2:#D42A20;--sheet-solid:#FFFFFF;
+  --paper:#FFFFFF;--paper-ink:#15291C;--paper-mute:#5E6E64;--paper-rule:#C8D5CD;--stamp-ink:#FFFFFF;--accent2:#D42A20;--active:0 126 58;--sheet-solid:#FFFFFF;
   color-scheme:light;
 }
 
@@ -73,7 +73,7 @@ html[data-theme="saina"]{
   ::selection{background:rgb(var(--hot)/.35)}
   option,optgroup{background:#fff;color:#12261b}
   input::placeholder,textarea::placeholder{color:rgb(var(--mute)/.75)}
-  :focus-visible{outline:2px solid rgb(var(--hot));outline-offset:3px;border-radius:12px}
+  :focus-visible{outline:2px solid rgb(var(--active,var(--hot)));outline-offset:3px;border-radius:12px}
   video{background:#0b1a12}
   [hidden]{display:none!important}
 }
@@ -109,7 +109,7 @@ html[data-theme="saina"]{
   .btn[disabled]{opacity:.45;cursor:not-allowed}
 
   .field{@apply w-full rounded-2xl px-4 py-3 text-sm text-ink placeholder:text-mute/70;background:rgb(var(--ink)/.06);border:1px solid rgb(var(--ink)/.18);transition:border-color .15s,background .15s}
-  .field:focus{outline:none;border-color:rgb(var(--hot));background:rgb(var(--ink)/.09)}
+  .field:focus{outline:none;border-color:rgb(var(--active,var(--hot)));background:rgb(var(--ink)/.09)}
   select.field{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M1 1l5 5 5-5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 1rem center;padding-right:2.5rem}
   .label{@apply mb-1.5 block text-sm font-semibold}
   .hint{@apply mt-1 text-xs text-mute}
@@ -198,7 +198,7 @@ html[data-theme="saina"]{
   .slot[data-state=full],.slot[data-state=blocked]{opacity:.45;cursor:not-allowed}
   input:checked+.slot{background:rgb(var(--brand));color:rgb(var(--onbrand));border-color:transparent}
   input:checked+.slot small{color:inherit;opacity:.85}
-  input:focus-visible+.slot{outline:2px solid rgb(var(--hot));outline-offset:2px}
+  input:focus-visible+.slot{outline:2px solid rgb(var(--active,var(--hot)));outline-offset:2px}
   .pick{@apply glass-pill inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold;cursor:pointer}
   input:checked+.pick{background:rgb(var(--brand));color:rgb(var(--onbrand))}
 
@@ -222,7 +222,7 @@ html[data-theme="saina"]{
   .switch i::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:99px;background:rgb(var(--ink));transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.35)}
   .switch input:checked+i{background:rgb(var(--ok)/.85);border-color:transparent}
   .switch input:checked+i::after{transform:translateX(18px);background:#fff}
-  .switch input:focus-visible+i{outline:2px solid rgb(var(--hot));outline-offset:2px}
+  .switch input:focus-visible+i{outline:2px solid rgb(var(--active,var(--hot)));outline-offset:2px}
 
   /* ── autoplay video controls ── */
   .vid-toggle{position:absolute;right:14px;bottom:14px;z-index:5;display:grid;place-items:center;width:34px;height:34px;border-radius:999px;color:#fff;background:rgba(0,0,0,.42);border:1px solid rgba(255,255,255,.4);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);cursor:pointer;transition:transform .15s,background .15s}
@@ -453,7 +453,7 @@ html[data-theme="saina"]{
   /* pointer tilt + border lamp */
   .glow{position:relative;transform-style:preserve-3d}
   .glow::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.5px;pointer-events:none;opacity:0;transition:opacity .3s;
-    background:radial-gradient(240px circle at var(--gx,50%) var(--gy,50%),rgb(var(--hot)),rgba(0,0,0,0) 62%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+    background:radial-gradient(240px circle at var(--gx,50%) var(--gy,50%),rgb(var(--active,var(--hot))),rgba(0,0,0,0) 62%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
   .glow:hover::after{opacity:1}
   .tilt{transition:transform .35s cubic-bezier(.2,.9,.2,1),box-shadow .35s;will-change:transform}
   .tilt.on{transition:transform .08s linear}
@@ -820,7 +820,7 @@ body{background-image:radial-gradient(70vw 60vh at 8% 0%,var(--amb1),transparent
   .can .cl{position:absolute;left:8%;right:8%;height:3px;bottom:calc(var(--f,0) * 86%);border-radius:3px;background:rgba(255,255,255,.85);box-shadow:0 0 8px rgba(160,220,255,.9);
     opacity:calc(var(--f,0) * (1 - var(--f,0)) * 4 + .001);transition:bottom 1s cubic-bezier(.2,.9,.2,1),opacity .6s;animation:slosh 2.6s ease-in-out infinite}
   @keyframes slosh{50%{transform:translateY(-1.5px) rotate(-1.2deg)}}
-  .can:focus-visible{outline:2px solid rgb(var(--hot));outline-offset:4px;border-radius:10px}
+  .can:focus-visible{outline:2px solid rgb(var(--active,var(--hot)));outline-offset:4px;border-radius:10px}
 
   /* the register and profile needs pickers: whole-row tick boxes */
   .need{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;border:1px solid rgb(var(--ink)/.14);background:rgb(var(--ink)/.04);cursor:pointer;font-size:.88rem;font-weight:600}
@@ -1014,7 +1014,7 @@ html,body{overscroll-behavior-y:none}
   .role-tabs input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
   .role-tabs span{flex:1;display:flex;align-items:center;justify-content:center;min-height:42px;padding:8px 12px;border-radius:999px;text-align:center;font-size:.85rem;font-weight:650;line-height:1.2;color:rgb(var(--mute));transition:background-color .2s ease,color .2s ease}
   .role-tabs input:checked+span{background:rgb(var(--fill));color:rgb(var(--onfill))}
-  .role-tabs input:focus-visible+span{outline:2px solid rgb(var(--hot));outline-offset:2px}
+  .role-tabs input:focus-visible+span{outline:2px solid rgb(var(--active,var(--hot)));outline-offset:2px}
   @media (hover:hover) and (pointer:fine){.role-tabs label:hover input:not(:checked)+span{color:rgb(var(--ink))}}
   @supports selector(:has(*)){
     .coord-only{display:none}
@@ -1026,7 +1026,7 @@ html,body{overscroll-behavior-y:none}
   .foot-seals .seal{width:clamp(58px,6vw,72px)}
   .foot-seals+.foot-big{margin-top:24px}
   /* device lab: the chosen phone is ringed in the theme's accent, black in Default */
-  [data-device][aria-pressed=true]{outline:2px solid rgb(var(--hot));outline-offset:0}
+  [data-device][aria-pressed=true]{outline:2px solid rgb(var(--active,var(--hot)));outline-offset:0}
   [data-theme=saina] [data-device][aria-pressed=true]{outline-color:#111111}
   /* smartphone home screen: the clock and date in black on light frosted glass, readable in every theme */
   .os-widget{grid-column:1/-1;margin-bottom:6px;padding:14px 16px;border-radius:22px;color:#111111;background:rgba(255,255,255,.74);border:1px solid rgba(255,255,255,.6);-webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4)}
