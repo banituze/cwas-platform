@@ -747,3 +747,227 @@ def delete_flow(ctx, user, h):
     return END(ctx, ctx.L("Your account and personal data were deleted."))
 
 
+# ── coordinator / admin ─────────────────────────────────────────────────────
+def staff_main(ctx, user):
+    items = [("Pending queue", queue_flow), ("Approve", approve_flow), ("Deny", deny_flow), ("Mark collected", collect_flow), ("Water points", staff_sources_flow),
+             ("Register household", register_household_flow), ("Operations summary", summary_flow), ("My profile", profile_flow), ("Help", staff_help),
+             ("Cash deposit", cash_flow), ("Announcement", announce_flow), ("Reset household PIN", reset_member_pin_flow)]
+    while True:
+        i = yield from menu(ctx, ctx.L("Hello {name}", name=S.first_name(user.name)), [ctx.L(n) for n, _ in items], root=True)
+        out = yield from items[i][1](ctx, user)
+        if out:
+            return out
+
+
+def _pending(limit=6):
+    return Booking.query.filter_by(status="pending").order_by(Booking.date, Booking.start_min, Booking.priority_score.desc()).limit(limit).all()
+
+
+def _pick(ctx, title, rows, empty):
+    if not rows:
+        yield from info(ctx, ctx.L(empty))
+        return None
+    i = yield from menu(ctx, title, [f"{b.ref} {short(b.household.name, 8)} {b.litres}L" for b in rows])
+    return rows[i]
+
+
+def _decide(ctx, user, b, approve, reason=""):
+    try:
+        S.decide_booking(b, approve, reason, user, "ussd")
+        db.session.commit()
+    except S.ServiceError as e:
+        return _err(ctx, e)
+    return END(ctx, ctx.L("Approved {ref}.", ref=b.ref) if approve else ctx.L("Denied {ref}. Household refunded.", ref=b.ref))
+
+
+def queue_flow(ctx, user):
+    b = yield from _pick(ctx, ctx.L("Pending ({n}):", n=Booking.query.filter_by(status="pending").count()), _pending(), "No pending bookings.")
+    if not b:
+        return None
+    title = "\n".join([b.ref, f"{short(b.household.name, 16)} {b.household.village[:10]}", f"{short(b.source.name, 14)} {b.date:%m-%d} {S.fmt_min(b.start_min)}",
+                       f"{b.litres} L {M(b.amount)} P{b.priority_score}"])
+    i = yield from menu(ctx, title, [ctx.L("Approve"), ctx.L("Deny")])
+    reason = ""
+    if i == 1:
+        r = yield from menu(ctx, ctx.L("Reason:"), [ctx.L(x) for x in DENY_REASONS])
+        reason = DENY_REASONS[r]
+    stop = yield from require_pin(ctx, user)
+    return stop or _decide(ctx, user, b, i == 0, reason)
+
+
+def approve_flow(ctx, user):
+    b = yield from _pick(ctx, ctx.L("Approve which?"), _pending(), "No pending bookings.")
+    if not b:
+        return None
+    ok = yield from confirm(ctx, ctx.L("Approve {ref}?", ref=b.ref), f"{short(b.household.name, 14)} {b.litres} L")
+    if not ok:
+        return END(ctx, ctx.L("Kept."))
+    stop = yield from require_pin(ctx, user)
+    return stop or _decide(ctx, user, b, True)
+
+
+def deny_flow(ctx, user):
+    b = yield from _pick(ctx, ctx.L("Deny which?"), _pending(), "No pending bookings.")
+    if not b:
+        return None
+    r = yield from menu(ctx, ctx.L("Reason:"), [ctx.L(x) for x in DENY_REASONS])
+    stop = yield from require_pin(ctx, user)
+    return stop or _decide(ctx, user, b, False, DENY_REASONS[r])
+
+
+def collect_flow(ctx, user):
+    rows = Booking.query.filter_by(status="approved").filter(Booking.date <= S.today_local()).order_by(Booking.date, Booking.start_min).limit(6).all()
+    b = yield from _pick(ctx, ctx.L("Mark which?"), rows, "Nothing to mark.")
+    if not b:
+        return None
+    i = yield from menu(ctx, b.ref, [ctx.L("Collected"), ctx.L("no show")])
+    stop = yield from require_pin(ctx, user)
+    if stop:
+        return stop
+    try:
+        (S.mark_collected if i == 0 else S.mark_no_show)(b, user, "ussd")
+        db.session.commit()
+    except S.ServiceError as e:
+        return _err(ctx, e)
+    return END(ctx, ctx.L("Saved."))
+
+
+def staff_sources_flow(ctx, user):
+    srcs = WaterSource.query.order_by(WaterSource.name).all()
+    i = yield from menu(ctx, ctx.L("Water points:"), [f"{short(s.name, 18)} [{_STATE.get(s.status, '?')}]" for s in srcs])
+    s = srcs[i]
+    j = yield from menu(ctx, short(s.name, 22), [ctx.L("Set operational"), ctx.L("Set closed"), ctx.L("Block 2 h"), ctx.L("Block 6 h")])
+    stop = yield from require_pin(ctx, user)
+    if stop:
+        return stop
+    if j in (0, 1):
+        s.status = "operational" if j == 0 else "closed"
+        S.audit("source.status", "source", s.id, s.status, actor=user, channel="ussd")
+        db.session.commit()
+        return END(ctx, ctx.L("{name} is now {status}.", name=short(s.name, 18), status=ctx.L(s.status)))
+    start = S.now_local()
+    try:
+        _, n = S.schedule_maintenance(s, start, start + timedelta(hours=2 if j == 2 else 6), "Blocked by USSD", user, "ussd")
+        db.session.commit()
+    except S.ServiceError as e:
+        return _err(ctx, e)
+    return END(ctx, ctx.L("Maintenance set. {n} booking(s) moved and refunded.", n=n))
+
+
+def register_household_flow(ctx, user):
+    name = yield from entry(ctx, ctx.L("Household name"), v_text(2, 40))
+    while True:
+        phone = yield from entry(ctx, ctx.L("Household phone number"), v_phone)
+        if not User.query.filter_by(phone=phone).first():
+            break
+        ctx.rejected, ctx.flash = True, ctx.L("An account with this phone or email already exists.")
+    village = yield from entry(ctx, ctx.L("Enter village / area"), v_text(2, 40))
+    size = yield from entry(ctx, ctx.L("Enter household size (number)"), v_int(1, 40))
+    flags, dist, home = yield from household_needs(ctx)
+    li = yield from menu(ctx, ctx.L("Language:"), LANG_NAMES)
+    pin = yield from entry(ctx, ctx.L("Create 4-digit PIN"), v_pin, secret=True)
+    ok = yield from confirm(ctx, short(name, 20), phone, f"{short(village, 14)}, {size}", LANG_NAMES[li])
+    if not ok:
+        return END(ctx, ctx.L("Cancelled."))
+    stop = yield from require_pin(ctx, user)
+    if stop:
+        return stop
+    u = User(role="member", name=name, phone=phone, language=LANG_CODES[str(li + 1)], pin_hash=generate_password_hash(pin))
+    db.session.add(u)
+    db.session.flush()
+    hh = Household(user_id=u.id, name=name, village=village, family_size=size, priority_level=S.reported_level(flags))
+    S.set_needs(hh, flags, dist, home)  # the coordinator is with the household, so the level counts as checked
+    hh.needs_review = False
+    db.session.add(hh)
+    S.audit("user.register", "user", u.id, "household registered by staff via ussd", actor=user, channel="ussd")
+    S.event(u, "Welcome {name}! Account created. Dial {dial} to book a slot.", "system", sms=True, name=S.first_name(name), dial=DIAL)
+    db.session.commit()
+    return END(ctx, ctx.L("Registered {name}.", name=short(name, 18)), phone)
+
+
+def reset_member_pin_flow(ctx, user):
+    """A household forgot its PIN and has no recovery code: check the caller's details, then send a temporary PIN
+    to the household's own phone. The coordinator never sees it."""
+    while True:
+        phone = yield from entry(ctx, ctx.L("Household phone number"), v_phone)
+        m = User.query.filter_by(phone=phone, role="member", is_active_flag=True).first()
+        if m and m.household:
+            break
+        ctx.rejected, ctx.flash = True, ctx.L("No member with that number.")
+    h = m.household
+    ok = yield from confirm(ctx, ctx.L("Check with the caller:"), short(m.name, 30), f"{short(h.village, 18)}, " + ctx.L("{n} people", n=h.family_size),
+                            yes="Details match, reset PIN", no="Cancel")
+    if not ok:
+        return END(ctx, ctx.L("Cancelled."))
+    stop = yield from require_pin(ctx, user)
+    if stop:
+        return stop
+    S.reset_pin_by_staff(m, user, "ussd")
+    db.session.commit()
+    return END(ctx, ctx.L("PIN reset for {name}.", name=S.first_name(m.name)), ctx.L("A temporary PIN was sent to their phone by SMS."))
+
+
+def summary_flow(ctx, user):
+    t = S.today_local()
+    today = Booking.query.filter_by(date=t).all()
+
+    def c(s):
+        return sum(1 for b in today if b.status == s)
+    yield from info(ctx, ctx.L("Today {d}", d=t.strftime("%m-%d")), ctx.L("Pending {a}, approved {b}", a=Booking.query.filter_by(status="pending").count(), b=c("approved")),
+                    ctx.L("Collected {a}, litres {b}", a=c("collected"), b=sum(b.litres for b in today if b.status in ("approved", "collected"))),
+                    ctx.L("Deposits waiting {n}, households {h}", n=WalletTxn.query.filter_by(kind="deposit", status="pending").count(), h=Household.query.count()))
+    return None
+
+
+def staff_help(ctx, user):
+    yield from info(ctx, ctx.L("SMS {sms}: PENDING, APPROVE ref, DENY ref, COLLECT ref.", sms=SHORTCODE), ctx.L("REG MEMBER Name|Phone|Village|Size|LANG|PIN"))
+    return None
+
+
+def cash_flow(ctx, user):
+    while True:
+        phone = yield from entry(ctx, ctx.L("Household phone number"), v_phone)
+        m = User.query.filter_by(phone=phone, role="member", is_active_flag=True).first()
+        if m and m.household:
+            break
+        ctx.rejected, ctx.flash = True, ctx.L("No member with that number.")
+    lo = S.get_int("min_deposit")
+    amount = yield from entry(ctx, ctx.L("Cash received in MGA") + "\n" + ctx.L("Min {min}", min=lo), v_int(lo, S.get_int("max_deposit")))
+    ok = yield from confirm(ctx, ctx.L("Add {amount} cash to {name}?", amount=M(amount), name=short(m.name, 14)))
+    if not ok:
+        return END(ctx, ctx.L("Cancelled."))
+    stop = yield from require_pin(ctx, user)
+    if stop:
+        return stop
+    try:
+        txn = S.deposit(m.household, amount, "cash", user, "staff")
+        db.session.commit()
+    except S.ServiceError as e:
+        return _err(ctx, e)
+    return END(ctx, ctx.L("Deposit recorded"), "+" + M(amount), f"Ref: {txn.reference}", ctx.L("Balance: {balance}", balance=M(m.household.balance)))
+
+
+def announce_flow(ctx, user):
+    msg = yield from entry(ctx, ctx.L("Type the announcement (max 100)"), v_text(3, 100))
+    ok = yield from confirm(ctx, ctx.L("Send to all households?"), short(msg, 60))
+    if not ok:
+        return END(ctx, ctx.L("Cancelled."))
+    stop = yield from require_pin(ctx, user)
+    if stop:
+        return stop
+    n = broadcast(msg, user, "ussd")
+    db.session.commit()
+    return END(ctx, ctx.L("Sent to {n} households.", n=n))
+
+
+def broadcast(message, actor, channel="web"):
+    n = 0
+    for m in User.query.filter_by(role="member", is_active_flag=True).all():
+        S.notify(m, "", "announcement", body=message)
+        if m.phone:
+            S.send_sms(m.phone, message[:160], m)
+        n += 1
+    S.audit("announcement.send", "announcement", "", f"{n} recipients: {message[:80]}", actor=actor, channel=channel)
+    return n
+
+
