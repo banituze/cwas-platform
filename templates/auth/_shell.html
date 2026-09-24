@@ -12,7 +12,7 @@
       <div class="auth-copy"><h1 class="text-6xl font-extrabold leading-[1.02]" data-type data-liquid>{% block side %}{{ t('Water on a schedule everyone can trust') }}{% endblock %}</h1>
         <p class="mt-5 max-w-md text-lg text-white/85">{{ t('Book a water slot, pay with Orange Money or Airtel Money and collect without queueing. Works on any phone, including USSD and SMS.') }}</p></div>
     </div>
-    <div class="glass-strong mx-auto w-full max-w-md p-8 lg:self-center"><div class="mb-5 flex items-center gap-3">{{ logo_tile(42) }}<h2 class="text-2xl font-bold" data-type>{% block heading %}{% endblock %}</h2></div>{% block form %}{% endblock %}</div>
+    <div class="glass-strong mx-auto w-full max-w-md p-8 lg:self-center"><div class="mb-5 flex items-center gap-3"><a href="{{ url_for('index') }}" class="shrink-0" aria-label="CWAS">{{ logo_tile(42) }}</a><h2 class="text-2xl font-bold" data-type>{% block heading %}{% endblock %}</h2></div>{% block form %}{% endblock %}</div>
   </div>
 </section>
 {% endblock %}
