@@ -1,6 +1,7 @@
 /* CWAS phone numbers: the country picker beside a phone field (templates/partials/phone.html). Madagascar comes first; every
    other country libphonenumber knows is listed by flag, name and calling code. The number's length is checked for the chosen
-   country as it is typed; the server checks the number fully (services.parse_phone). */
+   country as it is typed; the server checks the number fully (services.parse_phone). Flags are cells of one sprite
+   (static/img/flags.webp) that the page has already loaded, so the list draws complete the moment it opens. */
 (() => {
   const data = JSON.parse((document.querySelector("script[data-cc-data]") || {}).textContent || "[]"), by = {};
   data.forEach(r => { by[r[0]] = r; });
@@ -12,7 +13,8 @@
     const btn = q("[data-cc-btn]"), panel = q("[data-cc-panel]"), list = q("[data-cc-list]"), search = q("[data-cc-search]");
     const hid = q("[data-cc]"), input = q(".phone-row .field"), flag = q("[data-cc-flag]"), code = q("[data-cc-code]");
     const either = box.hasAttribute("data-either"), bad = box.dataset.bad || "";
-    const flagSrc = r => flag.getAttribute("src").replace(/\/[a-z]{2}\.svg(\?[^/]*)?$/, "/" + r.toLowerCase() + ".svg");
+    // a row's fifth value is its flag's cell in the sprite: 16 cells to a row, each 22 x 16 CSS pixels
+    const cell = r => `${-(r[4] % 16) * 22}px ${-Math.floor(r[4] / 16) * 16}px`;
     const phoneLike = v => /^[\d\s+().-]*$/.test(v);
     const check = () => {
       const v = input.value.trim(), r = by[hid.value];
@@ -25,16 +27,16 @@
     };
     const close = () => { panel.hidden = true; btn.setAttribute("aria-expanded", "false"); };
     const pick = r => {
-      hid.value = r[0]; code.textContent = "+" + r[1]; flag.src = flagSrc(r[0]);
+      hid.value = r[0]; code.textContent = "+" + r[1]; flag.style.backgroundPosition = cell(r);
       input.placeholder = either ? (input.dataset.ph || "").replace("{example}", r[2] || "") : r[2] || "";
       close(); check(); input.focus();
     };
     const render = f => {
       list.textContent = "";
       data.filter(r => !f || nameOf(r[0]).toLowerCase().includes(f) || ("+" + r[1]).includes(f) || r[0].toLowerCase() === f).forEach(r => {
-        const li = document.createElement("li"), b = document.createElement("button"), im = document.createElement("img"), s = document.createElement("span"), c = document.createElement("b");
+        const li = document.createElement("li"), b = document.createElement("button"), im = document.createElement("i"), s = document.createElement("span"), c = document.createElement("b");
         b.type = "button"; b.dataset.r = r[0]; b.setAttribute("role", "option"); b.setAttribute("aria-selected", r[0] === hid.value ? "true" : "false");
-        im.src = flagSrc(r[0]); im.alt = ""; im.width = 22; im.height = 16; im.loading = "lazy"; im.decoding = "async";
+        im.className = "cc-flag"; im.style.backgroundPosition = cell(r); im.setAttribute("aria-hidden", "true");
         s.textContent = nameOf(r[0]); c.textContent = "+" + r[1]; b.append(im, s, c); li.append(b); list.append(li);
       });
     };

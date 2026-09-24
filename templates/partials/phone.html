@@ -1,13 +1,18 @@
 {# A phone number with a country picker (flag and calling code) beside it; Madagascar is the default. static/js/phone.js lists
    every country libphonenumber knows, shows that country's example number as the placeholder and checks the length as it
-   is typed; the server checks the number fully (services.parse_phone). either=True lets the same field take an email. #}
+   is typed; the server checks the number fully (services.parse_phone). either=True lets the same field take an email.
+   Every flag is a cell of one sprite (static/img/flags.webp, drawn by tools/flag_sprite.py). The page asks for it at once,
+   so by the time the picker opens every flag is already there: no image per country, nothing to wait for. #}
 {% from "partials/macros.html" import icon with context %}
+{# where a flag sits in the sprite: 16 cells to a row, each 22 x 16 CSS pixels (row[4] is the cell, services.phone_countries) #}
+{% macro cell(i) %}background-position:{{ -(i % 16) * 22 }}px {{ -(i // 16) * 16 }}px{% endmacro %}
 {% macro phone_input(name="phone", label="Phone number", value="", cc="MG", required=True, hint="", either=False) %}
 {% set CC = cc_data() %}{% set row = (CC|selectattr("0", "equalto", (cc or "MG")|upper)|first) or CC[0] %}
-<div class="phone-field" data-phone{% if either %} data-either{% endif %} data-bad="{{ t('Enter a valid number for {country}.') }}">
+{% set sprite = url_for('static', filename='img/flags.webp') %}<link rel="preload" as="image" href="{{ sprite }}" fetchpriority="high">
+<div class="phone-field" data-phone{% if either %} data-either{% endif %} data-bad="{{ t('Enter a valid number for {country}.') }}" style="--flags:url('{{ sprite }}')">
   <label class="label" for="f-{{ name }}">{{ t(label) }}</label>
   <div class="phone-row">
-    <button type="button" class="cc-btn" data-cc-btn aria-haspopup="listbox" aria-expanded="false" aria-controls="cc-{{ name }}" aria-label="{{ t('Country code') }}"><img src="{{ url_for('static', filename='flags/' ~ row[0]|lower ~ '.svg') }}" alt="" width="22" height="16" data-cc-flag><span data-cc-code>+{{ row[1] }}</span>{{ icon('chev') }}</button>
+    <button type="button" class="cc-btn" data-cc-btn aria-haspopup="listbox" aria-expanded="false" aria-controls="cc-{{ name }}" aria-label="{{ t('Country code') }}"><i class="cc-flag" style="{{ cell(row[4]) }}" aria-hidden="true" data-cc-flag></i><span data-cc-code>+{{ row[1] }}</span>{{ icon('chev') }}</button>
     <input type="hidden" name="cc" value="{{ row[0] }}" data-cc>
     <input class="field" id="f-{{ name }}" name="{{ name }}" value="{{ value }}"{% if either %} type="text" autocomplete="username" autocapitalize="none" spellcheck="false" data-ph="{{ t('you@example.com or {example}', example='{example}') }}" placeholder="{{ t('you@example.com or {example}', example=row[2]) }}"{% else %} type="tel" inputmode="tel" autocomplete="tel-national" placeholder="{{ row[2] }}"{% endif %}{% if required %} required{% endif %}>
   </div>

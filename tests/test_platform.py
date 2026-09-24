@@ -1218,7 +1218,7 @@ class Platform(unittest.TestCase):
         self.assertTrue(all(os.path.exists(os.path.join(root, "static", "flags", r[0].lower() + ".svg")) for r in rows))
         c = self.app.test_client()
         page = c.get("/login").get_data(as_text=True)
-        for s in ("data-phone", "data-either", "flags/mg.svg", "js/phone.js", 'name="cc" value="MG"', "USSD PIN"):
+        for s in ("data-phone", "data-either", "img/flags.webp", "js/phone.js", 'name="cc" value="MG"', "USSD PIN"):
             self.assertIn(s, page)
         page = c.get("/register").get_data(as_text=True)
         self.assertIn('autocomplete="tel-national"', page); self.assertIn('placeholder="03', page)

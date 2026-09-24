@@ -129,20 +129,23 @@ def parse_phone(raw, region="MG"):
 
 
 def phone_countries():
-    """[region, calling code, example mobile number, possible national lengths] for every country with a flag in static/flags,
-    Madagascar first: the list behind the phone field's country picker (templates/partials/phone.html)."""
+    """[region, calling code, example mobile number, possible national lengths, flag cell] for every country with a flag in
+    static/flags, Madagascar first: the list behind the phone field's country picker (templates/partials/phone.html).
+    The flag cell is the flag's place in static/img/flags.webp, the one-image sprite tools/flag_sprite.py draws from the
+    flag files in alphabetical order, so every flag in the picker comes from a single download."""
     global _CC
     if _CC is None:
         import phonenumbers
         from phonenumbers import PhoneMetadata, PhoneNumberFormat, PhoneNumberType
         flags, rows = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "flags"), []
+        cells = {f[:-4].upper(): i for i, f in enumerate(sorted(f for f in os.listdir(flags) if f.endswith(".svg")))}
         for r in sorted(phonenumbers.SUPPORTED_REGIONS):
             meta = PhoneMetadata.metadata_for_region(r)
-            if not meta or not os.path.exists(os.path.join(flags, r.lower() + ".svg")):
+            if not meta or r not in cells:
                 continue
             ex = phonenumbers.example_number_for_type(r, PhoneNumberType.MOBILE) or phonenumbers.example_number(r)
             lens = sorted({x for d in (meta.general_desc, meta.mobile, meta.fixed_line) if d for x in (d.possible_length or ()) if x > 0})
-            rows.append([r, meta.country_code, phonenumbers.format_number(ex, PhoneNumberFormat.NATIONAL) if ex else "", lens])
+            rows.append([r, meta.country_code, phonenumbers.format_number(ex, PhoneNumberFormat.NATIONAL) if ex else "", lens, cells[r]])
         _CC = sorted(rows, key=lambda x: x[0] != "MG")
     return _CC
 

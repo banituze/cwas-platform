@@ -1171,4 +1171,8 @@ html,body{overscroll-behavior-y:none}
   html[data-theme="saina"],html[data-theme="fotsy"]{--glass:rgba(255,255,255,.3);--glass-strong:rgba(255,255,255,.44)}
   html[data-theme="saina"] :is(.glass,.glass-strong),html[data-theme="fotsy"] :is(.glass,.glass-strong){-webkit-backdrop-filter:blur(34px) saturate(1.9);backdrop-filter:blur(34px) saturate(1.9);box-shadow:inset 0 1px 0 rgba(255,255,255,.75),0 24px 60px -36px var(--shade)}
   html[data-theme="saina"] .hero-card,html[data-theme="fotsy"] .hero-card{--ink:255 255 255;--mute:228 236 231;--brand:255 255 255;--ok:134 239 172;--glass:rgba(255,255,255,.12);--glass-strong:rgba(255,255,255,.2);--glass-line:rgba(255,255,255,.3);color:#FFFFFF;background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.3)}
+  /* ── polish 12: every flag in the phone field's country picker is one cell of a single sprite, static/img/flags.webp
+     (tools/flag_sprite.py draws it: 16 cells of 44 x 32 to a row, shown here at half size). The page asks for it at once,
+     so the whole list is on screen the moment the picker opens; the field sets --flags to the sprite's versioned address */
+  .cc-flag{display:inline-block;flex:none;width:22px;height:16px;border-radius:3px;background-image:var(--flags);background-repeat:no-repeat;background-size:352px 256px;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
 }
