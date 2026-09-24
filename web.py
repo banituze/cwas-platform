@@ -875,3 +875,307 @@ def register_routes(app):
                 return redirect(url_for("index"))
         return render_template("account/delete.html", bal=bal, last_admin=last_admin)
 
+    # ── coordinator console ─────────────────────────────────────────────────
+    @app.get("/coord")
+    @staff_required
+    def coord_home():
+        t = S.today_local()
+        today = Booking.query.filter_by(date=t).all()
+        counts = {}
+        for b in today:
+            counts[b.status] = counts.get(b.status, 0) + 1
+        pending = Booking.query.filter_by(status="pending").count()
+        pend_dep = WalletTxn.query.filter_by(kind="deposit", status="pending").count()
+        sources = WaterSource.query.order_by(WaterSource.name).all()
+        load = {s.id: sum(1 for b in today if b.source_id == s.id and b.status in Booking.ACTIVE) for s in sources}
+        usage = S.usage_report(t - timedelta(days=6), t)
+        week = [(d.strftime("%d/%m"), n) for d, n in usage["by_day"]]
+        return render_template("coord/home.html", week=week, counts=counts, pending=pending, pend_dep=pend_dep, sources=sources, load=load, usage=usage,
+                               litres=sum(b.litres for b in today if b.status in ("approved", "collected")), flags=S.detect_anomalies()[:4],
+                               households=Household.query.count())
+
+    @app.get("/coord/queue")
+    @staff_required
+    def coord_queue():
+        rows = Booking.query.filter_by(status="pending").order_by(Booking.date, Booking.start_min, Booking.priority_score.desc()).all()
+        load = {b.id: Booking.query.filter(Booking.source_id == b.source_id, Booking.date == b.date, Booking.start_min == b.start_min, Booking.status.in_(Booking.ACTIVE)).count() for b in rows}
+        return render_template("coord/queue.html", rows=rows, load=load)
+
+    @app.post("/coord/queue/<int:bid>")
+    @staff_required
+    def coord_decide(bid):
+        b = db.session.get(Booking, bid) or abort(404)
+        try:
+            S.decide_booking(b, request.form.get("action") == "approve", request.form.get("note", ""), current_user)
+            db.session.commit()
+            say("Decision saved and the household was notified.")
+        except S.ServiceError as e:
+            db.session.rollback()
+            say_error(e)
+        return redirect(url_for("coord_queue"))
+
+    @app.post("/coord/queue/approve-suggested")
+    @staff_required
+    def coord_approve_suggested():
+        n = 0
+        for b in Booking.query.filter_by(status="pending", ai_suggestion="approve").all():
+            S.decide_booking(b, True, "Approved with AI suggestion", current_user)
+            n += 1
+        db.session.commit()
+        say("{n} bookings approved.", n=n)
+        return redirect(url_for("coord_queue"))
+
+    @app.get("/coord/bookings")
+    @staff_required
+    def coord_bookings():
+        q = Booking.query
+        d = parse_date(request.args.get("date"), None)
+        st, sid = request.args.get("status", ""), request.args.get("source", "")
+        if d:
+            q = q.filter_by(date=d)
+        if st:
+            q = q.filter_by(status=st)
+        if sid.isdigit():
+            q = q.filter_by(source_id=int(sid))
+        page = q.order_by(Booking.date.desc(), Booking.start_min.desc()).paginate(page=int_arg("page", 1, 1, 9999, request.args), per_page=20, error_out=False)
+        return render_template("coord/bookings.html", page=page, sources=WaterSource.query.all(), f={"date": d, "status": st, "source": sid})
+
+    @app.post("/coord/bookings/<int:bid>/<action>")
+    @staff_required
+    def coord_mark(bid, action):
+        b = db.session.get(Booking, bid) or abort(404)
+        try:
+            {"collected": S.mark_collected, "no_show": S.mark_no_show}.get(action, lambda *a: abort(404))(b, current_user)
+            db.session.commit()
+            say("Saved.")
+        except S.ServiceError as e:
+            db.session.rollback()
+            say_error(e)
+        return redirect(request.referrer or url_for("coord_bookings"))
+
+    def read_source_form(src):
+        f = request.form
+        name = S.clean_text(f.get("name"), 120)
+        if len(name) < 2:
+            say("Enter a name for the water point.", "err")
+            return False
+        o, c = S.parse_hhmm(f.get("open"), 360), S.parse_hhmm(f.get("close"), 1080)
+        if c <= o:
+            say("Closing time must be after opening time.", "err")
+            return False
+        src.name, src.village = name, S.clean_text(f.get("village"), 120)
+        src.kind = f.get("kind") if f.get("kind") in ("borehole", "well", "tap") else "borehole"
+        src.status = f.get("status") if f.get("status") in ("operational", "maintenance", "closed") else "operational"
+        src.open_min, src.close_min = o, c
+        src.slot_minutes, src.slot_capacity = int_arg("slot_minutes", 30, 10, 120), int_arg("slot_capacity", 6, 1, 100)
+        src.daily_capacity, src.tariff_per_100l = int_arg("daily_capacity", 80, 1, 5000), int_arg("tariff", 150, 0, 100000)
+        src.max_litres = int_arg("max_litres", 100, 20, 100)
+        for k, attr in (("latitude", "latitude"), ("longitude", "longitude")):
+            try:
+                setattr(src, attr, float(f.get(k)) if f.get(k) else None)
+            except ValueError:
+                setattr(src, attr, None)
+        return True
+
+    @app.get("/coord/sources")
+    @staff_required
+    def coord_sources():
+        return render_template("coord/sources.html", sources=WaterSource.query.order_by(WaterSource.name).all())
+
+    @app.route("/coord/sources/new", methods=["GET", "POST"])
+    @app.route("/coord/sources/<int:sid>", methods=["GET", "POST"])
+    @staff_required
+    def coord_source(sid=None):
+        src = (db.session.get(WaterSource, sid) or abort(404)) if sid else WaterSource()
+        if request.method == "POST":
+            if read_source_form(src):
+                if not sid:
+                    db.session.add(src)
+                db.session.flush()
+                S.audit("source.save", "source", src.id, f"{src.name} {src.status} {src.tariff_per_100l}Ar/100L")
+                db.session.commit()
+                say("Water point saved.")
+                return redirect(url_for("coord_sources"))
+        return render_template("coord/source.html", s=src, new=not sid)
+
+    @app.post("/coord/sources/<int:sid>/delete")
+    @staff_required
+    def coord_source_delete(sid):
+        src = db.session.get(WaterSource, sid) or abort(404)
+        if Booking.query.filter_by(source_id=sid).first():
+            src.status = "closed"
+            say("This water point has booking history, so it was closed instead of deleted.")
+        else:
+            Maintenance.query.filter_by(source_id=sid).delete()
+            db.session.delete(src)
+            say("Water point deleted.")
+        S.audit("source.delete", "source", sid, src.name)
+        db.session.commit()
+        return redirect(url_for("coord_sources"))
+
+    @app.route("/coord/maintenance", methods=["GET", "POST"])
+    @staff_required
+    def coord_maintenance():
+        if request.method == "POST":
+            try:
+                src = db.session.get(WaterSource, int_arg("source", 0, 0, 10 ** 9)) or abort(404)
+                start = datetime.fromisoformat(request.form.get("start", ""))
+                end = datetime.fromisoformat(request.form.get("end", ""))
+                _, n = S.schedule_maintenance(src, start, end, request.form.get("reason", ""), current_user)
+                db.session.commit()
+                say("Maintenance scheduled. {n} booking(s) were moved and refunded.", n=n)
+            except ValueError:
+                say("Enter a valid start and end time.", "err")
+            except S.ServiceError as e:
+                db.session.rollback()
+                say_error(e)
+            return redirect(url_for("coord_maintenance"))
+        rows = Maintenance.query.order_by(Maintenance.starts_at.desc()).limit(40).all()
+        return render_template("coord/maintenance.html", rows=rows, sources=WaterSource.query.order_by(WaterSource.name).all(), now=S.now_local())
+
+    @app.post("/coord/maintenance/<int:mid>/cancel")
+    @staff_required
+    def coord_maintenance_cancel(mid):
+        m = db.session.get(Maintenance, mid) or abort(404)
+        m.status = "cancelled"
+        S.audit("maintenance.cancel", "source", m.source_id, m.reason)
+        db.session.commit()
+        say("Maintenance cancelled. The slots are open again.")
+        return redirect(url_for("coord_maintenance"))
+
+    @app.get("/coord/households")
+    @staff_required
+    def coord_households():
+        q, term = Household.query.join(User), S.clean_text(request.args.get("q"), 60)
+        if term:
+            q = q.filter(or_(Household.name.ilike(f"%{term}%"), Household.village.ilike(f"%{term}%"), User.phone.ilike(f"%{term}%")))
+        page = q.order_by(Household.name).paginate(page=int_arg("page", 1, 1, 9999, request.args), per_page=20, error_out=False)
+        return render_template("coord/households.html", page=page, q=term)
+
+    @app.route("/coord/households/<int:hid>", methods=["GET", "POST"])
+    @staff_required
+    def coord_household(hid):
+        h = db.session.get(Household, hid) or abort(404)
+        if request.method == "POST":
+            f, section = request.form, request.form.get("section")
+            if section == "priority":
+                h.priority_level = f.get("priority") if f.get("priority") in ("standard", "elevated", "high") else h.priority_level
+                h.distance_m, h.access_needs = int_arg("distance", h.distance_m, 0, 20000), S.clean_text(f.get("access_needs"), 255)
+                h.vuln_flags, h.needs_review = S.clean_flags(f.getlist("vuln")), False
+                S.audit("household.priority", "household", h.id, f"{h.priority_level}; checked by coordinator")
+                S.notify(h.user, "Your priority level was set to {level} by the coordinator.", "system", level=h.priority_level)
+                db.session.commit()
+                say("Saved.")
+            elif section == "pin_reset":
+                if not f.get("checked"):
+                    say("Confirm that you checked the person's details first.", "err")
+                elif not (h.user and h.user.phone and h.user.is_active_flag):
+                    say("This household has no active phone number.", "err")
+                else:
+                    S.reset_pin_by_staff(h.user, current_user, "web")
+                    db.session.commit()
+                    say("PIN reset. A temporary PIN was sent to the household by SMS.")
+            elif section == "cash":
+                try:
+                    txn = S.deposit(h, int(f.get("amount", "0")), "cash", current_user, "staff")
+                    db.session.commit()
+                    say("Cash deposit {ref} posted.", ref=txn.reference)
+                except (ValueError, TypeError):
+                    say("Enter a valid amount.", "err")
+                except S.ServiceError as e:
+                    db.session.rollback()
+                    say_error(e)
+            return redirect(url_for("coord_household", hid=hid))
+        score, parts = S.priority_breakdown(h)
+        rows = WalletTxn.query.filter_by(household_id=h.id).order_by(WalletTxn.id.desc()).limit(15).all()
+        return render_template("coord/household.html", h=h, score=score, parts=parts, rows=rows, bookings=h.bookings[:10], ok=S.reconcile_wallet(h))
+
+    @app.route("/coord/deposits", methods=["GET", "POST"])
+    @staff_required
+    def coord_deposits():
+        if request.method == "POST":
+            txn = db.session.get(WalletTxn, int_arg("id", 0, 0, 10 ** 9)) or abort(404)
+            try:
+                if request.form.get("action") == "confirm":
+                    S.confirm_pending_deposit(txn, current_user)
+                else:
+                    S.reject_pending_deposit(txn, current_user, "web", request.form.get("reason", ""))
+                db.session.commit()
+                say("Saved.")
+            except S.ServiceError as e:
+                db.session.rollback()
+                say_error(e)
+            return redirect(url_for("coord_deposits"))
+        return render_template("coord/deposits.html", rows=WalletTxn.query.filter_by(kind="deposit", status="pending").order_by(WalletTxn.id).all())
+
+    def report_range():
+        t = S.today_local()
+        d1 = parse_date(request.args.get("to"), t)
+        d0 = parse_date(request.args.get("from"), d1 - timedelta(days=29))
+        return d0, max(d0, d1)
+
+    @app.get("/coord/reports")
+    @staff_required
+    def coord_reports():
+        d0, d1 = report_range()
+        sid = request.args.get("source", "")
+        usage = S.usage_report(d0, d1, int(sid) if sid.isdigit() else None)
+        st = usage["by_status"]
+        done = st.get("collected", 0) + st.get("no_show", 0)
+        pct = round(100 * st.get("collected", 0) / done) if done else 0
+        by_day = [(d.strftime("%d/%m"), n) for d, n in usage["by_day"][-30:]]
+        return render_template("coord/reports.html", by_day=by_day, d0=d0, d1=d1, sid=sid, sources=WaterSource.query.all(),
+                               usage=usage, collect_pct=pct, equity=S.equity_report(d0, d1), fin=S.financial_report(d0, d1))
+
+    @app.get("/coord/export/<kind>.csv")
+    @staff_required
+    def coord_export(kind):
+        d0, d1 = report_range()
+        if kind == "bookings":
+            rows = Booking.query.filter(Booking.date >= d0, Booking.date <= d1).order_by(Booking.date, Booking.start_min).all()
+            data = S.to_csv(["ref", "date", "start", "end", "source", "household", "village", "litres", "amount_ar", "discount_pct", "status", "channel"],
+                            [[b.ref, b.date, S.fmt_min(b.start_min), S.fmt_min(b.end_min), b.source.name, b.household.name, b.household.village, b.litres, b.amount, b.discount_pct, b.status, b.channel] for b in rows])
+        elif kind == "wallet":
+            rows = WalletTxn.query.filter(WalletTxn.created_at >= datetime.combine(d0, datetime.min.time()) - timedelta(hours=3), WalletTxn.created_at < datetime.combine(d1 + timedelta(days=1), datetime.min.time()) - timedelta(hours=3)).order_by(WalletTxn.id).all()
+            data = S.to_csv(["reference", "created_utc", "household", "kind", "provider", "status", "amount_ar", "balance_after"],
+                            [[x.reference, x.created_at.isoformat(), x.household.name, x.kind, x.provider, x.status, x.amount, x.balance_after] for x in rows])
+        elif kind == "equity":
+            data = S.to_csv(["priority", "households", "people", "bookings", "litres", "litres_per_person_per_day"],
+                            [[r["level"], r["households"], r["people"], r["bookings"], r["litres"], r["lpcd"]] for r in S.equity_report(d0, d1)])
+        elif kind == "households":
+            data = S.to_csv(["name", "village", "phone", "family_size", "priority", "distance_m", "balance_ar"],
+                            [[h.name, h.village, h.user.phone or "", h.family_size, h.priority_level, h.distance_m, h.balance] for h in Household.query.order_by(Household.name)])
+        else:
+            abort(404)
+        S.audit("report.export", "report", kind, f"{d0}..{d1}")
+        db.session.commit()
+        r = make_response(data)
+        r.headers["Content-Type"] = "text/csv; charset=utf-8"
+        r.headers["Content-Disposition"] = f"attachment; filename=cwas-{kind}-{d0}-{d1}.csv"
+        return r
+
+    @app.get("/coord/insights")
+    @staff_required
+    def coord_insights():
+        fc = []
+        for s in WaterSource.query.filter_by(status="operational").order_by(WaterSource.name).all():
+            out, peak = S.forecast(s)
+            fc.append((s, [(d["date"].strftime("%a"), d["expected"]) for d in out], peak))
+        fairness, flagged = S.fairness_check()
+        ranked = sorted(((S.priority_breakdown(h), h) for h in Household.query.all()), key=lambda x: -x[0][0])[:8]
+        return render_template("coord/insights.html", forecasts=fc, flags=S.detect_anomalies(), fairness=fairness, flagged=flagged, ranked=ranked)
+
+    @app.route("/coord/announce", methods=["GET", "POST"])
+    @staff_required
+    def coord_announce():
+        if request.method == "POST":
+            msg = S.clean_text(request.form.get("message"), 300)
+            if len(msg) < 3:
+                say("Write a message first.", "err")
+            else:
+                n = U.broadcast(msg, current_user, "web")
+                db.session.commit()
+                say("Sent to {n} households.", n=n)
+                return redirect(url_for("coord_announce"))
+        return render_template("coord/announce.html")
+
