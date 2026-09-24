@@ -1,0 +1,6 @@
+{% extends "app_base.html" %}{% from "partials/macros.html" import status, icon with context %}
+{% block title %}{{ t('Water points') }}{% endblock %}
+{% block app %}<div class="flex items-center justify-between"><h1 class="text-3xl font-extrabold">{{ t('Water points') }}</h1><a class="btn btn-primary" href="{{ url_for('coord_source') }}">{{ icon('plus') }}{{ t('Add water point') }}</a></div>
+<div class="glass-strong mt-6 overflow-x-auto p-2"><table class="tbl"><thead><tr><th>{{ t('Name') }}</th><th>{{ t('Type') }}</th><th>{{ t('Hours') }}</th><th>{{ t('Capacity') }}</th><th>{{ t('Tariff') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead><tbody>
+{% for s in sources %}<tr><td class="font-semibold">{{ s.name }}<br><span class="text-xs font-normal text-mute">{{ s.village }}</span></td><td>{{ t(s.kind) }}</td><td>{{ fmt_min(s.open_min) }}-{{ fmt_min(s.close_min) }}, {{ s.slot_minutes }} min</td><td>{{ s.slot_capacity }} / {{ t('slot') }}, {{ s.daily_capacity }} / {{ t('day') }}</td><td>{{ fmt_ar(s.tariff_per_100l) }}</td><td>{{ status(s.status) }}</td>
+<td class="text-right"><a class="btn btn-ghost btn-sm" href="{{ url_for('coord_source', sid=s.id) }}">{{ icon('edit') }}{{ t('Edit') }}</a></td></tr>{% endfor %}</tbody></table></div>{% endblock %}

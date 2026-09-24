@@ -1,0 +1,10 @@
+{% extends "app_base.html" %}{% from "partials/macros.html" import field, status with context %}
+{% block title %}{{ t('Maintenance') }}{% endblock %}
+{% block app %}<h1 class="text-3xl font-extrabold">{{ t('Maintenance') }}</h1>
+<div class="mt-6 grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
+<form method="post" class="glass-strong space-y-4 p-6"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><h2 class="text-xl font-bold">{{ t('Schedule maintenance') }}</h2>
+<div><label class="label">{{ t('Water point') }}</label><select class="field" name="source">{% for s in sources %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select></div>
+{{ field('start','From', now.strftime('%Y-%m-%dT%H:%M'), type='datetime-local', required=True) }}{{ field('end','Until', '', type='datetime-local', required=True) }}{{ field('reason','Reason','', required=True) }}
+<p class="hint">{{ t('Affected slots are blocked, bookings inside the window are cancelled and refunded, and households get free alternatives.') }}</p><button class="btn btn-primary">{{ t('Schedule') }}</button></form>
+<section class="glass-strong p-2"><div class="overflow-x-auto"><table class="tbl"><thead><tr><th>{{ t('Water point') }}</th><th>{{ t('From') }}</th><th>{{ t('Until') }}</th><th>{{ t('Reason') }}</th><th></th></tr></thead><tbody>
+{% for m in rows %}<tr><td>{{ m.source.name }}</td><td>{{ m.starts_at.strftime('%d/%m %H:%M') }}</td><td>{{ m.ends_at.strftime('%d/%m %H:%M') }}</td><td>{{ m.reason }}</td><td class="text-right">{% if m.status == 'scheduled' and m.ends_at > now %}<form method="post" action="{{ url_for('coord_maintenance_cancel', mid=m.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">{{ t('Cancel') }}</button></form>{% else %}<span class="chip chip-mute">{{ t(m.status) }}</span>{% endif %}</td></tr>{% else %}<tr><td colspan="5" class="py-8 text-center text-mute">{{ t('Nothing scheduled.') }}</td></tr>{% endfor %}</tbody></table></div></section></div>{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "app_base.html" %}{% from "partials/macros.html" import field, icon with context %}
+{% block title %}{{ s.name or t('Add water point') }}{% endblock %}
+{% block app %}<a class="text-sm" href="{{ url_for('coord_sources') }}">&larr; {{ t('Water points') }}</a><h1 class="mt-2 text-3xl font-extrabold">{{ t('Add water point') if new else s.name }}</h1>
+<form method="post" class="glass-strong mt-6 grid gap-4 p-6 md:grid-cols-2"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{{ field('name','Name', s.name or '', required=True) }}{{ field('village','Village', s.village or '') }}
+<div><label class="label">{{ t('Type') }}</label><select class="field" name="kind">{% for k in ('borehole','well','tap') %}<option value="{{ k }}" {{ 'selected' if s.kind == k }}>{{ t(k) }}</option>{% endfor %}</select></div>
+<div><label class="label">{{ t('Status') }}</label><select class="field" name="status">{% for k in ('operational','maintenance','closed') %}<option value="{{ k }}" {{ 'selected' if s.status == k }}>{{ t(k) }}</option>{% endfor %}</select></div>
+{{ field('open','Opens (HH:MM)', fmt_min(s.open_min or 360), attrs='pattern=[0-2]?[0-9]:[0-5][0-9]') }}{{ field('close','Closes (HH:MM)', fmt_min(s.close_min or 1080), attrs='pattern=[0-2]?[0-9]:[0-5][0-9]') }}
+{{ field('slot_minutes','Slot length (minutes)', s.slot_minutes or 30, type='number', attrs='min=10 max=120') }}{{ field('slot_capacity','Bookings per slot', s.slot_capacity or 6, type='number', attrs='min=1 max=100') }}
+{{ field('daily_capacity','Bookings per day', s.daily_capacity or 80, type='number', attrs='min=1') }}{{ field('tariff','Tariff (MGA per 100 L)', s.tariff_per_100l if s.tariff_per_100l is not none else 150, type='number', attrs='min=0') }}
+{{ field('max_litres','Maximum litres per booking', s.max_litres or 100, type='number', attrs='min=20 max=100 step=20') }}<div></div>
+{{ field('latitude','Latitude', s.latitude if s.latitude is not none else '', attrs='inputmode=decimal') }}{{ field('longitude','Longitude', s.longitude if s.longitude is not none else '', attrs='inputmode=decimal') }}
+<div class="flex flex-wrap gap-2 md:col-span-2"><button class="btn btn-primary">{{ t('Save') }}</button></div></form>
+{% if not new %}<form method="post" action="{{ url_for('coord_source_delete', sid=s.id) }}" class="mt-4" data-confirm="{{ t('Delete this water point?') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm text-hot">{{ icon('trash') }}{{ t('Delete') }}</button></form>{% endif %}{% endblock %}
