@@ -137,8 +137,8 @@ def create_app(test_config=None):
         SECRET_KEY=_secret_key(instance), SQLALCHEMY_DATABASE_URI=uri, DB_KIND=kind,
         SQLALCHEMY_ENGINE_OPTIONS={"pool_pre_ping": True, **({"connect_args": {"timeout": 20}} if kind == "sqlite" else {})},
         SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_SECURE=IS_PROD,
-        REMEMBER_COOKIE_HTTPONLY=True, REMEMBER_COOKIE_SECURE=IS_PROD, REMEMBER_COOKIE_SAMESITE="Lax", REMEMBER_COOKIE_DURATION=timedelta(days=14),
-        PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+        REMEMBER_COOKIE_HTTPONLY=True, REMEMBER_COOKIE_SECURE=IS_PROD, REMEMBER_COOKIE_SAMESITE="Lax", REMEMBER_COOKIE_DURATION=timedelta(days=30),
+        PERMANENT_SESSION_LIFETIME=timedelta(days=30),  # sliding: every visit renews it
         SESSION_COOKIE_NAME="__Host-cwas" if IS_PROD else "session",  # __Host-: sent over HTTPS only, to this exact host only
         WTF_CSRF_TIME_LIMIT=None, MAX_CONTENT_LENGTH=40 * 1024 * 1024, JSON_SORT_KEYS=False, IS_PROD=IS_PROD, INSTANCE_DIR=str(instance),
         RATELIMIT_ENABLED=os.environ.get("CWAS_NO_LIMITS") != "1",
