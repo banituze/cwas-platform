@@ -364,3 +364,79 @@ def create_app(test_config=None):
     return app
 
 
+def _upgrade_schema():
+    """Additive upgrades for a database made by an earlier release: create_all() adds missing tables but never changes
+    existing ones. Runs at every start and does nothing once the database is current."""
+    from models import Household, Notification
+    insp = inspect(db.engine)
+    users = {c["name"] for c in insp.get_columns(User.__tablename__)}
+    homes = {c["name"] for c in insp.get_columns(Household.__tablename__)}
+    false = "FALSE" if db.engine.dialect.name == "postgresql" else "0"
+    with db.engine.begin() as conn:
+        if "recovery_hash" not in users:
+            conn.execute(text(f"ALTER TABLE {User.__tablename__} ADD COLUMN recovery_hash VARCHAR(255)"))
+        for col, ddl in (("vuln_flags", "VARCHAR(80) NOT NULL DEFAULT ''"), ("needs_review", f"BOOLEAN NOT NULL DEFAULT {false}"),
+                         ("home_source_id", "INTEGER"), ("home_source_note", "VARCHAR(80) NOT NULL DEFAULT ''")):
+            if col not in homes:
+                conn.execute(text(f"ALTER TABLE {Household.__tablename__} ADD COLUMN {col} {ddl}"))
+        if db.engine.dialect.name == "postgresql":
+            key = next((c for c in insp.get_columns(Notification.__tablename__) if c["name"] == "key"), None)
+            if key is not None and getattr(key["type"], "length", None):
+                # notification keys are whole sentences; the VARCHAR(64) of an earlier release rejects the longer ones
+                conn.execute(text(f"ALTER TABLE {Notification.__tablename__} ALTER COLUMN key TYPE TEXT"))
+
+
+def _sweeper(app):
+    while True:
+        time.sleep(60)
+        try:
+            with app.app_context(), WRITE_LOCK:
+                S.sweep()
+                db.session.remove()
+        except Exception:  # noqa: BLE001
+            log.exception("sweeper failed")
+
+
+SAMPLE_SOURCES = [  # editable in the coordinator console; replace with the real Ampotaka water points
+    ("Forage Ampotaka Centre", "borehole", "Ampotaka", -24.6915, 44.7212, 360, 1080, 30, 8, 120, 150),
+    ("Puits Marché", "well", "Ampotaka", -24.6952, 44.7268, 360, 1020, 30, 6, 90, 120),
+    ("Borne-fontaine École", "tap", "Ampotaka", -24.6887, 44.7183, 420, 1020, 20, 5, 70, 150),
+    ("Forage Est", "borehole", "Ampotaka Est", -24.6931, 44.7340, 360, 1080, 30, 8, 120, 150),
+    ("Puits Ouest", "well", "Ampotaka Ouest", -24.6976, 44.7101, 360, 1020, 30, 6, 90, 120),
+]
+
+
+def seed(app):
+    """Idempotent. Always: the super admin and sample water points. Demo people only outside production."""
+    if not User.query.filter_by(role="admin").first():
+        email = os.environ.get("ADMIN_EMAIL", "info@winebald.tech").lower()
+        pw = os.environ.get("ADMIN_PASSWORD", "Winebald @123")
+        db.session.add(User(role="admin", name="Winebald", email=email, password_hash=generate_password_hash(pw), language="en",
+                            must_change_password=True))
+        db.session.flush()
+        S.audit("seed.admin", "user", email, "super admin created; password change required", channel="system")
+        if not os.environ.get("ADMIN_PASSWORD"):
+            log.warning("Seeded super admin with the default password. It must be changed at first sign-in; "
+                        "set ADMIN_PASSWORD before the first start to avoid a known default.")
+    if not WaterSource.query.first():
+        for n, k, v, la, lo, o, c, sm, sc, dc, tf in SAMPLE_SOURCES:
+            db.session.add(WaterSource(name=n, kind=k, village=v, latitude=la, longitude=lo, open_min=o, close_min=c, slot_minutes=sm,
+                                       slot_capacity=sc, daily_capacity=dc, tariff_per_100l=tf))
+    if IS_PROD:
+        for key, label in (("enroll_coord", "COORD"), ("enroll_admin", "ADMIN")):
+            if not db.session.get(Setting, key):
+                S.set_setting(key, f"AMP-{label}-" + secrets.token_hex(4).upper())
+    db.session.commit()
+    if os.environ.get("SEED_DEMO", "0" if IS_PROD else "1") == "1" and not User.query.filter_by(role="coordinator").first():
+        from seed_demo import seed_demo
+        seed_demo()
+
+
+app = create_app()
+
+if __name__ == "__main__":
+    from waitress import serve
+    port = int(os.environ.get("PORT", "5000") or 5000)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    print(f"CWAS on http://0.0.0.0:{port}  (database: {app.config['DB_KIND']})", flush=True)
+    serve(app, host="0.0.0.0", port=port, threads=8, ident="cwas")
