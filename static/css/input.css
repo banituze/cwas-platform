@@ -1112,6 +1112,11 @@ html,body{overscroll-behavior-y:none}
   .chip-link{transition:background-color .15s}
   .chip-link:hover{background:rgb(var(--ink)/.12)}
   .chip-link:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+  /* dialogs opened with the Popover API (creating a user): centred over a dimmed page, the village only for households */
+  .dialog[popover]{inset:0;margin:auto;width:min(680px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;padding:0;border:1px solid var(--glass-line);border-radius:28px;background-color:var(--menu-bg);color:rgb(var(--ink));box-shadow:0 40px 100px -30px rgba(0,0,0,.5)}
+  .dialog[popover]::backdrop{background:rgba(0,0,0,.45);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+  .user-form [data-village]{display:none}
+  .user-form:has(select[name=role] option[value=member]:checked) [data-village]{display:block}
   /* narrow phones: the header's buttons tighten so the last one never leaves the screen */
   @media (max-width:400px){.hdr{padding:0 8px}.hdr-bar{gap:8px;padding:6px 6px 6px 12px}.hdr-bar .btn-icon{width:36px;height:36px}}
   /* form fields keep 16px text on phones, so the phone does not zoom the page when a field is focused */
