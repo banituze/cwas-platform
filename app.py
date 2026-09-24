@@ -423,7 +423,7 @@ def seed(app):
             db.session.add(WaterSource(name=n, kind=k, village=v, latitude=la, longitude=lo, open_min=o, close_min=c, slot_minutes=sm,
                                        slot_capacity=sc, daily_capacity=dc, tariff_per_100l=tf))
     if IS_PROD:
-        for key, label in (("enroll_coord", "COORD"), ("enroll_admin", "ADMIN")):
+        for key, label in (("enroll_coord", "COORD"),):
             if not db.session.get(Setting, key):
                 S.set_setting(key, f"AMP-{label}-" + secrets.token_hex(4).upper())
     db.session.commit()

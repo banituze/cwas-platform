@@ -393,9 +393,6 @@ def register_flow(ctx):
             if _enroll_locked(ctx.phone):
                 return END(ctx, ctx.L("Too many attempts. Try again in 15 minutes."))
             code = yield from entry(ctx, ctx.L("Enter enrollment code"), lambda t: (True, t.strip()), secret=True)
-            if code and code == S.get_setting("enroll_admin"):
-                role = "admin"
-                break
             if code and code == S.get_setting("enroll_coord"):
                 role = "coordinator"
                 break

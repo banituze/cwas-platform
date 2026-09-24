@@ -4,7 +4,7 @@
 <div class="mt-6 grid gap-5 lg:grid-cols-2">
   <form method="post" class="glass-strong space-y-4 p-6"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="section" value="profile"><h2 class="text-xl font-bold">{{ t('Household') }}</h2>
     {{ field('name','Full name', current_user.name, required=True) }}
-    <div class="grid gap-4 sm:grid-cols-2"><div><label class="label">{{ t('Phone number') }}</label><input class="field" value="{{ current_user.phone or '' }}" disabled></div>{{ field('email','Email (optional)', current_user.email or '', type='email') }}</div>
+    <div class="grid gap-4 sm:grid-cols-2">{% if current_user.role != 'admin' %}<div><label class="label">{{ t('Phone number') }}</label><input class="field" value="{{ current_user.phone or '' }}" disabled></div>{% endif %}{{ field('email', 'Email' if current_user.role == 'admin' else 'Email (optional)', current_user.email or '', type='email') }}</div>
     {% if h %}<div class="grid gap-4 sm:grid-cols-2">{{ field('village','Village', h.village) }}{{ field('family_size','People in the household', h.family_size, type='number', attrs='min=1 max=40') }}</div>
     {{ field('address','Address', h.address) }}
     {% set mine = (h.vuln_flags or '').split(',') %}

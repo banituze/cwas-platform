@@ -5,7 +5,7 @@
 {{ field('discount_elevated','Subsidy for elevated priority (%)', v.discount_elevated, type='number', attrs='min=0 max=100') }}{{ field('discount_high','Subsidy for high priority (%)', v.discount_high, type='number', attrs='min=0 max=100') }}
 {{ field('min_deposit','Minimum deposit (MGA)', v.min_deposit, type='number', attrs='min=0') }}{{ field('max_deposit','Maximum deposit (MGA)', v.max_deposit, type='number', attrs='min=0') }}
 {{ field('no_show_grace_min','No-show grace after the slot ends (minutes)', v.no_show_grace_min, type='number', attrs='min=0') }}<div></div>
-{{ field('enroll_coord','Coordinator enrollment code (USSD)', v.enroll_coord, hint='Shared only with coordinators. At least 8 characters.') }}{{ field('enroll_admin','Administrator enrollment code (USSD)', v.enroll_admin, hint='Shared only with administrators. At least 8 characters.') }}
+{{ field('enroll_coord','Coordinator enrollment code (USSD)', v.enroll_coord, hint='Shared only with coordinators. At least 8 characters.') }}
 {{ field('coord_access','Coordinator access code (web)', v.coord_access, hint='Asked on the web sign-up form. An administrator still approves every coordinator.') }}<div></div>
 <label class="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" name="auto_approve" value="1" {{ 'checked' if v.auto_approve == '1' }} class="h-4 w-4"> {{ t('Approve low-risk bookings automatically') }}</label>
 <label class="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" name="cash_enabled" value="1" {{ 'checked' if v.cash_enabled == '1' }} class="h-4 w-4"> {{ t('Allow cash deposits from the wallet page') }}</label>

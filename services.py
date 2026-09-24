@@ -38,7 +38,6 @@ DEFAULT_SETTINGS = {
     "cash_enabled": "1",
     "no_show_grace_min": "60",
     "enroll_coord": "AMPOTAKA-COORD",   # USSD/SMS enrollment codes; production seeds random ones
-    "enroll_admin": "AMPOTAKA-ADMIN",
     "coord_access": "Coord@2026",  # asked by the web sign-up form; an administrator still approves every coordinator
 }
 

@@ -624,7 +624,7 @@ def register_routes(app):
             if section == "profile":
                 name = S.clean_text(f.get("name"), 120)
                 email = S.clean_text(f.get("email"), 190).lower()
-                if len(name) < 2 or (email and not S.valid_email(email)):
+                if len(name) < 2 or (email and not S.valid_email(email)) or (current_user.role == "admin" and not email):
                     say("Check the name and email address.", "err")
                 elif email and User.query.filter(User.email == email, User.id != current_user.id).first():
                     say("An account with this phone or email already exists.", "err")
@@ -1322,8 +1322,8 @@ def register_routes(app):
         db.session.commit()
         return redirect(request.referrer or url_for("admin_users"))
 
-    SETTING_KEYS = ("discount_elevated", "discount_high", "min_deposit", "max_deposit", "auto_approve", "cash_enabled", "no_show_grace_min", "enroll_coord", "enroll_admin", "coord_access")
-    SECRET_SETTINGS = ("enroll_coord", "enroll_admin", "coord_access")  # never written to the audit log
+    SETTING_KEYS = ("discount_elevated", "discount_high", "min_deposit", "max_deposit", "auto_approve", "cash_enabled", "no_show_grace_min", "enroll_coord", "coord_access")
+    SECRET_SETTINGS = ("enroll_coord", "coord_access")  # never written to the audit log
 
     @app.route("/admin/settings", methods=["GET", "POST"])
     @admin_required
