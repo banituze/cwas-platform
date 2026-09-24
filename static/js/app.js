@@ -263,4 +263,37 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
     if ("IntersectionObserver" in window) new IntersectionObserver(es => es.forEach(en => { visible = en.isIntersecting; if (!visible) v.pause(); else if (!paused) v.play().catch(() => {}); }), { threshold: .05 }).observe(v);
     document.addEventListener("pointerdown", () => { if (!paused && v.paused && visible) v.play().catch(() => {}); }, { once: true });
   });
+
+  /* ── receipt printer (metal thermal printer) ── */
+  const initPrinter = p => {
+    const paper = $(".paper", p), lcd = $("[data-lcd]", p), d = p.dataset;
+    const say = k => { if (lcd) lcd.textContent = d[k] || ""; };
+    const set = s => { p.dataset.state = s; say({ idle: "lReady", printing: "lPrint", done: "lTear", torn: "lTorn" }[s]); };
+    const start = () => { if (p.dataset.state === "printing") return; set("idle"); void p.offsetWidth; if (reduce) { set("done"); return; } set("printing"); Audio.play("print"); };
+    paper.addEventListener("animationend", () => { set("done"); Audio.play("success"); });
+    const scope = p.closest("[data-printer-scope]") || document;
+    $$("[data-print-start]", scope).forEach(b => b.addEventListener("click", start));
+    $$("[data-tear]", scope).forEach(b => b.addEventListener("click", () => { if (p.dataset.state === "done") { set("torn"); Audio.play("tear"); } }));
+    $$("[data-window-print]", scope).forEach(b => b.addEventListener("click", () => { set("done"); setTimeout(() => window.print(), 50); }));
+    set("idle");
+    if (p.hasAttribute("data-autoprint")) {
+      if (!("IntersectionObserver" in window)) return start();
+      const o = new IntersectionObserver(es => { if (es[0].isIntersecting) { start(); o.disconnect(); } }, { threshold: .4 }); o.observe(p);
+    }
+  };
+  window.CWAS.initPrinter = initPrinter;
+  $$("[data-printer]").forEach(initPrinter);
+
+  /* receipt preview without leaving the page */
+  document.addEventListener("click", e => {
+    const b = e.target.closest("[data-receipt]"); if (!b) return;
+    e.preventDefault();
+    fetch(b.dataset.receipt + "?partial=1", { credentials: "same-origin" }).then(r => r.ok ? r.text() : Promise.reject()).then(html => {
+      let dlg = $("dialog[data-receipt-dialog]");
+      if (!dlg) { dlg = document.createElement("dialog"); dlg.className = "modal"; dlg.dataset.receiptDialog = ""; document.body.appendChild(dlg); dlg.addEventListener("click", ev => { if (ev.target === dlg) dlg.close(); }); }
+      dlg.innerHTML = html; dlg.showModal();
+      $$("[data-modal-close]", dlg).forEach(c => c.addEventListener("click", () => dlg.close()));
+      const p = $("[data-printer]", dlg); if (p) initPrinter(p);
+    }).catch(() => toast("Receipt not available.", "err"));
+  });
 })();
