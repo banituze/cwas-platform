@@ -18,6 +18,34 @@
   const clock = () => new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: TZ }).format(new Date());
   const dateLong = () => new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long", timeZone: TZ }).format(new Date());
   const LETTERS = { 2: "ABC", 3: "DEF", 4: "GHI", 5: "JKL", 6: "MNO", 7: "PQRS", 8: "TUV", 9: "WXYZ", 0: "+" };
+  const SHORT = "7380";   // the CWAS SMS shortcode
+  /* a number as typed on a handset, in the lab's +261 form: 034 00 000 01 and 261340000001 both become +261340000001 */
+  const normNum = v => { let s = String(v || "").replace(/[^\d+]/g, ""); if (/^0\d{9}$/.test(s)) s = "+261" + s.slice(1); else if (/^261\d{9}$/.test(s)) s = "+" + s; return s; };
+  /* the handsets' contacts, who a number belongs to, and the round initial shown for anyone who is not CWAS */
+  const CONTACTS = () => [["CWAS Water", DIAL], ["CWAS SMS", SHORT], [LB.coord, "+261340000001"], ...init.demo.map((p, i) => ["Household " + (i + 1), p])];
+  const who = a => a === SHORT ? "CWAS" : (CONTACTS().find(c => normNum(c[1]) === a) || [a])[0];
+  const avatarOf = a => `<span class="avatar" style="background:#7c8582">${esc(String(who(a)).replace(/^\+/, "")[0] || "#")}</span>`;
+  /* the round plus in Messages can be dragged anywhere on the screen; a tap without a drag writes a new message. Where it
+     was left is kept as a share of the screen, so it lands in the same place on every handset */
+  const fabDrag = (btn, box, onTap) => {
+    const KEY = "cwas_sms_fab", put = (x, y) => { btn.style.left = x + "px"; btn.style.top = y + "px"; btn.style.right = "auto"; btn.style.bottom = "auto"; };
+    const room = () => [Math.max(1, box.clientWidth - btn.offsetWidth - 8), Math.max(1, box.clientHeight - btn.offsetHeight - 8)];
+    requestAnimationFrame(() => { let at = null; try { at = JSON.parse(C.store.get(KEY, "null")); } catch (e) { at = null; } if (at) { const [w, hh] = room(); put(4 + at[0] * w, 4 + at[1] * hh); } });
+    let start = null, moved = false;
+    btn.addEventListener("pointerdown", e => { start = { x: e.clientX, y: e.clientY, l: btn.offsetLeft, t: btn.offsetTop }; moved = false; btn.setPointerCapture(e.pointerId); });
+    btn.addEventListener("pointermove", e => {
+      if (!start) return; const dx = e.clientX - start.x, dy = e.clientY - start.y;
+      if (!moved && Math.hypot(dx, dy) < 6) return; moved = true;
+      const s = box.getBoundingClientRect().width / box.offsetWidth || 1, [w, hh] = room();   // the phone may be scaled on screen
+      put(Math.max(4, Math.min(4 + w, start.l + dx / s)), Math.max(4, Math.min(4 + hh, start.t + dy / s)));
+    });
+    btn.addEventListener("pointerup", () => {
+      if (!start) return; start = null; if (!moved) return onTap();
+      const [w, hh] = room(); C.store.set(KEY, JSON.stringify([(btn.offsetLeft - 4) / w, (btn.offsetTop - 4) / hh]));
+    });
+    btn.addEventListener("pointercancel", () => { start = null; });
+    btn.addEventListener("click", e => { if (e.detail === 0) onTap(); });   // Enter or Space on the focused button
+  };
 
   /* ── network layer: every hop is a real request; the console shows it ── */
   const Net = {
@@ -47,7 +75,7 @@
 
   /* ── one phone identity: number, SMS threads, USSD session ── */
   class Phone {
-    constructor(number) { this.number = number; this.threads = { "7380": [] }; this.unread = 0; this.last = 0; this.ready = false; this.subs = new Set(); this.timer = setInterval(() => this.poll(), 3000); this.sid = ""; this.active = false; this.tokens = []; this.poll(); }
+    constructor(number) { this.number = number; this.threads = { "7380": [] }; this.unread = 0; this.last = 0; this.ready = false; this.subs = new Set(); this.pending = this.loadLocal(); this.timer = setInterval(() => this.poll(), 3000); this.sid = ""; this.active = false; this.tokens = []; this.poll(); }
     destroy() { clearInterval(this.timer); }
     emit(ev, d) { this.subs.forEach(f => f(ev, d)); }
     add(dir, body, at, addr = "7380") { (this.threads[addr] = this.threads[addr] || []).push({ dir, body, at: at || clock() }); if (dir === "in") this.unread++; }
@@ -58,17 +86,43 @@
         if (!r) return; this.last = r.last || this.last;
         (r.messages || []).forEach(m => { this.add("in", m.body, m.at); if (this.ready) this.emit("sms", m); });
         if ((r.messages || []).length) this.emit("threads");
+        if (!this.ready && this.pending.length) {   // texts other handsets left for this number arrive as the phone comes on
+          const p = this.pending; this.pending = [];
+          setTimeout(() => { p.forEach(m => this.emit("sms", { body: m.body, at: m.at, addr: m.addr })); this.emit("threads"); }, 400);
+        }
         this.ready = true;
       } catch (e) { /* offline */ }
     }
     pollSoon() { setTimeout(() => this.poll(true), 350); setTimeout(() => this.poll(true), 1600); }
-    async sendSms(text) {
-      this.add("out", text); this.emit("threads"); A.play("send");
+    /* texts between two lab handsets never reach the server: every number keeps its own log in this browser, so a message
+       written to another number is waiting on that phone when you switch to it */
+    static key(n) { return "cwas_sim_sms:" + n; }
+    static log(n) { try { return JSON.parse(C.store.get(Phone.key(n), "[]")) || []; } catch (e) { return []; } }
+    static save(n, rows) { C.store.set(Phone.key(n), JSON.stringify(rows.slice(-200))); }
+    loadLocal() {
+      const rows = Phone.log(this.number), fresh = [];
+      rows.forEach(r => { (this.threads[r.addr] = this.threads[r.addr] || []).push({ dir: r.dir, body: r.body, at: r.at }); if (r.dir === "in" && !r.seen) { r.seen = true; fresh.push(r); this.unread++; } });
+      if (fresh.length) Phone.save(this.number, rows);
+      return fresh;
+    }
+    /* to the CWAS shortcode a text goes through the real SMS engine; to any other number it lands in that number's log */
+    async sendSms(text, to = SHORT) {
+      const addr = normNum(to) || SHORT;
+      this.add("out", text, null, addr); this.emit("threads"); A.play("send");
+      if (addr !== SHORT) {
+        const at = clock(), mine = Phone.log(this.number), self = addr === this.number, theirs = self ? mine : Phone.log(addr);
+        mine.push({ addr, dir: "out", body: text, at }); theirs.push({ addr: this.number, dir: "in", body: text, at, seen: self });
+        Phone.save(this.number, mine); if (!self) Phone.save(addr, theirs);
+        if (self) { this.add("in", text, at, addr); this.emit("sms", { body: text, at, addr }); this.emit("threads"); }
+        if (lab) Net.log("SMS", "handset to handset", `from=${this.number}\nto=${addr}\ntext=${text}`, LB.delivered, 0);
+        return addr;
+      }
       const r = await Net.sms(this.number, text);
-      if (r.error) { this.add("in", LB.invalid); this.emit("threads"); return; }
+      if (r.error) { this.add("in", LB.invalid); this.emit("threads"); return addr; }
       this.last = Math.max(this.last, r.last || 0);
       (r.messages || []).forEach(m => { this.add("in", m.body, m.at); this.emit("sms", m); });
       this.emit("threads");
+      return addr;
     }
     async dial() { this.sid = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())).slice(0, 18); this.tokens = []; this.active = true; A.play("connect"); await this.hop(""); }
     async send(v) { if (!this.active) return; this.tokens.push(v); A.play("send"); await this.hop(this.tokens.join("*")); }
@@ -122,7 +176,7 @@
     sleep() { this.on = false; this.screen.classList.add("off"); A.play("poweroff"); }
     power() { this.on ? this.sleep() : this.wake(); }
     banner(m) {
-      const b = this.$("[data-banner]"); b.innerHTML = `${CWAS_LOGO}<div style="min-width:0"><b>CWAS</b><span>${esc(m.body.slice(0, 90))}</span></div>`; b.onclick = () => { b.classList.remove("show"); this.unlock(); this.open("messages"); };
+      const b = this.$("[data-banner]"); const peer = m.addr && m.addr !== SHORT; b.innerHTML = `${peer ? avatarOf(m.addr) : CWAS_LOGO}<div style="min-width:0"><b>${esc(peer ? who(m.addr) : "CWAS")}</b><span>${esc(m.body.slice(0, 90))}</span></div>`; b.onclick = () => { b.classList.remove("show"); this.unlock(); this.open("thread", null, m.addr || SHORT); };
       b.classList.add("show"); clearTimeout(this.bt); this.bt = setTimeout(() => b.classList.remove("show"), 5000);
     }
     handle(ev, d) {
@@ -135,11 +189,11 @@
       v.innerHTML = `<div class="app-head"><button class="bk" type="button" aria-label="${esc(LB.back)}"><span style="font-size:22px;line-height:1;margin-top:-2px">&#8249;</span></button><span>${esc(title)}</span></div>`;
       $(".bk", v).addEventListener("click", () => this.close()); return v;
     }
-    open(id, origin) {
+    open(id, origin, arg) {
       if (this.locked) return;
-      const v = this.apps[id].call(this); v.classList.add("away");
+      const v = this.apps[id].call(this, arg); v.classList.add("away");
       if (origin) { const r = origin.getBoundingClientRect(), s = this.screen.getBoundingClientRect(); v.style.setProperty("--ox", (r.left + r.width / 2 - s.left) + "px"); v.style.setProperty("--oy", (r.top + r.height / 2 - s.top) + "px"); }
-      this.os.appendChild(v); requestAnimationFrame(() => requestAnimationFrame(() => v.classList.remove("away"))); this.stack.push(v); this.os.classList.add("in-app"); A.play("tap"); if (id === "messages") { this.phone.unread = 0; this.setBadge(); }
+      this.os.appendChild(v); requestAnimationFrame(() => requestAnimationFrame(() => v.classList.remove("away"))); this.stack.push(v); this.os.classList.add("in-app"); A.play("tap"); if (id === "messages" || id === "thread") { this.phone.unread = 0; this.setBadge(); }
     }
     close() { const v = this.stack.pop(); if (!v) return; if (v._end) v._end(); v.classList.add("away"); setTimeout(() => v.remove(), 360); if (!this.stack.length) this.os.classList.remove("in-app"); }
     typeUssd(v) { const i = this.$(".ussd-card input"); if (i) i.value = v; }
@@ -173,46 +227,120 @@
       row.append(out, del); show(); v.append(row, pad, cb); v._num = () => num; v._set = s => { num = s; show(); }; return v;
     },
     cwas() { return this.apps.phone.call(this, DIAL); },  // the CWAS icon opens the dialer with the service code ready
+    /* Messages: every conversation, CWAS first; the round plus at the bottom writes a new message to any number */
     messages() {
-      const v = this.view(LB.messages), me = this, body = h("div", "", ""); body.style.cssText = "display:flex;flex-direction:column;flex:1;min-height:0";
-      v.appendChild(h("div", "sms-head", `${CWAS_LOGO}<span><b>CWAS</b><small>7380</small></span>`)); v.appendChild(body);
+      const v = this.view(LB.messages), me = this, list = h("div", "sms-list");
+      const nb = h("button", "sms-fab", '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>'); nb.type = "button"; nb.title = LB.newMsg; nb.setAttribute("aria-label", LB.newMsg);
+      fabDrag(nb, v, () => me.open("compose"));
       const draw = () => {
-        body.innerHTML = ""; const th = me.phone.threads["7380"] || [];
+        list.innerHTML = ""; const th = me.phone.threads, addrs = Object.keys(th).filter(a => th[a].length);
+        if (!addrs.length) { const p = h("p", "", esc(LB.nomsg)); p.style.cssText = "opacity:.6;text-align:center;margin-top:30px"; list.appendChild(p); }
+        addrs.forEach(a => {
+          const x = th[a][th[a].length - 1], b = h("button", "list-i", `${a === SHORT ? CWAS_LOGO : avatarOf(a)}<span class="sms-row"><b>${esc(who(a))}</b><small>${esc(x.body)}</small></span><small class="sms-at">${esc(x.at)}</small>`);
+          b.type = "button"; b.addEventListener("click", () => me.open("thread", null, a)); list.appendChild(b);
+        });
+      };
+      v.append(list, nb);
+      draw(); const sub = ev => { if (ev === "threads") { draw(); me.phone.unread = 0; me.setBadge(); } }; me.phone.subs.add(sub); v._end = () => me.phone.subs.delete(sub); return v;
+    },
+    /* one conversation: the bubbles, then a line to answer on */
+    thread(addr = SHORT) {
+      const v = this.view(LB.messages), me = this, body = h("div", ""); body.style.cssText = "display:flex;flex-direction:column;flex:1;min-height:0";
+      v.appendChild(h("div", "sms-head", `${addr === SHORT ? CWAS_LOGO : avatarOf(addr)}<span><b>${esc(who(addr))}</b><small>${esc(addr)}</small></span>`)); v.appendChild(body);
+      const draw = () => {
+        body.innerHTML = ""; const th = me.phone.threads[addr] || [];
         const list = h("div", "thread"); if (!th.length) list.appendChild(h("p", "", esc(LB.nomsg))), list.lastChild.style.cssText = "opacity:.6;text-align:center;margin-top:30px";
         th.forEach(m => { const b = h("div", "sms-b " + (m.dir === "in" ? "sms-in" : "sms-out")); b.textContent = m.body; b.title = m.at; list.appendChild(b); });
         const f = h("form", "compose", `<input placeholder="${esc(LB.typeMsg)}" maxlength="160" aria-label="${esc(LB.typeMsg)}"><button aria-label="${esc(LB.send)}"><svg class="icon" aria-hidden="true" style="stroke:#fff;fill:none;width:16px;height:16px"><use href="#i-send"/></svg></button>`);
-        f.addEventListener("submit", e => { e.preventDefault(); const i = $("input", f), t = i.value.trim(); if (!t) return; i.value = ""; me.phone.sendSms(t); });
+        f.addEventListener("submit", e => { e.preventDefault(); const i = $("input", f), t = i.value.trim(); if (!t) return; i.value = ""; me.phone.sendSms(t, addr); });
         body.append(list, f); list.scrollTop = list.scrollHeight;
       };
       draw(); const sub = (ev) => { if (ev === "threads") { draw(); me.phone.unread = 0; me.setBadge(); } }; me.phone.subs.add(sub); v._end = () => me.phone.subs.delete(sub); return v;
     },
+    /* a new message: the recipient's number, then the text; the conversation opens once it is sent */
+    compose(to = "") {
+      const v = this.view(LB.newMsg), me = this;
+      const f = h("form", "sms-new-form", `<label class="sms-to"><span>${esc(LB.to)}</span><input type="tel" inputmode="tel" autocomplete="off" placeholder="${esc(LB.toHint)}" value="${esc(to)}"></label><p class="sms-err" hidden>${esc(LB.needTo)}</p><div class="compose"><input placeholder="${esc(LB.typeMsg)}" maxlength="160" aria-label="${esc(LB.typeMsg)}"><button aria-label="${esc(LB.send)}"><svg class="icon" aria-hidden="true" style="stroke:#fff;fill:none;width:16px;height:16px"><use href="#i-send"/></svg></button></div>`);
+      f.addEventListener("submit", e => {
+        e.preventDefault(); const [ti, mi] = $$("input", f), dest = normNum(ti.value), t = mi.value.trim();
+        $(".sms-err", f).hidden = !!dest; if (!dest) { ti.focus(); A.play("error"); return; } if (!t) { mi.focus(); return; }
+        me.phone.sendSms(t, dest); me.close(); setTimeout(() => me.open("thread", null, dest), 380);
+      });
+      v.appendChild(f); if (lab) setTimeout(() => $$("input", f)[to ? 1 : 0].focus({ preventScroll: true }), 420); return v;
+    },
     contacts() {
       const v = this.view(LB.contacts), me = this, rows = [["CWAS Water", DIAL, "#25b35a"], ["CWAS SMS", "7380", "#2f7bff"], [LB.coord, "+261340000001", "#f59e0b"], ...init.demo.map((p, i) => ["Household " + (i + 1), p, "#7c8582"])];
       v.appendChild(h("p", "", esc(LB.contactsHint))).style.cssText = "padding:0 16px 8px;font-size:12px;opacity:.6";
-      rows.forEach(([n, p, c]) => { const b = h("button", "list-i", `${/^CWAS/.test(n) ? CWAS_LOGO : `<span class="avatar" style="background:${c}">${esc(n[0])}</span>`}<span><b>${esc(n)}</b><small>${esc(p)}</small></span>`); b.type = "button"; b.addEventListener("click", () => { if (p === "7380") { me.close(); me.open("messages"); } else { me.close(); me.open("phone"); const pv = me.stack[me.stack.length - 1]; pv._set(p); setTimeout(() => me.call(p, n), 500); } }); v.appendChild(b); });
+      rows.forEach(([n, p, c]) => { const b = h("button", "list-i", `${/^CWAS/.test(n) ? CWAS_LOGO : `<span class="avatar" style="background:${c}">${esc(n[0])}</span>`}<span><b>${esc(n)}</b><small>${esc(p)}</small></span>`); b.type = "button"; b.addEventListener("click", () => { if (p === SHORT) { me.close(); me.open("thread", null, SHORT); } else { me.close(); me.open("phone"); const pv = me.stack[me.stack.length - 1]; pv._set(p); setTimeout(() => me.call(p, n), 500); } }); v.appendChild(b); });
       v.style.overflowY = "auto"; return v;
     },
   };
 
   /* ── feature phone (Lite 2) ── */
-  const MT = { 1: ".,?!1", 2: "abc2", 3: "def3", 4: "ghi4", 5: "jkl5", 6: "mno6", 7: "pqrs7", 8: "tuv8", 9: "wxyz9", 0: " 0" };
+  /* Every key has a job, as on a real handset. The arrows move through lists, the app grid and the To and message fields,
+     scroll long screens and move the caret; the soft keys do what their labels say; Call dials, sends or calls back; End
+     goes home, or powers the phone off from the home screen. On the home screen the arrows are shortcuts: up Messages,
+     down Contacts, left a new message, right CWAS. Messages go to any number: a To line, then the text in multi-tap
+     letters (# cycles Abc, abc, ABC and 123; * gives symbols, 1 punctuation and the | the SMS commands use). */
+  const MT = { 1: ".,?!|-@1", 2: "abc2", 3: "def3", 4: "ghi4", 5: "jkl5", 6: "mno6", 7: "pqrs7", 8: "tuv8", 9: "wxyz9", 0: " 0", "*": "*+|/:#" };
+  const MODES = ["Abc", "abc", "ABC", "123"];
+  const field = (text = "") => ({ text, at: text.length });   // a line of text and where the caret is in it
   class LiteOS {
     constructor(screen, phone) {
-      this.screen = screen; this.phone = phone; this.state = "home"; this.sel = 0; this.buf = ""; this.msg = ""; this.mt = { k: null, n: 0, t: 0 }; this.on = true; this.flash = ""; this.calc = { cur: "0", acc: null, op: null, fresh: true }; this.ussd = null; this.setting = 0;
+      this.screen = screen; this.phone = phone; this.state = "home"; this.sel = 0; this.on = true; this.flash = ""; this.note = "";
+      this.f = field(); this.to = field(); this.body = field(); this.focus = "to"; this.mode = "Abc"; this.mt = { k: null, n: 0, t: 0 };
+      this.addr = SHORT; this.back = "msgs"; this.scroll = 0; this.lastDialled = ""; this.ussd = null; this.setting = 0; this.callee = "";
+      this.calc = { cur: "0", acc: null, op: null, fresh: true };
       screen.innerHTML = `<div class="lite-os"><div class="bar"><span data-t></span><span>${sigBars.replace('width="16" height="11"', 'width="12" height="9"')} 4G</span></div><div class="main" data-main></div><div class="foot"><span data-l></span><span data-r></span></div></div>`;
       this.phone.subs.add(this.onPhone = (ev, d) => this.handle(ev, d)); this.tick = setInterval(() => this.render(), 15000); this.render();
     }
     destroy() { this.phone.subs.delete(this.onPhone); clearInterval(this.tick); }
+    get buf() { return this.f.text; }   // the guided runs hand over a whole USSD reply at once
+    set buf(v) { this.f = field(v); }
     handle(ev, d) {
       if (ev === "sms") { if (!this.on) this.power(); A.play("sms"); this.flash = LB.newMsg; setTimeout(() => { this.flash = ""; this.render(); }, 3500); }
-      if (ev === "ussd") { if (d.gone) { this.state = "home"; } else { this.state = "ussd"; this.ussd = d; this.buf = ""; } }
+      if (ev === "ussd") { if (d.gone) this.go("home"); else { this.state = "ussd"; this.ussd = d; this.f = field(); this.scroll = 0; } }
+      if (ev === "threads" && this.state === "thread") this.scroll = "end";   // a new message scrolls into view
       this.render();
     }
     power() { this.on = !this.on; this.screen.classList.toggle("off", !this.on); A.play(this.on ? "poweron" : "poweroff"); }
     items() { return [["phone", LB.phone], ["messages", LB.messages], ["contacts", LB.contacts], ["cwas", "CWAS"]]; }  // the same four apps as the smartphones' dock
-    contacts() { return [["CWAS Water", DIAL], ["CWAS SMS", "7380"], [LB.coord, "+261340000001"], ...init.demo.map((p, i) => ["Household " + (i + 1), p])]; }
+    contacts() { return CONTACTS(); }
+    // the conversation list: a new message first, then every number the phone has written to or heard from
+    msgRows() {
+      const th = this.phone.threads || {};
+      return [[null, "+ " + LB.newMsg, ""], ...Object.keys(th).filter(a => th[a].length).map(a => { const x = th[a][th[a].length - 1]; return [a, who(a), x.body.slice(0, 48)]; })];
+    }
+    go(s) { this.state = s; this.sel = 0; this.scroll = 0; this.note = ""; this.mt.k = null; }
+    openThread(addr) { this.addr = addr; this.go("thread"); this.scroll = "end"; this.phone.unread = 0; }
+    newMessage(to = "", back) {
+      this.back = back || (this.state === "home" ? "home" : "msgs"); this.go("compose");
+      this.to = field(to); this.body = field(); this.focus = to ? "body" : "to"; this.mode = "Abc";
+    }
+    /* editing at the caret */
+    insert(fl, s) { fl.text = (fl.text.slice(0, fl.at) + s + fl.text.slice(fl.at)).slice(0, 160); fl.at = Math.min(fl.text.length, fl.at + s.length); }
+    erase(fl) { if (fl.at > 0) { fl.text = fl.text.slice(0, fl.at - 1) + fl.text.slice(fl.at); fl.at--; } this.mt.k = null; }
+    move(fl, d) { fl.at = Math.max(0, Math.min(fl.text.length, fl.at + d)); this.mt.k = null; }
+    line(fl, secret) { const t = secret ? "*".repeat(fl.text.length) : fl.text; return esc(t.slice(0, fl.at)) + '<i class="lt-caret"></i>' + esc(t.slice(fl.at)); }
+    // multi-tap: the same key again within 0.9 s swaps the letter just typed for the next one on that key
+    tap(fl, k) {
+      const set = this.mode === "123" ? k : MT[k]; if (!set) return;
+      const now = Date.now(), again = this.mt.k === k && now - this.mt.t < 900 && fl.at > 0 && set.length > 1;
+      const n = again ? (this.mt.n + 1) % set.length : 0, before = fl.text.slice(0, again ? fl.at - 1 : fl.at);
+      let ch = set[n];
+      if (this.mode === "ABC" || (this.mode === "Abc" && (!before.trim() || /[.!?]\s+$/.test(before)))) ch = ch.toUpperCase();  // Abc: a capital to start each sentence
+      if (again) fl.text = before + ch + fl.text.slice(fl.at); else this.insert(fl, ch);
+      this.mt = { k, n, t: now };
+    }
+    // a computer keyboard types straight into the number or the message being written
+    typeChar(ch) {
+      if (this.state !== "compose" || (this.focus === "to" && !/[\d+]/.test(ch))) return false;
+      this.insert(this.focus === "to" ? this.to : this.body, ch); this.mt.k = null; this.note = ""; this.render(); return true;
+    }
+    volume(d) { const v = Math.max(0, Math.min(1, parseFloat(C.store.get("cwas_vol", "0.7")) + d)); C.store.set("cwas_vol", v.toFixed(1)); A.play("vol"); }
     render() {
-      if (!this.on) return; const S = this.state, m = this.screen.querySelector("[data-main]"); let main = "", l = "", r = "";
+      if (!this.on) return;
+      const S = this.state, m = this.screen.querySelector("[data-main]"); let main = "", l = "", r = "";
       this.screen.querySelector(".lite-os").dataset.state = S;
       this.screen.querySelector("[data-t]").textContent = clock();
       if (S === "home") { main = `<div class="big">${clock()}</div><div style="text-align:center">${esc(dateLong())}</div><div style="text-align:center;margin-top:14px;opacity:.8">WINEBALD</div>${this.flash ? `<div style="text-align:center;margin-top:8px" class="sel">${esc(this.flash)}</div>` : ""}`; l = LB.menu; r = LB.contacts; }
@@ -221,48 +349,136 @@
         main = `<div class="lite-title">${esc(it[this.sel][1])}</div><div class="lite-apps">${it.map((x, i) => `<span class="lite-app${i === this.sel ? " on" : ""}">${icon(x[0], 34)}<small>${esc(x[1])}</small></span>`).join("")}</div>`;
         l = LB.select; r = LB.back;
       }
-      else if (S === "dial") { main = `${esc(LB.phone)}\n\n<span style="font-size:18px">${esc(this.buf)}_</span>`; l = LB.call; r = LB.clear; }
-      else if (S === "ussd") { main = esc(this.ussd.text) + (this.ussd.ended ? "" : `\n> ${this.ussd.secret ? "*".repeat(this.buf.length) : esc(this.buf)}_`); l = this.ussd.ended ? LB.ok : LB.send; r = this.ussd.ended ? "" : LB.cancel; }
-      else if (S === "msgs") { const th = (this.phone.threads["7380"] || []).slice(-7); main = th.length ? th.map(x => `${x.dir === "in" ? "<" : ">"} ${esc(x.body.slice(0, 120))}`).join("\n") : esc(LB.nomsg); l = LB.newMsg; r = LB.back; }
-      else if (S === "compose") { main = `${esc(LB.typeMsg)}\n\n${esc(this.buf)}_`; l = LB.send; r = LB.clear; }
+      else if (S === "dial") { main = `${esc(LB.phone)}\n\n<span class="lt-big">${this.line(this.f)}</span>`; l = LB.call; r = this.f.text ? LB.clear : LB.back; }
+      else if (S === "ussd") { const u = this.ussd; main = esc(u.text) + (u.ended ? "" : `\n> ${this.line(this.f, u.secret)}`); l = u.ended ? LB.ok : LB.send; r = u.ended ? "" : this.f.text ? LB.clear : LB.cancel; }
+      else if (S === "msgs") {
+        main = `<div class="lite-title">${esc(LB.messages)}</div>` + this.msgRows().map((x, i) => `<div class="lt-row${i === this.sel ? " sel" : ""}">${esc(x[1])}${x[2] ? `<small>${esc(x[2])}</small>` : ""}</div>`).join("");
+        l = LB.select; r = LB.back;
+      }
+      else if (S === "thread") {  // one conversation, newest at the bottom
+        const th = (this.phone.threads || {})[this.addr] || [];
+        main = `<div class="lite-title">${esc(who(this.addr))}</div>` + (th.length ? th.map(x => `<div class="lt-sms ${x.dir === "out" ? "out" : "in"}">${esc(x.body)}<small>${esc(x.at)}</small></div>`).join("") : esc(LB.nomsg));
+        l = LB.reply; r = LB.back;
+      }
+      else if (S === "compose") {  // To, then the message with its input mode and the characters left
+        const on = this.focus, to = this.to, b = this.body;
+        main = `<div class="lt-lab${on === "to" ? " on" : ""}">${esc(LB.to)}</div><div class="lt-in">${on === "to" ? this.line(to) : to.text ? esc(to.text) : `<span class="lt-ph">${esc(LB.toHint)}</span>`}</div>`
+          + `<div class="lt-lab${on === "body" ? " on" : ""}">${esc(LB.message)}<span>${this.mode} ${160 - b.text.length}</span></div><div class="lt-in">${on === "body" ? this.line(b) : esc(b.text)}</div>`
+          + (this.note ? `<div class="sel lt-note">${esc(this.note)}</div>` : "");
+        l = LB.send; r = (on === "to" ? to : b).text ? LB.clear : LB.back;
+      }
       else if (S === "contacts") { main = this.contacts().map((c, i) => (i === this.sel ? `<span class="sel">${esc(c[0])}</span>` : esc(c[0]))).join("\n"); l = LB.call; r = LB.back; }
       else if (S === "calc") { main = `${esc(LB.calc)}\n\n<div style="text-align:right;font-size:22px">${esc(this.calc.cur)}</div>\n\n▲ +  ▼ −  ◀ ×  ▶ ÷  OK =`; l = "="; r = LB.clear; }
       else if (S === "settings") { const rows = [`${LB.sound}: ${A.on() ? "ON" : "OFF"}`, `${LB.volume}: ${Math.round(parseFloat(C.store.get("cwas_vol", "0.7")) * 10)}/10`, `${LB.about}`]; main = rows.map((x, i) => (i === this.setting ? `<span class="sel">${esc(x)}</span>` : esc(x))).join("\n") + `\n\nWinebald Lite 2\nIMEI ${IMEI}\n${esc(this.phone.number)}`; l = LB.ok; r = LB.back; }
       else if (S === "calling") { main = `${esc(this.callee)}\n\n${esc(LB.calling)}`; l = ""; r = LB.back; }
       m.innerHTML = main; this.screen.querySelector("[data-l]").textContent = l; this.screen.querySelector("[data-r]").textContent = r;
+      // long screens keep their scroll; lists keep the chosen row in view, fields their caret
+      if (S === "ussd" || S === "thread") m.scrollTop = this.scroll === "end" ? m.scrollHeight : this.scroll;
+      else {
+        const s = m.querySelector(".lt-row.sel, span.sel, .lt-caret");
+        if (s) { const top = s.offsetTop, bot = top + s.offsetHeight; if (top < m.scrollTop) m.scrollTop = top; else if (bot > m.scrollTop + m.clientHeight) m.scrollTop = bot - m.clientHeight; }
+      }
     }
-    typeMT(k) { const now = Date.now(), set = MT[k]; if (!set) return; if (this.mt.k === k && now - this.mt.t < 900) { this.buf = this.buf.slice(0, -1) + set[++this.mt.n % set.length]; } else { this.buf += set[0]; this.mt = { k, n: 0, t: 0 }; } this.mt.t = now; this.mt.k = k; }
     press(k) {
       if (!this.on) { if (k === "end") this.power(); return; }
-      A.play("key", /^[\d*#]$/.test(k) ? k : "x"); const S = this.state, digit = /^[0-9]$/.test(k) || k === "*" || k === "#";
-      if (k === "end") { if (S === "home") this.power(); else { if (this.phone.active) this.phone.cancel(); this.state = "home"; this.buf = ""; } return this.render(); }
-      if (S === "home") { if (digit) { this.state = "dial"; this.buf = k; } else if (k === "sk1" || k === "ok") { this.state = "menu"; this.sel = 0; } else if (k === "sk2") { this.state = "contacts"; this.sel = 0; } }
+      A.play("key", /^[\d*#]$/.test(k) ? k : "x");
+      const S = this.state, digit = /^[0-9*#]$/.test(k), m = this.screen.querySelector("[data-main]");
+      const step = k === "down" ? 1 : k === "up" ? -1 : 0, side = k === "right" ? 1 : k === "left" ? -1 : 0, yes = k === "sk1" || k === "ok";
+      if (k === "end") { if (S === "home") this.power(); else { if (this.phone.active) this.phone.cancel(); this.go("home"); } return this.render(); }
+      if (S === "home") {  // the arrows are shortcuts: up Messages, down Contacts, left a new message, right CWAS
+        if (digit) { this.go("dial"); this.f = field(k); }
+        else if (yes) this.go("menu");
+        else if (k === "sk2" || k === "down") this.go("contacts");
+        else if (k === "up") this.openItem("messages");
+        else if (k === "left") this.newMessage("", "home");
+        else if (k === "right") this.openItem("cwas");
+        else if (k === "call") { this.go("dial"); this.f = field(this.lastDialled); }   // Call on the home screen brings back the last number
+      }
       else if (S === "menu") {  // arrows move around the 2 x 2 grid; 1 to 4 open an app directly
         const n = this.items().length;
-        if (k === "left") this.sel = (this.sel + n - 1) % n; else if (k === "right") this.sel = (this.sel + 1) % n;
-        else if (k === "up") this.sel = (this.sel + n - 2) % n; else if (k === "down") this.sel = (this.sel + 2) % n;
-        else if (k === "sk2") this.state = "home"; else if (k === "ok" || k === "sk1") this.openItem(this.items()[this.sel][0]);
+        if (side) this.sel = (this.sel + n + side) % n;
+        else if (step) this.sel = (this.sel + n + 2 * step) % n;
+        else if (k === "sk2" || k === "clear") this.go("home");
+        else if (yes || k === "call") this.openItem(this.items()[this.sel][0]);
         else if (/^[1-4]$/.test(k)) this.openItem(this.items()[+k - 1][0]);
       }
-      else if (S === "dial") { if (digit) this.buf += k; else if (k === "sk2") this.buf = this.buf.slice(0, -1); if (!this.buf) this.state = "home"; if (k === "call" || k === "sk1" || k === "ok") this.dialNow(this.buf); }
-      else if (S === "ussd") { if (k === "sk2" && !this.ussd.ended) { this.phone.cancel(); this.state = "home"; } else if (k === "sk1" || k === "ok" || k === "call") { if (this.ussd.ended) this.state = "home"; else if (this.buf) { const v = this.buf; this.buf = ""; this.phone.send(v); } } else if (digit) this.buf += k; else if (k === "clear") this.buf = this.buf.slice(0, -1); }
-      else if (S === "msgs") { if (k === "sk1" || k === "ok") { this.state = "compose"; this.buf = ""; } else if (k === "sk2") this.state = "menu"; }
-      else if (S === "compose") { if (digit) this.typeMT(k); else if (k === "sk2" || k === "clear") this.buf = this.buf.slice(0, -1); else if (k === "sk1" || k === "ok") { if (this.buf.trim()) { const t = this.buf; this.buf = ""; this.state = "msgs"; this.phone.sendSms(t); } } }
-      else if (S === "contacts") { const cs = this.contacts(); if (k === "up") this.sel = (this.sel + cs.length - 1) % cs.length; else if (k === "down") this.sel = (this.sel + 1) % cs.length; else if (k === "sk2") this.state = "home"; else if (k === "call" || k === "sk1" || k === "ok") { const c = cs[this.sel]; if (c[1] === "7380") { this.state = "compose"; this.buf = ""; } else this.dialNow(c[1], c[0]); } }
+      else if (S === "dial") {  // left and right move the caret, up and down jump to either end
+        if (digit) this.insert(this.f, k);
+        else if (side) this.move(this.f, side);
+        else if (step) this.f.at = step < 0 ? 0 : this.f.text.length;
+        else if (k === "sk2" || k === "clear") { if (this.f.text) this.erase(this.f); else this.go("home"); }
+        else if ((yes || k === "call") && this.f.text) this.dialNow(this.f.text);
+      }
+      else if (S === "ussd") {  // up and down scroll a long screen; the reply is edited at the caret
+        const u = this.ussd;
+        if (step) this.scroll = Math.max(0, m.scrollTop + 36 * step);
+        else if (u.ended) { if (yes || k === "call" || k === "sk2" || k === "clear") this.go("home"); }
+        else if (digit) this.insert(this.f, k);
+        else if (side) this.move(this.f, side);
+        else if (k === "sk2") { if (this.f.text) this.erase(this.f); else { this.phone.cancel(); this.go("home"); } }
+        else if (k === "clear") this.erase(this.f);
+        else if ((yes || k === "call") && this.f.text) { const v = this.f.text; this.f = field(); this.phone.send(v); }
+      }
+      else if (S === "msgs") {
+        const rows = this.msgRows(), n = rows.length, row = rows[this.sel];
+        if (step) this.sel = (this.sel + n + step) % n;
+        else if (yes || k === "right") { if (row[0]) this.openThread(row[0]); else this.newMessage(); }
+        else if (k === "sk2" || k === "left" || k === "clear") this.go("menu");
+        else if (k === "call" && row[0]) this.dialNow(row[0], who(row[0]));
+      }
+      else if (S === "thread") {
+        if (step) this.scroll = Math.max(0, m.scrollTop + 36 * step);
+        else if (yes || k === "right") this.newMessage(this.addr, "thread");
+        else if (k === "sk2" || k === "left" || k === "clear") this.go("msgs");
+        else if (k === "call") this.dialNow(this.addr, who(this.addr));
+      }
+      else if (S === "compose") this.composeKey(k, digit);
+      else if (S === "contacts") {  // Call or OK calls, right writes to the contact
+        const cs = this.contacts(), n = cs.length, c = cs[this.sel];
+        if (step) this.sel = (this.sel + n + step) % n;
+        else if (k === "sk2" || k === "left" || k === "clear") this.go("home");
+        else if (k === "right" && /^\+?\d+$/.test(c[1])) this.newMessage(normNum(c[1]), "contacts");
+        else if (yes || k === "call") { if (c[1] === SHORT) this.newMessage(SHORT, "contacts"); else this.dialNow(c[1], c[0]); }
+      }
       else if (S === "calc") { this.calcKey(k); }
-      else if (S === "settings") { if (k === "up") this.setting = (this.setting + 2) % 3; else if (k === "down") this.setting = (this.setting + 1) % 3; else if (k === "sk2") this.state = "menu"; else if (k === "ok" || k === "sk1") { if (this.setting === 0) A.set(!A.on()); } else if ((k === "left" || k === "right") && this.setting === 1) { const v = Math.max(0, Math.min(1, parseFloat(C.store.get("cwas_vol", "0.7")) + (k === "right" ? .1 : -.1))); C.store.set("cwas_vol", v.toFixed(1)); A.play("vol"); } }
-      else if (S === "calling") { if (k === "sk2" || k === "end") this.state = "home"; }
+      else if (S === "settings") { if (k === "up") this.setting = (this.setting + 2) % 3; else if (k === "down") this.setting = (this.setting + 1) % 3; else if (k === "sk2") this.go("menu"); else if (k === "ok" || k === "sk1") { if (this.setting === 0) A.set(!A.on()); } else if ((k === "left" || k === "right") && this.setting === 1) { const v = Math.max(0, Math.min(1, parseFloat(C.store.get("cwas_vol", "0.7")) + (k === "right" ? .1 : -.1))); C.store.set("cwas_vol", v.toFixed(1)); A.play("vol"); } }
+      else if (S === "calling") { if (k === "sk2" || k === "left" || k === "clear") this.go("home"); else if (step) this.volume(-0.1 * step); }
       this.render();
     }
-    openItem(id) { this.sel = 0; if (id === "phone") { this.state = "dial"; this.buf = ""; } else if (id === "messages") { this.state = "msgs"; this.phone.unread = 0; } else if (id === "contacts") this.state = "contacts"; else if (id === "calc") { this.state = "calc"; this.calc = { cur: "0", acc: null, op: null, fresh: true }; } else if (id === "settings") { this.state = "settings"; this.setting = 0; } else if (id === "cwas") this.dialNow(DIAL); }
+    // writing a message: up and down switch between To and the text, left and right move the caret
+    composeKey(k, digit) {
+      const fl = this.focus === "to" ? this.to : this.body; this.note = "";
+      if (k === "up" || k === "down") { this.focus = this.focus === "to" ? "body" : "to"; this.mt.k = null; }
+      else if (k === "left" || k === "right") this.move(fl, k === "left" ? -1 : 1);
+      else if (k === "sk2" || k === "clear") { if (fl.text) this.erase(fl); else if (k === "sk2") { if (this.back === "thread") this.openThread(this.addr); else this.go(this.back); } }
+      else if (k === "sk1" || k === "ok" || k === "call") this.sendNow();
+      else if (this.focus === "to") { if (/^\d$/.test(k)) this.insert(fl, k); else if (k === "*") this.insert(fl, fl.text ? "*" : "+"); }
+      else if (k === "#") { this.mode = MODES[(MODES.indexOf(this.mode) + 1) % MODES.length]; this.mt.k = null; }
+      else if (digit) this.tap(fl, k);
+    }
+    sendNow() {
+      const to = normNum(this.to.text), text = this.body.text.trim();
+      if (!to) { this.note = LB.needTo; this.focus = "to"; A.play("error"); return; }
+      if (!text) { this.focus = "body"; return; }
+      this.phone.sendSms(text, to); this.openThread(to);
+    }
+    openItem(id) {
+      if (id === "phone") { this.go("dial"); this.f = field(); }
+      else if (id === "messages") { this.go("msgs"); this.phone.unread = 0; }
+      else if (id === "contacts") this.go("contacts");
+      else if (id === "calc") { this.go("calc"); this.calc = { cur: "0", acc: null, op: null, fresh: true }; }
+      else if (id === "settings") { this.go("settings"); this.setting = 0; }
+      else if (id === "cwas") this.dialNow(DIAL);
+    }
     dialNow(num, name) {
-      if (/^\*[\d*]+#$/.test(num)) { if (num === DIAL) { this.phone.dial(); } else { this.state = "ussd"; this.ussd = { text: "Connection problem or invalid MMI code.", ended: true }; A.play("error"); } return; }
-      this.state = "calling"; this.callee = name || num; A.play("ring"); const id = setTimeout(() => { if (this.state === "calling") { this.callee += "\n" + LB.noanswer; this.render(); setTimeout(() => { this.state = "home"; this.render(); }, 1500); } }, 5000); this.render(); return id;
+      if (/^\*[\d*]+#$/.test(num)) { if (num === DIAL) { this.phone.dial(); } else { this.go("ussd"); this.ussd = { text: "Connection problem or invalid MMI code.", ended: true }; A.play("error"); } return; }
+      this.lastDialled = num; this.go("calling"); this.callee = name || num; A.play("ring");
+      const id = setTimeout(() => { if (this.state === "calling") { this.callee += "\n" + LB.noanswer; this.render(); setTimeout(() => { if (this.state === "calling") { this.go("home"); this.render(); } }, 1500); } }, 5000); this.render(); return id;
     }
     calcKey(k) {
       const c = this.calc, opk = { up: "+", down: "-", left: "*", right: "/" }[k];
       if (/^\d$/.test(k)) { c.cur = c.fresh || c.cur === "0" ? k : c.cur + k; c.fresh = false; } else if (k === "#") { if (!c.cur.includes(".")) c.cur += "."; c.fresh = false; }
-      else if (k === "sk2" || k === "clear") { this.calc = { cur: "0", acc: null, op: null, fresh: true }; if (k === "sk2") this.state = "menu"; }
+      else if (k === "sk2" || k === "clear") { this.calc = { cur: "0", acc: null, op: null, fresh: true }; if (k === "sk2") this.go("menu"); }
       else if (opk) { if (c.op && !c.fresh) this.calcEval(); c.acc = c.cur; c.op = opk; c.fresh = true; }
       else if (k === "ok" || k === "sk1") { this.calcEval(); c.acc = null; c.op = null; c.fresh = true; }
     }
@@ -329,7 +545,12 @@
   }
   document.addEventListener("keydown", e => {
     if (!ui || e.target.matches("input,textarea,select") || e.metaKey || e.ctrlKey) return;
-    if (model === "lite") { const m = { Enter: "ok", Backspace: "clear", ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", Escape: "end" }[e.key]; if (m) { e.preventDefault(); ui.press(m); } else if (/^[0-9*#]$/.test(e.key)) ui.press(e.key); }
+    if (model === "lite") {
+      const m = { Enter: "ok", Backspace: "clear", ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", Escape: "end" }[e.key];
+      if (m) { e.preventDefault(); ui.press(m); }
+      else if (e.key.length === 1 && ui.typeChar(e.key)) { e.preventDefault(); A.play("key", "x"); }   // letters go straight into a message
+      else if (/^[0-9*#]$/.test(e.key)) ui.press(e.key);
+    }
   });
 
   /* ── guided runs: the phone types by itself ── */
@@ -401,7 +622,7 @@
     };
     const sms = async (d, steps) => {
       const { ui, phone } = d; phone.reset([]);
-      await wait(d, 1600); ui.unlock(); await wait(d, 900); ui.open("messages"); await wait(d, 1000);
+      await wait(d, 1600); ui.unlock(); await wait(d, 900); ui.open("thread", null, SHORT); await wait(d, 1000);
       for (const [op, arg] of steps) {
         if (op === "type") {
           for (const ch of arg) { const i = $(".compose input", ui.screen); if (i) i.value += ch; A.play("key", /\d/.test(ch) ? ch : "x"); await wait(d, 150); }
@@ -440,7 +661,7 @@
       if (d.key === "lite") { d.phone.reset([{ text: (screens[1] || screens[0] || ["", ""])[1], end: false }]); d.phone.dial(); return; }
       d.ui.unlock();
       if (d.key === "nova") { d.ui.open("phone"); d.phone.reset([{ text: (screens[1] || screens[0] || ["", ""])[1], end: false }]); d.phone.next(); return; }
-      d.ui.open("messages"); steps.forEach(([op, arg]) => { if (op === "type") d.phone.sendSms(arg); else if (op === "in") d.phone.add("in", arg); }); d.phone.emit("threads");
+      d.ui.open("thread", null, SHORT); steps.forEach(([op, arg]) => { if (op === "type") d.phone.sendSms(arg); else if (op === "in") d.phone.add("in", arg); }); d.phone.emit("threads");
     };
     const build = () => {
       devs.forEach(d => { d.run++; d.ui.destroy(); });

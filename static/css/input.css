@@ -1219,3 +1219,38 @@ html,body{overscroll-behavior-y:none}
    (app.js). What drops down from it there, the tooltips and the language and theme menus, has no fill, so its white
    text gets a soft dark shadow to stay readable over the picture */
 .hdr-bar.on-dark [data-tip]::after,.hdr-bar.on-dark .menu>form.nav-panel,.hdr-bar.on-dark .menu>.nav-panel:has([data-theme-set]){text-shadow:0 1px 3px rgba(0,0,0,.6)}
+
+/* ── polish 17: the handsets' messaging and the Lite 2's screens. The Lite 2 shows a caret where the next character lands,
+   scrolls long screens, lists conversations and writes to any number (a To line, then the text with its input mode and
+   the characters left); the smartphones get a conversation list, a round plus for a new message that can be dragged anywhere and stays under open conversations and a To line */
+.lite-os .main{overflow-y:auto;min-height:0;scrollbar-width:none}
+.lite-os .main::-webkit-scrollbar{display:none}
+.lt-caret{display:inline-block;width:1.5px;height:1.15em;margin:0 -.75px;vertical-align:text-bottom;background:currentColor;animation:lt-blink 1s steps(1) infinite}
+@keyframes lt-blink{50%{opacity:0}}
+.lt-big{font-size:18px}
+.lt-row{padding:3px 5px;border-radius:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lt-row small{display:block;font-size:10px;opacity:.65;overflow:hidden;text-overflow:ellipsis}
+.lite-os .lt-row.sel{background:#111111;color:#FFFFFF;padding:3px 5px}
+.lt-sms{width:fit-content;max-width:86%;margin:0 0 6px;padding:4px 6px;border:1px solid rgba(0,0,0,.2);border-radius:5px}
+.lt-sms.out{margin-left:auto;background:#111111;color:#FFFFFF;border-color:#111111}
+.lt-sms small{display:block;font-size:9px;opacity:.6;text-align:right}
+.lt-lab{display:flex;justify-content:space-between;margin-top:6px;font-size:10px;opacity:.6}
+.lt-lab.on{opacity:1;font-weight:800}
+.lt-lab span{font-weight:600}
+.lt-in{min-height:1.4em;padding:2px 0 3px;border-bottom:1px solid rgba(0,0,0,.28);white-space:pre-wrap;word-break:break-all}
+.lt-ph{opacity:.45}
+.lt-note{display:block;margin-top:8px;text-align:center}
+.sms-list{flex:1;min-height:0;overflow-y:auto;padding-bottom:90px}
+.sms-fab{position:absolute;right:18px;bottom:30px;width:54px;height:54px;border:0;border-radius:50%;display:grid;place-items:center;background:#2f7bff;color:#FFFFFF;box-shadow:0 12px 26px -10px rgba(47,123,255,.7),0 2px 6px rgba(0,0,0,.18);cursor:grab;touch-action:none}
+.sms-fab svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
+.sms-fab:active{cursor:grabbing;transform:scale(.94)}
+.sms-row{display:flex;flex-direction:column;flex:1;min-width:0;text-align:left}
+.sms-row small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sms-at{flex:none;opacity:.55}
+.sms-new-form{display:flex;flex-direction:column;flex:1;min-height:0}
+.sms-to{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(127,127,127,.2);font-size:13px}
+.sms-to span{opacity:.6}
+.sms-to input{flex:1;min-width:0;border:0;background:transparent;color:inherit;font:600 14px "Figtree Variable",system-ui;outline:none}
+.sms-err{margin:8px 16px 0;font-size:12px;opacity:.8}
+.sms-new-form .compose{margin-top:auto}
+@media (prefers-reduced-motion:reduce){.lt-caret{animation:none}}

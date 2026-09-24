@@ -780,4 +780,8 @@ _add([
 ("Coordinator access code (web)", "Code d'accès coordinateur (web)", "Kaody fidirana mpandrindra (tranonkala)"),
 ("Asked on the web sign-up form. An administrator still approves every coordinator.", "Demandé dans le formulaire d'inscription web. Un administrateur approuve toujours chaque coordinateur.", "Angatahina amin'ny fisoratana anarana an-tranonkala. Mbola ankatoavin'ny mpitantana ny mpandrindra tsirairay."),
 ("This guided run could not start. Try again.", "Ce parcours guidé n'a pas pu démarrer. Réessayez.", "Tsy nety nanomboka ity fitsidihana voatarika ity. Andramo indray."),
+("To", "À", "Ho an'i"),
+("Reply", "Répondre", "Valio"),
+("Recipient number", "Numéro du destinataire", "Laharan'ny mpandray"),
+("Enter a recipient.", "Saisissez un destinataire.", "Ampidiro ny mpandray."),
 ])
