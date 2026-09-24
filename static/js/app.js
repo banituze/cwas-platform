@@ -296,4 +296,23 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
       const p = $("[data-printer]", dlg); if (p) initPrinter(p);
     }).catch(() => toast("Receipt not available.", "err"));
   });
+
+  /* ── booking form: live price and slot refresh ── */
+  const book = $("[data-book]");
+  if (book) {
+    const quotes = JSON.parse(book.dataset.quotes || "{}"), price = $("[data-price]", book);
+    const upd = () => { const l = ($("input[name=litres]:checked", book) || {}).value; if (price && quotes[l] !== undefined) price.textContent = `${String(quotes[l]).replace(/\B(?=(\d{3})+(?!\d))/g, ",")} MGA`; };
+    book.addEventListener("change", e => { upd(); if (e.target.matches("input")) Audio.play("tap"); }); upd();
+    const refresh = () => {
+      if (document.hidden) return;
+      fetch(`/api/slots?source=${book.dataset.source}&date=${book.dataset.date}`, { credentials: "same-origin" }).then(r => r.json()).then(d => {
+        (d.slots || []).forEach(s => {
+          const inp = $(`input[name=slot][value="${s.start_min}"]`, book); if (!inp) return;
+          const lab = inp.nextElementSibling; lab.dataset.state = s.state; inp.disabled = s.state !== "open";
+          const sm = $("small", lab); if (sm) sm.textContent = s.state === "open" ? `${s.free}/${s.capacity}` : s.state;
+        });
+      }).catch(() => {});
+    };
+    setInterval(refresh, 25000);
+  }
 })();
