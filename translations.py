@@ -421,3 +421,110 @@ _add([
 ("You get the money back in your wallet, once, as long as the slot has not started.", "Vous récupérez l'argent dans votre portefeuille, une fois, tant que le créneau n'a pas commencé.", "Miverina ao amin'ny kitapom-bolanao ny vola, indray mandeha, raha tsy mbola nanomboka ny ora."), ("Your language", "Votre langue", "Ny fiteninao"),
 ("Your wallet holds the money and every movement has a receipt.", "Votre portefeuille garde l'argent et chaque mouvement a un reçu.", "Ny kitapom-bolanao no mitahiry ny vola ary misy rosia ny fihetsiketsehana rehetra."),
 ])
+
+# ── legal texts, in the order of legal.DOCS (title, intro, then heading + paragraphs per section) ──
+from legal import DOCS as _DOCS  # noqa: E402
+
+_LEGAL_EN = []
+for _k in ("terms", "privacy", "refunds"):
+    _d = _DOCS[_k]
+    _LEGAL_EN += [_d["title"], _d["intro"]]
+    for _h, _ps in _d["sections"]:
+        _LEGAL_EN += [_h] + list(_ps)
+
+_LEGAL_FR = [
+ # terms
+ "Conditions d'utilisation",
+ "Ces conditions régissent votre usage de CWAS, le Community Water Access Scheduler géré pour les ménages d'Ampotaka, Madagascar. En créant un compte ou en utilisant le service sur le web, par USSD ou par SMS, vous les acceptez.",
+ "Qui peut utiliser CWAS", "CWAS s'adresse aux ménages, coordinateurs communautaires et administrateurs participant au pilote d'Ampotaka. Vous devez fournir des informations exactes et être adulte, ou utiliser le service par l'intermédiaire d'un adulte de votre ménage.",
+ "Les comptes de coordinateur et d'administrateur nécessitent une approbation ou un code d'inscription, et peuvent être retirés à tout moment.",
+ "Votre compte", "Gardez votre mot de passe et votre PIN secrets. Tout ce qui est fait avec est considéré comme fait par vous. Prévenez immédiatement votre coordinateur si vous pensez que quelqu'un d'autre les a utilisés.",
+ "Nous pouvons verrouiller un compte après plusieurs mots de passe ou PIN erronés afin de le protéger.",
+ "Réserver de l'eau", "Une réservation retient un créneau à un point d'eau. Elle n'est confirmée que lorsqu'un coordinateur l'approuve, ou automatiquement si les paramètres du système le permettent. Les créneaux dépendent des horaires, de la capacité et de la maintenance et peuvent changer.",
+ "Chaque ménage peut avoir une réservation active par jour. Les litres, le prix et toute subvention sont affichés avant que vous confirmiez.",
+ "Paiements et portefeuille", "Vous alimentez votre portefeuille par Orange Money, Airtel Money ou en espèces auprès d'un agent. Le prix d'une réservation est prélevé sur le portefeuille lorsque vous confirmez. Un dépôt mobile money est crédité une fois confirmé par l'opérateur.",
+ "Le portefeuille est un solde prépayé pour l'eau. Ce n'est pas un compte bancaire, il ne rapporte aucun intérêt et ne peut pas être transféré à un autre ménage.",
+ "Annulations, absences et maintenance", "Vous pouvez annuler une réservation future avant le début du créneau et l'argent revient une fois dans votre portefeuille. Si un coordinateur refuse une réservation, ou si une maintenance ou une fermeture l'annule, vous êtes remboursé automatiquement.",
+ "Les réservations approuvées non récupérées peuvent être marquées comme absences, et des absences répétées peuvent baisser votre score de part équitable. Voir la Politique de remboursement.",
+ "Usage équitable et priorité", "L'eau est partagée. Les coordinateurs fixent les niveaux de priorité selon le besoin : vulnérabilité, taille du ménage, distance et usage récent. Ne donnez pas de fausses informations, ne revendez pas l'eau et ne réservez pas plus que le besoin de votre ménage.",
+ "Des contrôles automatiques repèrent les schémas inhabituels comme des annulations répétées ou de gros dépôts soudains. Les coordinateurs les examinent et chaque décision peut être expliquée.",
+ "Usage acceptable", "N'essayez pas de casser, surcharger ou contourner le service, d'utiliser le compte d'une autre personne, ni d'envoyer du contenu abusif ou illégal via l'assistant, les annonces ou les messages.",
+ "Disponibilité", "Le pilote dépend des réseaux mobiles et d'infrastructures d'eau qui peuvent tomber en panne. Nous visons un service fiable mais ne pouvons promettre un accès ininterrompu, et CWAS ne contrôle pas l'approvisionnement en eau lui-même.",
+ "Modifications et fin", "Nous pouvons mettre à jour ces conditions. La date en haut indique la dernière version et les changements importants sont annoncés dans l'appli. Vous pouvez supprimer votre compte à tout moment depuis votre profil. Nous pouvons suspendre les comptes qui enfreignent ces conditions.",
+ "Contact", "Demandez à votre coordinateur communautaire, ou écrivez à info@winebald.tech.",
+ # privacy
+ "Politique de confidentialité",
+ "Cette politique explique ce que CWAS collecte, pourquoi, qui peut le voir et les choix dont vous disposez.",
+ "Ce que nous collectons", "Détails du compte (nom, téléphone, e-mail, langue), détails du ménage (village, adresse, taille du ménage, besoins d'accès), historique du portefeuille et des réservations, notifications, discussions avec l'assistant et fichiers que vous envoyez, et journaux techniques (heure, canal et adresse IP, conservés pour la sécurité).",
+ "Pourquoi nous l'utilisons", "Pour gérer réservations et paiements, prioriser équitablement, envoyer des confirmations par l'appli et par SMS, sécuriser le service et produire des rapports anonymes d'usage et d'équité pour le comité de l'eau de la communauté.",
+ "Qui peut le voir", "Les coordinateurs voient les ménages qu'ils servent. Les administrateurs voient les comptes et le journal d'audit. Les opérateurs télécoms et de mobile money traitent les messages et paiements qui passent par eux.",
+ "Nous ne vendons pas de données personnelles et ne les utilisons pas pour la publicité.",
+ "Suggestions automatiques", "CWAS suggère des priorités, approbations et alertes à l'aide de règles simples appliquées aux données du ménage. Un coordinateur prend la décision finale et chaque point d'un score a une raison indiquée.",
+ "Sécurité", "Les mots de passe et PIN ne sont stockés que sous forme de hachage à sens unique. Les sessions utilisent des cookies sécurisés, les actions importantes vont dans un journal d'audit infalsifiable et l'accès dépend du rôle. Aucun système n'est parfaitement sûr : signalez-nous immédiatement tout abus suspecté.",
+ "Combien de temps nous conservons les données", "Les détails du compte et du ménage sont conservés tant que votre compte est actif. Les enregistrements de réservations, de portefeuille et d'audit sont conservés pour la comptabilité et la sécurité après votre départ ; votre nom et vos coordonnées sont retirés de votre compte. Les discussions et fichiers sont supprimés lorsque vous les supprimez ou supprimez votre compte.",
+ "Vos choix et droits", "Vous pouvez voir et corriger vos informations dans votre profil, télécharger une copie de vos données, supprimer vos discussions et supprimer votre compte. Pour le reste, demandez à votre coordinateur ou écrivez à info@winebald.tech.",
+ "Cookies et stockage sur l'appareil", "Nous utilisons des cookies essentiels pour la connexion, la langue et le thème, et votre navigateur conserve vos choix de son et de voix. Nous n'utilisons aucun cookie publicitaire ou de suivi.",
+ 'Besoins du ménage', "Les besoins cochés à l'inscription, comme une personne âgée ou un handicap au foyer, et votre distance jusqu'à l'eau servent seulement à fixer la priorité et les subventions. Un coordinateur les vérifie avant toute réduction, et vous pouvez les modifier à tout moment dans votre profil.", 'Nouvelles du pilote', 'Si vous suivez le pilote, nous gardons seulement votre adresse e-mail et votre langue. Nous les utilisons uniquement pour annoncer les étapes, ne les partageons jamais et les supprimons dès que vous utilisez le lien de désinscription.', 
+ "Enfants", "CWAS s'adresse aux adultes d'un ménage. N'inscrivez pas d'enfants comme titulaires de compte.",
+ "Modifications et contact", "Les changements importants sont annoncés dans l'appli. Écrivez à info@winebald.tech pour toute question sur vos données.",
+ # refunds
+ "Politique de remboursement",
+ "Cette politique indique quand l'argent revient dans votre portefeuille et comment récupérer l'argent inutilisé.",
+ "Remboursements automatiques", "Le prix d'une réservation revient automatiquement dans votre portefeuille, une seule fois, lorsque vous annulez avant le début du créneau, qu'un coordinateur la refuse, qu'elle expire sans examen, ou qu'une maintenance ou une fermeture l'annule.",
+ "Quand le remboursement ne s'applique pas", "Il n'y a pas de remboursement pour une réservation approuvée et récupérée, ou marquée comme absence parce que personne n'est venu, sauf si un coordinateur en décide autrement pour un bon motif.",
+ "Comment annuler", "Vous pouvez annuler une réservation en attente ou approuvée jusqu'au début du créneau : sur le web, par USSD (Annuler réservation) ou par SMS (CANCEL suivi de la référence de réservation).",
+ "Dépôts échoués ou erronés", "Si un paiement mobile money a été prélevé mais que votre portefeuille n'a pas été crédité, gardez le message de transaction et donnez la référence à votre coordinateur. Nous vérifions auprès de l'opérateur et créditons ou rendons le montant, normalement sous 3 jours ouvrés.",
+ "Solde de portefeuille inutilisé", "Vous pouvez demander à votre coordinateur de vous rendre en espèces l'argent inutilisé de votre portefeuille. Les demandes sont vérifiées avec votre registre et normalement payées sous 7 jours. Les frais prélevés par les opérateurs de mobile money ne sont pas remboursables par CWAS.",
+ "Fermeture de votre compte", "Lorsque vous supprimez votre compte, tout solde restant est enregistré comme remboursement dû et votre coordinateur en est informé, afin de vous le rendre selon cette politique.",
+ "Problèmes d'approvisionnement en eau", "Si un point d'eau est fermé ou inutilisable, votre réservation est annulée et remboursée automatiquement. CWAS ne contrôle pas l'eau elle-même.",
+ "Litiges", "Si vous n'êtes pas d'accord avec une décision, demandez à votre coordinateur de la réexaminer. Les administrateurs peuvent consulter le journal d'audit et chaque décision de remboursement est enregistrée.",
+ "Contact", "Demandez à votre coordinateur communautaire, ou écrivez à info@winebald.tech.",
+]
+_LEGAL_MG = [
+ "Fepetra fampiasana",
+ "Ireto fepetra ireto no mifehy ny fampiasanao ny CWAS, ny Community Water Access Scheduler ho an'ny tokantrano any Ampotaka, Madagasikara. Rehefa mamorona kaonty ianao na mampiasa ny serivisy amin'ny tranonkala, USSD na SMS dia manaiky azy ireo.",
+ "Iza no afaka mampiasa ny CWAS", "Ny CWAS dia ho an'ny tokantrano, mpandrindra ny vondrom-piarahamonina ary mpitantana mandray anjara amin'ny fitsapana any Ampotaka. Tsy maintsy manome antsipiriany marina ianao ary olon-dehibe, na mampiasa ny serivisy amin'ny alalan'ny olon-dehibe ao amin'ny tokantranonao.",
+ "Ny kaonty mpandrindra sy mpitantana dia mila fankatoavana na kaody fisoratana ary azo esorina amin'ny fotoana rehetra.",
+ "Ny kaontinao", "Tazomy ho tsiambaratelo ny teny miafinao sy ny PIN. Izay rehetra atao aminy dia raisina ho ianao no nanao azy. Ampahafantaro avy hatrany ny mpandrindra raha heverinao fa nampiasain'olon-kafa izy ireo.",
+ "Mety hohidiantsika ny kaonty rehefa diso imbetsaka ny teny miafina na ny PIN mba hiarovana azy.",
+ "Mamandrika rano", "Ny famandrihana dia mitazona ora iray amin'ny toeram-pakàna rano. Voamafy rehefa eken'ny mpandrindra izy, na ho azy raha avelan'ny fanamboarana ny rafitra. Miankina amin'ny ora fisokafana, ny fahafaha-mandray ary ny fanamboarana ny ora ary mety miova.",
+ "Ny tokantrano tsirairay dia afaka manana famandrihana mavitrika iray isan'andro. Aseho alohan'ny hanamafisanao ny litatra, ny vidiny ary ny fanampiana rehetra.",
+ "Fandoavana sy kitapom-bola", "Manampy vola ao amin'ny kitapom-bolanao ianao amin'ny Orange Money, Airtel Money na vola an-tanana amin'ny mpiasa. Alaina ao amin'ny kitapom-bola ny vidin'ny famandrihana rehefa manamafy ianao. Ny fandefasana vola finday dia ampiana rehefa mamafy ny mpamatsy.",
+ "Ny kitapom-bola dia sisa nandoavana mialoha ho an'ny rano. Tsy kaonty banky izy, tsy mahazo tombony ary tsy azo afindra any amin'ny tokantrano hafa.",
+ "Fanafoanana, tsy fahatongavana ary fanamboarana", "Azonao foanana ny famandrihana any aoriana alohan'ny hanombohan'ny ora ary miverina indray mandeha ny vola ao amin'ny kitapom-bolanao. Raha lavin'ny mpandrindra ny famandrihana, na foanan'ny fanamboarana na fanakatonana, dia averina ho azy ny volanao.",
+ "Ny famandrihana nekena saingy tsy noraisina dia mety hosoratana ho tsy fahatongavana, ary ny tsy fahatongavana miverimberina dia mety hampihena ny isanao amin'ny anjara mitovy. Jereo ny Fitsipiky ny famerenana vola.",
+ "Fampiasana mitovy sy laharam-pahamehana", "Zarazaraina ny rano. Ny mpandrindra dia mametra ny haavon'ny laharam-pahamehana araka ny filàna: fahalemena, habetsaky ny tokantrano, halavirana ary fampiasana vao haingana. Aza manome vaovao diso, aza mivarotra rano na mamandrika mihoatra ny filan'ny tokantranonao.",
+ "Ny fanamarinana ho azy dia mitady zavatra tsy mahazatra toy ny fanafoanana miverimberina na fandefasana vola lehibe tampoka. Dinihin'ny mpandrindra ireo ary azo ambara ny antony amin'ny fanapahan-kevitra rehetra.",
+ "Fampiasana azo ekena", "Aza miezaka manapaka, mampitombo ny enta-mavesatra na mandingana ny serivisy, mampiasa ny kaontin'olon-kafa, na mandefa votoaty manevateva na tsy ara-dalàna amin'ny alalan'ny mpanampy, ny fanamarihana na ny hafatra.",
+ "Fisian'ny serivisy", "Miankina amin'ny tambajotra finday sy ny fotodrafitrasa rano mety hsimba ny fitsapana. Miezaka ho serivisy azo itokisana izahay saingy tsy afaka manome toky fa tsy hiala mihitsy, ary ny CWAS dia tsy mifehy ny famatsiana rano.",
+ "Fanovana sy fiafarana", "Mety havaozinay ireto fepetra ireto. Ny daty any ambony no manondro ny version farany ary ambara ao amin'ny app ny fanovana lehibe. Azonao fafana ny kaontinao amin'ny fotoana rehetra avy amin'ny mombamombanao. Mety hatsahatray ny kaonty mandika ireto fepetra ireto.",
+ "Fifandraisana", "Anontanio ny mpandrindra ny vondrom-piarahamoninao, na soraty any amin'ny info@winebald.tech.",
+ "Politikan'ny fiainana manokana",
+ "Ity politika ity dia manazava izay angonin'ny CWAS, ny antony, izay afaka mahita azy ary ny safidy anananao.",
+ "Izay angonintsika", "Antsipirian'ny kaonty (anarana, telefaona, mailaka, fiteny), antsipirian'ny tokantrano (tanàna, adiresy, habetsaky ny tokantrano, filana fanampiana), firaketana kitapom-bola sy famandrihana, filazana, resadresaka amin'ny mpanampy sy rakitra alefanao, ary diary teknika (ora, lalana ary adiresy IP, tazomina ho fiarovana).",
+ "Antony ampiasantsika azy", "Mba hitantanana famandrihana sy fandoavana, hametrahana laharam-pahamehana mitovy, handefasana fanamafisana amin'ny app sy SMS, hiarovana ny serivisy ary hamokarana tatitra tsy mitonona anarana momba ny fampiasana sy ny fitoviana ho an'ny komitin'ny rano.",
+ "Izay afaka mahita azy", "Ny mpandrindra dia mahita ny tokantrano tompoin'andraikiny. Ny mpitantana kosa mahita ny kaonty sy ny diarin'ny fanaraha-maso. Ny mpamatsy telefaona sy vola finday dia mikarakara ny hafatra sy fandoavana mandalo aminy.",
+ "Tsy mivarotra angona manokana izahay ary tsy ampiasainay amin'ny doka.",
+ "Soso-kevitra ho azy", "Ny CWAS dia manoro laharam-pahamehana, fankatoavana ary fampitandremana amin'ny fitsipika tsotra ampiharina amin'ny angon'ny tokantrano. Ny mpandrindra no manapa-kevitra farany ary misy antony voalaza ny isa tsirairay.",
+ "Fiarovana", "Tehirizina amin'ny endrika hash tsy azo averina ihany ny teny miafina sy ny PIN. Mampiasa cookies azo antoka ny fotoana, ny hetsika manan-danja dia ampidirina ao amin'ny diarin'ny fanaraha-maso tsy azo ovaina ary miankina amin'ny andraikitra ny fidirana. Tsy misy rafitra tsy mety simba tanteraka; ampahafantaro avy hatrany izahay raha ahiahiana fanararaotana.",
+ "Ela ny fitehirizana angona", "Tazomina mandra-miasa ny kaontinao ny antsipirian'ny kaonty sy ny tokantrano. Tazomina ho an'ny fitantanana sy ny fiarovana aorian'ny nandehananao ny firaketana famandrihana, kitapom-bola ary fanaraha-maso; esorina ao amin'ny kaontinao ny anaranao sy ny fifandraisanao. Fafana ny resadresaka sy rakitra rehefa fafanao izy ireo na ny kaontinao.",
+ "Ny safidinao sy ny zonao", "Azonao jerena sy hitsiana ny antsipirianao ao amin'ny mombamombanao, alaina ny kopian'ny angonao, fafana ny resadresakao ary fafana ny kaontinao. Ho an'ny zavatra hafa dia anontanio ny mpandrindra na soraty any amin'ny info@winebald.tech.",
+ "Cookies sy fitehirizana amin'ny fitaovana", "Mampiasa cookies ilaina ho an'ny fidirana, fiteny ary lohahevitra izahay, ary ny navigateranao dia mitahiry ny safidinao momba ny feo. Tsy mampiasa cookies doka na fanaraha-maso izahay.",
+ "Filàn'ny tokantrano", "Ny filàna marihinao amin'ny fisoratana anarana, toy ny zokiolona na fahasembanana ao an-trano, sy ny halaviran'ny rano dia ampiasaina hametrahana ny laharam-pahamehana sy ny fanampiana ihany. Hamarinin'ny mpandrindra izy ireo alohan'ny fihenam-bidy, ary azonao ovaina amin'ny mombamomba anao izy ireo amin'ny fotoana rehetra.", 'Vaovao momba ny fanandramana', 'Raha manaraka ny fanandramana ianao, ny mailakao sy ny fiteninao ihany no tehirizinay. Ampiasainay hanambarana ny dingana tratra ihany izy ireo, tsy zaraina mihitsy, ary fafanina raha vao mampiasa ny rohy fialana ianao.', 
+ "Ankizy", "Ny CWAS dia ho an'ny olon-dehibe ao amin'ny tokantrano. Aza soratana ho tompon'ny kaonty ny ankizy.",
+ "Fanovana sy fifandraisana", "Ambara ao amin'ny app ny fanovana lehibe. Soraty any amin'ny info@winebald.tech raha misy fanontaniana momba ny angonao.",
+ "Fitsipiky ny famerenana vola",
+ "Ity politika ity dia milaza rehefa miverina ao amin'ny kitapom-bolanao ny vola ary ahoana no ahazoana averina ny vola tsy nampiasaina.",
+ "Famerenana vola ho azy", "Miverina ho azy ao amin'ny kitapom-bolanao ny vidin'ny famandrihana, indray mandeha, rehefa manafoana alohan'ny hanombohan'ny ora ianao, rehefa lavin'ny mpandrindra, rehefa lany daty tsy voadinika, na rehefa foanan'ny fanamboarana na fanakatonana.",
+ "Rehefa tsy mihatra ny famerenana vola", "Tsy misy famerenana vola ho an'ny famandrihana nekena ary noraisina, na nosoratana ho tsy fahatongavana satria tsy nisy tonga, afa-tsy raha manapa-kevitra hafa ny mpandrindra noho ny antony tsara.",
+ "Ahoana no fanafoanana", "Azonao foanana ny famandrihana miandry na nekena mandra-panombohan'ny ora: amin'ny tranonkala, amin'ny USSD (Foano ny famandrihana) na amin'ny SMS (CANCEL arahin'ny laharan'ny famandrihana).",
+ "Fandefasana vola tsy nahomby na diso", "Raha nalaina ny vola tamin'ny vola finday saingy tsy niditra tao amin'ny kitapom-bolanao dia tazomy ny hafatry ny fifanakalozana ary lazao ny mpandrindra ny laharana. Hamarinintsika amin'ny mpamatsy ary hampidirinay na haverinay ny vola, matetika ao anatin'ny 3 andro miasa.",
+ "Sisa tsy nampiasaina ao amin'ny kitapom-bola", "Azonao angatahina ny mpandrindra hamerina ho vola an-tanana ny vola tsy nampiasaina ao amin'ny kitapom-bolanao. Hamarinina amin'ny bokin-drakitrao ny fangatahana ary matetika aloa ao anatin'ny 7 andro. Ny saran'ny mpamatsy vola finday dia tsy azon'ny CWAS averina.",
+ "Famonoana ny kaontinao", "Rehefa mamafa ny kaontinao ianao dia soratana ho famerenana vola tokony haverina ny sisa rehetra ary ampahafantarina ny mpandrindra, mba hoverina aminao araka ity politika ity.",
+ "Olana amin'ny famatsiana rano", "Raha mikatona na tsy azo ampiasaina ny toeram-pakàna rano dia foanana sy averina ho azy ny famandrihanao. Ny CWAS dia tsy mifehy ny rano mihitsy.",
+ "Fifandirana", "Raha tsy mety aminao ny fanapahan-kevitra iray dia angataho ny mpandrindra hamerina mandinika azy. Afaka mijery ny diarin'ny fanaraha-maso ny mpitantana ary voarakitra ny fanapahan-kevitra rehetra momba ny famerenana vola.",
+ "Fifandraisana", "Anontanio ny mpandrindra ny vondrom-piarahamoninao, na soraty any amin'ny info@winebald.tech.",
+]
+assert len(_LEGAL_EN) == len(_LEGAL_FR) == len(_LEGAL_MG), (len(_LEGAL_EN), len(_LEGAL_FR), len(_LEGAL_MG))
+for _en, _fr, _mg in zip(_LEGAL_EN, _LEGAL_FR, _LEGAL_MG):
+    TR[_en] = (_fr, _mg)
