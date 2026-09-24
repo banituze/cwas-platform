@@ -243,4 +243,24 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
     };
     setInterval(poll, 20000); document.addEventListener("visibilitychange", poll);
   }
+
+  /* ── videos: real footage that starts at once; a small button pauses it ── */
+  const saveData = (navigator.connection || {}).saveData;
+  $$("video.vid").forEach(v => {
+    v.muted = true; v.defaultMuted = true; v.setAttribute("playsinline", "");
+    const wrap = v.parentElement; let paused = false, visible = true;
+    const btn = document.createElement("button"); btn.type = "button"; btn.className = "vid-toggle"; btn.setAttribute("aria-label", "Pause or play video");
+    btn.innerHTML = '<svg class="icon" data-i="pause" aria-hidden="true"><use href="#i-pause"/></svg><svg class="icon" data-i="play" aria-hidden="true"><use href="#i-play"/></svg>';
+    wrap.appendChild(btn);
+    const set = p => { paused = p; btn.dataset.paused = p ? "true" : "false"; if (p) v.pause(); else if (visible) v.play().catch(() => { btn.dataset.paused = "true"; paused = true; }); };
+    btn.addEventListener("click", () => set(!paused));
+    if (reduce || saveData) { paused = true; btn.dataset.paused = "true"; } else v.play().catch(() => { btn.dataset.paused = "true"; paused = true; });
+    /* a film further down the page gets its file once it nears the view (the HD one only where it shows); until then its
+       poster stands in, and pressing play fetches it at once */
+    const load = () => { if (v.getAttribute("src")) return; v.autoplay = !paused; v.preload = paused ? "metadata" : "auto"; v.src = v.dataset.hd && !saveData && v.clientWidth > 900 ? v.dataset.hd : v.dataset.src; };
+    btn.addEventListener("click", load);
+    if (!saveData) { if ("IntersectionObserver" in window) new IntersectionObserver((es, o) => es.forEach(en => { if (en.isIntersecting) { load(); o.disconnect(); } }), { rootMargin: "100% 0px" }).observe(v); else load(); }
+    if ("IntersectionObserver" in window) new IntersectionObserver(es => es.forEach(en => { visible = en.isIntersecting; if (!visible) v.pause(); else if (!paused) v.play().catch(() => {}); }), { threshold: .05 }).observe(v);
+    document.addEventListener("pointerdown", () => { if (!paused && v.paused && visible) v.play().catch(() => {}); }, { once: true });
+  });
 })();
