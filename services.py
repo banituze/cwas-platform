@@ -318,3 +318,95 @@ def payment_mode():
     return os.environ.get("PAYMENT_MODE") or ("live" if prod else "simulation")
 
 
+# ── wallet ledger (FR2.4, FR5) ──────────────────────────────────────────────
+class ServiceError(Exception):
+    def __init__(self, code, **params):
+        super().__init__(code)
+        self.code = code
+        self.params = params
+
+
+_REF_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
+PROVIDER_LABEL = {"orange": "Orange Money", "airtel": "Airtel Money", "cash": "Cash / agent"}
+
+
+def new_ref(prefix):
+    """CW-529E0CB1 for bookings, WT-A4E47E34 for wallet movements: eight hex characters, easy to read over SMS."""
+    return f"{prefix}-{secrets.token_hex(4).upper()}"
+
+
+def lock_household(hid):
+    return db.session.query(Household).filter_by(id=hid).with_for_update().one()
+
+
+def wallet_post(h, kind, amount, provider, note="", booking=None, status="posted", actor=None):
+    """Adds one ledger row. Only posted rows move the spendable balance; pending mobile-money rows do not."""
+    prefix = "WT"
+    if status == "posted" and amount < 0 and h.balance + amount < 0:
+        raise ServiceError("insufficient_funds", need=-amount, balance=h.balance)
+    txn = WalletTxn(household_id=h.id, kind=kind, amount=amount, status=status, provider=provider,
+                    reference=new_ref(prefix), booking_id=booking.id if booking else None, note=note[:255],
+                    created_by=actor.id if actor else None)
+    if status == "posted":
+        h.balance += amount
+        txn.balance_after = h.balance
+    db.session.add(txn)
+    db.session.flush()
+    return txn
+
+
+def deposit(h, amount, provider, actor=None, channel="web"):
+    """Simulation mode posts instantly. Live mode records a pending row until a provider adapter confirms it."""
+    lo, hi = get_int("min_deposit"), get_int("max_deposit")
+    if not isinstance(amount, int) or amount < lo or amount > hi:
+        raise ServiceError("amount_range", lo=fmt_ar(lo), hi=fmt_ar(hi))
+    if provider not in ("orange", "airtel", "cash"):
+        raise ServiceError("provider_invalid")
+    if provider == "cash" and get_setting("cash_enabled") != "1":
+        raise ServiceError("provider_invalid")
+    h = lock_household(h.id)
+    status = "pending" if payment_mode() == "live" and channel != "staff" else "posted"
+    txn = wallet_post(h, "deposit", amount, provider, note=f"{channel} deposit", status=status, actor=actor)
+    audit("wallet.deposit", "wallet", txn.reference, f"{provider} {amount} MGA {status}", actor=actor, channel=channel)
+    label = PROVIDER_LABEL.get(provider, provider)
+    if status == "posted":
+        event(h.user, "Deposit {ref} recorded: +{amount} via {provider}. Balance {balance}.", "wallet", sms=True, ref=txn.reference,
+              amount=fmt_ar(amount), provider=label, balance=fmt_ar(h.balance))
+    else:
+        event(h.user, "Deposit {ref} of {amount} via {provider} is waiting for confirmation.", "wallet", ref=txn.reference,
+              amount=fmt_ar(amount), provider=label)
+    return txn
+
+
+def confirm_pending_deposit(txn, actor=None, channel="web"):
+    if txn.status != "pending" or txn.kind != "deposit":
+        raise ServiceError("not_pending")
+    h = lock_household(txn.household_id)
+    txn.status = "posted"
+    h.balance += txn.amount
+    txn.balance_after = h.balance
+    audit("wallet.confirm", "wallet", txn.reference, f"{txn.provider} {txn.amount} MGA confirmed", actor=actor, channel=channel)
+    event(h.user, "Your deposit {ref} of {amount} was confirmed. New balance: {balance}.", "wallet", sms=True,
+          ref=txn.reference, amount=fmt_ar(txn.amount), balance=fmt_ar(h.balance))
+    return txn
+
+
+def reconcile_wallet(h):
+    posted = db.session.query(func.coalesce(func.sum(WalletTxn.amount), 0)).filter(
+        WalletTxn.household_id == h.id, WalletTxn.status == "posted").scalar()
+    return int(posted) == h.balance
+
+
+def reject_pending_deposit(txn, actor=None, channel="web", reason=""):
+    """A coordinator could not match a pending mobile-money deposit to a real payment. Nothing reaches the wallet and
+    the household is told at once, by SMS too, so they can follow up."""
+    if txn.status != "pending" or txn.kind != "deposit":
+        raise ServiceError("not_pending")
+    txn.status = "failed"
+    h = db.session.get(Household, txn.household_id)
+    audit("wallet.reject", "wallet", txn.reference, clean_text(reason, 120), actor=actor, channel=channel)
+    event(h.user, "Your deposit {ref} of {amount} was not confirmed, so nothing was added. Ask your coordinator if you paid.",
+          "wallet", sms=True, ref=txn.reference, amount=fmt_ar(txn.amount))
+    return txn
+
+
