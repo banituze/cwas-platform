@@ -1,0 +1,35 @@
+{% extends "base.html" %}{% from "partials/macros.html" import icon with context %}
+{% block title %}USSD & SMS{% endblock %}
+{% block desc %}{{ t('About 4 in 10 households have a feature phone. Members and coordinators can do everything by USSD, including registering, booking, paying, cancelling and reading receipts. SMS answers quick questions.') }}{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-page space-y-16 px-4 pt-36">
+  <header class="max-w-3xl"><h1 class="text-5xl font-extrabold md:text-7xl">{{ t('One number for every phone.') }}</h1>
+  <p class="mt-5 text-lg leading-relaxed text-mute">{{ t('Dial {code} for the full service. Send SMS to {sms} for quick answers.', code=USSD_CODE, sms=SMS_CODE) }}</p>
+  <a class="btn btn-primary mt-6" href="{{ url_for('simulator') }}">{{ icon('play') }}{{ t('Try the simulator') }}</a></header>
+  <section class="glass-strong overflow-hidden p-4 md:p-8">{% include "partials/phones.html" %}</section>
+
+  <section id="ussd" class="grid gap-8 lg:grid-cols-2">
+    <div class="glass-strong p-7"><h2 class="text-2xl font-bold">{{ t('Household menu') }}</h2>
+      <div class="mt-4 grid gap-4 {{ 'sm:grid-cols-2' if menu_screens|length > 1 }} font-mono text-sm">{% for screen in menu_screens %}
+        <pre class="whitespace-pre-wrap rounded-3xl bg-ink/[.07] p-4 leading-relaxed">{{ screen }}</pre>{% endfor %}</div></div>
+    <div class="glass-strong p-7"><h2 class="text-2xl font-bold">{{ t('Keys that work everywhere') }}</h2>
+      <dl class="mt-4 space-y-3">{% for k, d in (('97','Back one step'),('00','Main menu for your role'),('98','Next page of a long list'),('99','End the session')) %}<div class="flex items-center gap-4"><dt class="flex h-11 w-14 shrink-0 items-center justify-center rounded-pill bg-brand font-mono font-bold text-onbrand">{{ k }}</dt><dd>{{ t(d) }}</dd></div>{% endfor %}</dl>
+      <p class="mt-5 text-sm text-mute">{{ t('Your PIN is asked first and protects money and booking steps. Three wrong PINs lock the line for 15 minutes.') }}</p></div>
+  </section>
+
+  <section class="glass-strong p-7 md:p-10"><h2 class="text-3xl font-bold">{{ t('What you can do by USSD') }}</h2>
+    <div class="mt-6 grid gap-4 md:grid-cols-2">
+      {% for h, p in (('Register','A new phone number is walked through language, name, village, household size and a PIN.'),('Book a slot','Water point, day, open slot, litres, then confirm. Capacity, one booking per day and balance are checked at the last step. The answer shows the reference and the balance left; an SMS follows.'),('Add money','Orange Money or Airtel Money, then an amount. In simulation the deposit posts at once with a DEP reference. In live mode it stays pending until the provider confirms.'),('Balance and history','Current balance with recent movements, booking history with full details, receipts and notifications.'),('Cancel','Future pending or approved bookings can be cancelled once, with one refund.'),('Profile','Name, household size, village, access needs, language and PIN.'),('Coordinators','Approve or deny requests, change a source status, add a cash deposit, schedule maintenance, send an announcement, and set a household priority.')) %}
+      <div><h3 class="font-bold">{{ t(h) }}</h3><p class="mt-1 text-mute">{{ t(p) }}</p></div>{% endfor %}
+    </div></section>
+
+  <section id="sms" class="grid gap-8 lg:grid-cols-2">
+    <div class="glass-strong p-7"><h2 class="text-2xl font-bold">SMS {{ SMS_CODE }}</h2>
+      <p class="mt-3 text-mute">{{ t('SMS is for reading. Money, bookings and record changes are redirected to the PIN-protected USSD service.') }}</p>
+      <div class="overflow-x-auto"><table class="tbl mt-4"><tbody>{% for c, d in (('HELP','List of commands'),('BALANCE / WALLET','Balance, and recent movements'),('SOURCES','Water points, hours and tariff'),('BOOKINGS','Your latest bookings'),('BOOKING <ref>','One booking in detail'),('RECEIPT <ref>','Receipt for a booking'),('NOTICES','Unread notices'),('PROFILE','Your profile'),('LANG MG / FR / EN','Change language')) %}<tr><td class="font-mono font-bold">{{ c }}</td><td>{{ t(d) }}</td></tr>{% endfor %}</tbody></table></div></div>
+    <div class="glass-strong p-7"><h2 class="text-2xl font-bold">{{ t('For your security') }}</h2>
+      <ul class="mt-4 space-y-3 text-mute">{% for h in ('The phone number is the identity; the PIN is never stored in the session log.','Money movement never happens by SMS.','A repeated request from the network returns the stored answer instead of running twice.','Payment providers confirm deposits with a signed message; without it a live deposit stays pending.') %}<li class="flex gap-3">{{ icon('check', 'mt-0.5 text-ok') }}<span>{{ t(h) }}</span></li>{% endfor %}</ul></div>
+  </section>
+</div>
+<script src="{{ url_for('static', filename='js/home.js') }}" defer></script>
+{% endblock %}
