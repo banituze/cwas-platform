@@ -1,0 +1,16 @@
+{% extends "app_base.html" %}{% from "partials/macros.html" import icon with context %}
+{% block title %}{{ t('Admin overview') }}{% endblock %}
+{% block app %}<h1 class="text-3xl font-extrabold">{{ t('Admin overview') }}</h1>
+<div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+<a href="{{ url_for('admin_users') }}" class="kpi no-underline"><p class="text-sm text-mute">{{ t('Accounts') }}</p><b>{{ users }}</b>{% if waiting %}<p class="text-xs font-semibold text-hot">{{ waiting }} {{ t('waiting for activation') }}</p>{% endif %}</a>
+<div class="kpi"><p class="text-sm text-mute">{{ t('Households') }}</p><b>{{ households }}</b></div>
+<div class="kpi"><p class="text-sm text-mute">{{ t('Bookings') }}</p><b>{{ bookings }}</b></div>
+<div class="kpi"><p class="text-sm text-mute">{{ t('Held in wallets') }}</p><b>{{ fmt_ar(held) }}</b></div></div>
+<div class="mt-5 grid gap-5 lg:grid-cols-2">
+<section class="glass-strong p-6"><h2 class="text-xl font-bold">{{ t('System health') }}</h2><ul class="mt-4 space-y-3 text-sm">
+<li class="flex items-center gap-3">{{ icon('shield', 'text-ok' if chain[0] else 'text-hot') }}{{ t('Audit chain intact') if chain[0] else t('Audit chain broken at entry {n}', n=chain[1]) }} ({{ chain[2] }})</li>
+<li class="flex items-center gap-3">{{ icon('database', 'text-ok') }}{{ t('Database') }}: {{ db_kind }}</li>
+<li class="flex flex-wrap items-center gap-3">{{ icon('megaphone', 'text-ok') }}{{ t('Pilot followers') }}: <b>{{ followers }}</b>{% if followers %}<a class="lnk text-xs" href="{{ url_for('admin_pilot_csv') }}">{{ t('Download list') }}</a>{% endif %}</li>
+<li class="flex items-center gap-3">{{ icon('phone', 'text-ok') }}{{ sessions }} USSD {{ t('sessions') }}, {{ sms }} SMS</li></ul>
+<div class="mt-5 flex flex-wrap gap-2"><a class="btn btn-ghost btn-sm" href="{{ url_for('admin_database') }}">{{ t('Database') }}</a><a class="btn btn-ghost btn-sm" href="{{ url_for('admin_audit', verify=1) }}">{{ t('Verify audit trail') }}</a></div></section>
+<section class="glass-strong p-6"><h2 class="text-xl font-bold">{{ t('Latest activity') }}</h2><ul class="mt-4 space-y-2 text-sm">{% for a in recent %}<li class="flex justify-between gap-3"><span class="font-mono text-xs">{{ a.action }}</span><span class="truncate text-mute">{{ a.actor_label }}</span></li>{% endfor %}</ul></section></div>{% endblock %}

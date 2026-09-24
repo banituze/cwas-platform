@@ -1179,3 +1179,263 @@ def register_routes(app):
                 return redirect(url_for("coord_announce"))
         return render_template("coord/announce.html")
 
+    # ── admin console ───────────────────────────────────────────────────────
+    @app.get("/admin")
+    @admin_required
+    def admin_home():
+        ok, bad, n = S.verify_audit_chain()
+        return render_template("admin/home.html", users=User.query.count(), households=Household.query.count(), waiting=User.query.filter_by(is_active_flag=False).count(),
+                               bookings=Booking.query.count(), chain=(ok, bad, n), sessions=UssdSession.query.count(), sms=SmsLog.query.count(),
+                               held=db.session.query(db.func.coalesce(db.func.sum(Household.balance), 0)).scalar(), db_kind=current_app.config["DB_KIND"],
+                               recent=AuditLog.query.order_by(AuditLog.id.desc()).limit(6).all(), followers=PilotFollower.query.count())
+
+    @app.post("/pilot/follow")
+    @limiter.limit("6 per hour")
+    def pilot_follow():
+        email = S.clean_text(request.form.get("email"), 190).lower()
+        if not S.valid_email(email):
+            say("Enter a valid email address.", "err")
+        else:
+            if not PilotFollower.query.filter_by(email=email).first():
+                db.session.add(PilotFollower(email=email, language=g.lang, token=secrets.token_urlsafe(24)))
+                S.audit("pilot.follow", "pilot", email.split("@")[-1], channel="web")
+                db.session.commit()
+            say("Thank you. We will write only when the pilot reaches a milestone.")
+        nxt = request.form.get("next") or "/"
+        return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else "/")
+
+    @app.get("/pilot/leave/<token>")
+    def pilot_leave(token):
+        row = PilotFollower.query.filter_by(token=token).first()
+        if row:
+            db.session.delete(row)
+            db.session.commit()
+        say("Your email address was removed from pilot news.")
+        return redirect(url_for("index"))
+
+    @app.get("/admin/pilot-followers.csv")
+    @admin_required
+    def admin_pilot_csv():
+        rows = PilotFollower.query.order_by(PilotFollower.id).all()
+        data = S.to_csv(["email", "language", "joined", "leave_link"],
+                        [[r.email, r.language, r.created_at.strftime("%Y-%m-%d"), url_for("pilot_leave", token=r.token, _external=True)] for r in rows])
+        S.audit("pilot.export", "pilot", str(len(rows)))
+        db.session.commit()
+        return send_file(__import__("io").BytesIO(data.encode("utf-8")), mimetype="text/csv", as_attachment=True, download_name="pilot-followers.csv")
+
+    @app.get("/admin/users")
+    @admin_required
+    def admin_users():
+        q, term, role = User.query, S.clean_text(request.args.get("q"), 60), request.args.get("role", "")
+        if term:
+            q = q.filter(or_(User.name.ilike(f"%{term}%"), User.email.ilike(f"%{term}%"), User.phone.ilike(f"%{term}%")))
+        if role in ("member", "coordinator", "admin"):
+            q = q.filter_by(role=role)
+        page = q.order_by(User.is_active_flag, User.id.desc()).paginate(page=int_arg("page", 1, 1, 9999, request.args), per_page=20, error_out=False)
+        return render_template("admin/users.html", page=page, q=term, role=role)
+
+    @app.post("/admin/users/create")
+    @admin_required
+    def admin_user_create():
+        f = request.form
+        name, email, phone = S.clean_text(f.get("name"), 120), S.clean_text(f.get("email"), 190).lower(), S.norm_phone(f.get("phone"))
+        role, pw = f.get("role"), f.get("password", "")
+        if role not in ("member", "coordinator", "admin") or len(name) < 2 or (email and not S.valid_email(email)) or not (email or phone):
+            say("Check the name, role and email or phone.", "err")
+        elif S.password_error(pw):
+            say(S.password_error(pw), "err")
+        elif (email and User.query.filter_by(email=email).first()) or (phone and User.query.filter_by(phone=phone).first()):
+            say("An account with this phone or email already exists.", "err")
+        else:
+            u = User(role=role, name=name, email=email or None, phone=phone or None, password_hash=generate_password_hash(pw), must_change_password=True, language=g.lang)
+            db.session.add(u)
+            db.session.flush()
+            if role == "member":
+                db.session.add(Household(user_id=u.id, name=name, village=S.clean_text(f.get("village"), 120)))
+            S.audit("user.create", "user", u.id, role)
+            db.session.commit()
+            say("Account created. The person must change the password at first sign-in.")
+        return redirect(url_for("admin_users"))
+
+    @app.post("/admin/users/<int:uid>/<action>")
+    @admin_required
+    def admin_user_action(uid, action):
+        u = db.session.get(User, uid) or abort(404)
+        admins = User.query.filter_by(role="admin", is_active_flag=True).count()
+        if u.id == current_user.id and action in ("deactivate", "delete", "role"):
+            say("You cannot do that to your own account.", "err")
+        elif action == "activate":
+            u.is_active_flag = True
+            S.audit("user.activate", "user", u.id)
+            S.notify(u, "Your account is now active.", "system")
+            say("Account activated.")
+        elif action == "deactivate":
+            if u.role == "admin" and admins <= 1:
+                say("At least one active administrator is required.", "err")
+            else:
+                u.is_active_flag = False
+                S.audit("user.deactivate", "user", u.id)
+                say("Account deactivated.")
+        elif action == "delete":
+            if u.role == "admin" and admins <= 1:
+                say("At least one active administrator is required.", "err")
+            elif u.household and (Booking.query.filter_by(household_id=u.household.id).first() or WalletTxn.query.filter_by(household_id=u.household.id).first()):
+                u.is_active_flag = False
+                S.audit("user.deactivate", "user", u.id, "delete refused: has records")
+                say("This person has bookings or money records, so the account was deactivated instead of deleted.")
+            else:
+                Notification.query.filter_by(user_id=u.id).delete()
+                S.audit("user.delete", "user", u.id, u.email or u.phone or u.name)
+                db.session.delete(u)
+                say("Account deleted.")
+        elif action == "reset":
+            temp = "Cw" + secrets.token_urlsafe(9) + "#7"
+            u.password_hash, u.must_change_password, u.failed_logins, u.locked_until = generate_password_hash(temp), True, 0, None
+            u.pin_failed, u.pin_locked_until = 0, None
+            S.audit("user.reset_password", "user", u.id)
+            flash(T("Temporary password for {name}: {pw} (shown once).", name=u.name, pw=temp), "dev")
+        elif action == "role" and request.form.get("role") in ("member", "coordinator", "admin"):
+            u.role = request.form["role"]
+            if u.role == "member" and not u.household:
+                db.session.add(Household(user_id=u.id, name=u.name))
+            S.audit("user.role", "user", u.id, u.role)
+            say("Role updated.")
+        else:
+            abort(404)
+        db.session.commit()
+        return redirect(request.referrer or url_for("admin_users"))
+
+    SETTING_KEYS = ("discount_elevated", "discount_high", "min_deposit", "max_deposit", "auto_approve", "cash_enabled", "no_show_grace_min", "enroll_coord", "enroll_admin", "coord_access")
+    SECRET_SETTINGS = ("enroll_coord", "enroll_admin", "coord_access")  # never written to the audit log
+
+    @app.route("/admin/settings", methods=["GET", "POST"])
+    @admin_required
+    def admin_settings():
+        if request.method == "POST":
+            for k in SETTING_KEYS:
+                if k in ("auto_approve", "cash_enabled"):
+                    S.set_setting(k, "1" if request.form.get(k) else "0")
+                elif k in SECRET_SETTINGS:
+                    code = S.clean_text(request.form.get(k), 40)
+                    if len(code) >= 8 and " " not in code:
+                        S.set_setting(k, code)
+                else:
+                    S.set_setting(k, int_arg(k, S.get_int(k), 0, 10 ** 7))
+            if S.get_int("discount_high") > 100 or S.get_int("discount_elevated") > 100:
+                db.session.rollback()
+                say("Discounts cannot be above 100%.", "err")
+            else:
+                S.audit("settings.save", "settings", "", ", ".join(f"{k}={'(hidden)' if k in SECRET_SETTINGS else S.get_setting(k)}" for k in SETTING_KEYS))
+                db.session.commit()
+                say("Settings saved.")
+            return redirect(url_for("admin_settings"))
+        return render_template("admin/settings.html", v={k: S.get_setting(k) for k in SETTING_KEYS}, live=S.payment_mode(),
+                               sms=os.environ.get("SMS_ENABLED", "0") == "1", token=bool(os.environ.get("AT_WEBHOOK_TOKEN")))
+
+    @app.get("/admin/audit")
+    @admin_required
+    def admin_audit():
+        q, act = AuditLog.query, S.clean_text(request.args.get("action"), 40)
+        if act:
+            q = q.filter(AuditLog.action.like(f"{act}%"))
+        page = q.order_by(AuditLog.id.desc()).paginate(page=int_arg("page", 1, 1, 99999, request.args), per_page=30, error_out=False)
+        return render_template("admin/audit.html", page=page, act=act, chain=S.verify_audit_chain() if request.args.get("verify") else None)
+
+    @app.get("/admin/audit.csv")
+    @admin_required
+    def admin_audit_csv():
+        rows = AuditLog.query.order_by(AuditLog.id).all()
+        r = make_response(S.to_csv(["id", "at_utc", "actor", "channel", "action", "entity", "entity_id", "detail", "ip", "hash"],
+                                   [[x.id, x.at.isoformat(), x.actor_label, x.channel, x.action, x.entity, x.entity_id, x.detail, x.ip, x.hash] for x in rows]))
+        r.headers["Content-Type"] = "text/csv; charset=utf-8"
+        r.headers["Content-Disposition"] = "attachment; filename=cwas-audit.csv"
+        return r
+
+    TABLES = [User, Household, WaterSource, Booking, WalletTxn, Notification, Maintenance, AuditLog, Setting, UssdSession, SmsLog, PasswordReset, ChatThread, ChatMessage]
+
+    def dump_db():
+        out = {"version": 1, "created": utcnow().isoformat(), "tables": {}}
+        for m in TABLES:
+            rows = []
+            for r in db.session.query(m).all():
+                rows.append({c.name: (getattr(r, c.key) if hasattr(r, c.key) else getattr(r, c.name)) for c in m.__table__.columns})
+            out["tables"][m.__tablename__] = json.loads(json.dumps(rows, default=lambda o: o.isoformat()))
+        return out
+
+    def restore_db(data):
+        from sqlalchemy import Date, DateTime
+        for m in reversed(TABLES):
+            db.session.query(m).delete()
+        db.session.flush()
+        for m in TABLES:
+            for row in data["tables"].get(m.__tablename__, []):
+                vals = {}
+                for c in m.__table__.columns:
+                    v = row.get(c.name)
+                    if v is not None and isinstance(c.type, DateTime):
+                        v = datetime.fromisoformat(v)
+                    elif v is not None and isinstance(c.type, Date):
+                        v = date.fromisoformat(v)
+                    vals[c.name] = v
+                db.session.execute(m.__table__.insert().values(**vals))
+        db.session.flush()
+
+    @app.route("/admin/database", methods=["GET", "POST"])
+    @admin_required
+    def admin_database():
+        if request.method == "POST":
+            action = request.form.get("action")
+            if action == "backup":
+                name = f"cwas-backup-{utcnow():%Y%m%d-%H%M%S}.json"
+                (BACKUP_DIR / name).write_text(json.dumps(dump_db()))
+                S.audit("db.backup", "database", name)
+                db.session.commit()
+                say("Backup {name} created.", name=name)
+            elif action == "restore":
+                name = os.path.basename(request.form.get("file", ""))
+                path = BACKUP_DIR / name
+                if request.form.get("confirm") != "RESTORE" or not path.is_file():
+                    say("Type RESTORE to confirm and choose a backup.", "err")
+                else:
+                    try:
+                        (BACKUP_DIR / f"cwas-prerestore-{utcnow():%Y%m%d-%H%M%S}.json").write_text(json.dumps(dump_db()))
+                        restore_db(json.loads(path.read_text()))
+                        S.audit("db.restore", "database", name)
+                        db.session.commit()
+                        say("Restored from {name}.", name=name)
+                    except Exception:  # noqa: BLE001
+                        db.session.rollback()
+                        app.logger.exception("restore failed")
+                        say("Restore failed and nothing was changed.", "err")
+            return redirect(url_for("admin_database"))
+        return render_template("admin/database.html", files=sorted(BACKUP_DIR.glob("cwas-*.json"), reverse=True)[:20], checks=integrity_checks(), kind=current_app.config["DB_KIND"])
+
+    def integrity_checks():
+        out = []
+        try:
+            if current_app.config["DB_KIND"] == "sqlite":
+                out.append(("Storage engine check", db.session.execute(text("PRAGMA integrity_check")).scalar() == "ok"))
+            else:
+                out.append(("Storage engine check", db.session.execute(text("SELECT 1")).scalar() == 1))
+        except Exception:  # noqa: BLE001
+            out.append(("Storage engine check", False))
+        ok, bad, n = S.verify_audit_chain()
+        out.append(("Audit chain ({n} entries)".format(n=n), ok))
+        out.append(("Wallet balances match the ledger", all(S.reconcile_wallet(h) for h in Household.query.all())))
+        out.append(("No booking without a household or source", db.session.query(Booking).outerjoin(Household).outerjoin(WaterSource).filter(or_(Household.id.is_(None), WaterSource.id.is_(None))).count() == 0))
+        return out
+
+    @app.get("/admin/backups/<name>")
+    @admin_required
+    def admin_backup_download(name):
+        path = BACKUP_DIR / os.path.basename(name)
+        if not path.is_file():
+            abort(404)
+        return send_file(path, as_attachment=True)
+
+    @app.get("/admin/channels")
+    @admin_required
+    def admin_channels():
+        return render_template("admin/channels.html", sessions=UssdSession.query.order_by(UssdSession.updated_at.desc()).limit(30).all(),
+                               sms=SmsLog.query.order_by(SmsLog.id.desc()).limit(30).all())
+
