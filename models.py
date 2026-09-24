@@ -146,3 +146,51 @@ class WalletTxn(db.Model):
     )
 
 
+class Notification(db.Model):
+    __tablename__ = "notifications"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    kind = db.Column(db.String(16), nullable=False, default="info")  # booking|wallet|maintenance|announcement|system
+    key = db.Column(db.Text, nullable=False, default="")  # English source sentence (translation key); empty for free text
+    params = db.Column(db.Text, nullable=False, default="{}")        # JSON parameters for the key
+    body = db.Column(db.Text, nullable=False, default="")            # free text (announcements)
+    is_read = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+
+class Maintenance(db.Model):
+    __tablename__ = "maintenance"
+    id = db.Column(db.Integer, primary_key=True)
+    source_id = db.Column(db.Integer, db.ForeignKey("water_sources.id"), nullable=False, index=True)
+    starts_at = db.Column(db.DateTime, nullable=False)  # local wall-clock time
+    ends_at = db.Column(db.DateTime, nullable=False)
+    reason = db.Column(db.String(255), nullable=False, default="")
+    status = db.Column(db.String(12), nullable=False, default="scheduled")  # scheduled|cancelled
+    created_by = db.Column(db.Integer, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+    source = db.relationship("WaterSource")
+
+
+class AuditLog(db.Model):
+    """Append-only, hash-chained. Each row commits to the one before it, so edits are detectable."""
+    __tablename__ = "audit_logs"
+    id = db.Column(db.Integer, primary_key=True)
+    at = db.Column(db.DateTime, nullable=False, default=utcnow)
+    actor_id = db.Column(db.Integer, nullable=True)
+    actor_label = db.Column(db.String(190), nullable=False, default="system")
+    channel = db.Column(db.String(12), nullable=False, default="web")
+    action = db.Column(db.String(48), nullable=False, index=True)
+    entity = db.Column(db.String(32), nullable=False, default="")
+    entity_id = db.Column(db.String(32), nullable=False, default="")
+    detail = db.Column(db.String(500), nullable=False, default="")
+    ip = db.Column(db.String(64), nullable=False, default="")
+    prev_hash = db.Column(db.String(64), nullable=False, default="")
+    hash = db.Column(db.String(64), nullable=False, default="")
+
+
+class Setting(db.Model):
+    __tablename__ = "settings"
+    key = db.Column(db.String(64), primary_key=True)
+    value = db.Column(db.String(255), nullable=False, default="")
+
+
