@@ -11,8 +11,8 @@
 <fieldset class="role-tabs"><legend class="sr-only">{{ t('Register as:') }}</legend>
   <label><input type="radio" name="role" value="member" {{ 'checked' if not coord }}><span>{{ t('Household member') }}</span></label>
   <label><input type="radio" name="role" value="coordinator" {{ 'checked' if coord }}><span>{{ t('Community coordinator') }}</span></label></fieldset>
-{{ field('name','Full name', f.get('name',''), required=True, autocomplete='name') }}
-<div class="grid gap-4 sm:grid-cols-2">{{ phone_input('phone', 'Phone number', f.get('phone',''), f.get('cc','MG'), hint='Used for USSD, SMS and sign-in.') }}{{ field('email','Email (optional)', f.get('email',''), type='email', autocomplete='email') }}</div>
+{{ field('name','Full name', f.get('name',''), required=True, autocomplete='name', attrs='placeholder="' ~ t('e.g. Rasoa Rakoto') ~ '"') }}
+<div class="grid gap-4 sm:grid-cols-2">{{ phone_input('phone', 'Phone number', f.get('phone',''), f.get('cc','MG'), hint='Used for USSD, SMS and sign-in.') }}{{ field('email','Email (optional)', f.get('email',''), type='email', autocomplete='email', attrs='placeholder="' ~ t('you@example.com') ~ '"') }}</div>
 <div class="coord-only">{{ field('access_code', 'Access code', '', type='password', autocomplete='off', hint='Given to you by the CWAS administrator. An administrator still approves your account before it opens.') }}</div>
 <div class="hh-only space-y-4">
 <div class="grid gap-4 sm:grid-cols-2">{{ field('village','Village', f.get('village','')) }}{{ field('family_size','People in the household', f.get('family_size','4'), type='number', attrs='min=1 max=40') }}</div>
@@ -25,7 +25,7 @@
 </div>
 <div class="other-src"><label class="label" for="f-home-other">{{ t('Name of the water point') }}</label><input class="field" id="f-home-other" name="home_other" maxlength="80" value="{{ f.get('home_other', '') }}"></div>
 </div>
-{{ field('password','Password', '', type='password', required=True, hint='At least 10 characters with upper and lower case, a digit and a symbol.', autocomplete='new-password') }}
+{{ field('password','Password', '', type='password', required=True, hint='At least 10 characters with upper and lower case, a digit and a symbol.', autocomplete='new-password', attrs='placeholder="' ~ t('At least 8 characters') ~ '"') }}
 <div class="grid gap-4 sm:grid-cols-2">{{ field('pin','USSD PIN (4 digits)', '', type='password', attrs='inputmode=numeric maxlength=4 pattern=[0-9]{4}', hint='Lets you use the service on any phone, even without data.') }}
 {{ field('recovery', 'Recovery code (6 digits)', '', type='password', attrs='inputmode=numeric maxlength=6 pattern=[0-9]{6}', hint='It resets a forgotten PIN. Keep it private.') }}</div>
 <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="accept" value="1" required class="mt-1 h-4 w-4 accent-[rgb(var(--brand))]"><span>{{ t('I agree to the') }} <a class="lnk" href="{{ url_for('legal', doc='terms') }}" target="_blank" rel="noopener">{{ t('Terms of Service') }}</a>, <a class="lnk" href="{{ url_for('legal', doc='privacy') }}" target="_blank" rel="noopener">{{ t('Privacy Policy') }}</a> {{ t('and') }} <a class="lnk" href="{{ url_for('legal', doc='refunds') }}" target="_blank" rel="noopener">{{ t('Refund Policy') }}</a>.</span></label>
