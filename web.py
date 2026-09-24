@@ -1609,7 +1609,7 @@ def register_routes(app):
         if not phone or not sim_allowed(phone):
             return jsonify(error="phone"), 403
         sid = "SIM-" + hashlib.sha256((str(d.get("session", "")) + phone).encode()).hexdigest()[:24]
-        out = U.handle_ussd(sid, phone, str(d.get("text", ""))[:200], "simulator")
+        out = U.handle_ussd(sid, phone, str(d.get("text", ""))[:2000], "simulator")   # every hop resends the whole session
         return jsonify(response=out, ended=out.startswith("END"), screen=out[4:])
 
     @app.post("/simulator/api/sms")
