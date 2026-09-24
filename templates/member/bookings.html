@@ -1,0 +1,10 @@
+{% extends "app_base.html" %}{% from "partials/macros.html" import status, pager, icon with context %}
+{% block title %}{{ t('My bookings') }}{% endblock %}
+{% block app %}
+<div class="flex flex-wrap items-center justify-between gap-3"><h1 class="text-3xl font-extrabold">{{ t('My bookings') }}</h1><a class="btn btn-primary" href="{{ url_for('book') }}">{{ t('Book a slot') }}</a></div>
+<div class="mt-5 flex flex-wrap gap-2">{% for s in ('', 'pending','approved','collected','cancelled','denied','no_show') %}<a class="pick no-underline {{ 'bg-brand text-onbrand' if flt == s }}" href="{{ url_for('bookings', status=s) if s else url_for('bookings') }}">{{ t(s.replace('_',' ') if s else 'All') }}</a>{% endfor %}</div>
+<div class="glass-strong mt-5 overflow-x-auto p-2"><table class="tbl"><thead><tr><th>{{ t('Reference') }}</th><th>{{ t('Water point') }}</th><th>{{ t('When') }}</th><th>{{ t('Litres') }}</th><th>{{ t('Paid') }}</th><th>{{ t('Status') }}</th><th></th></tr></thead><tbody>
+{% for b in page.items %}<tr><td><a class="font-mono text-xs" href="{{ url_for('booking_detail', ref=b.ref) }}">{{ b.ref }}</a></td><td>{{ b.source.name }}</td><td>{{ b.date.strftime('%d/%m') }} {{ fmt_min(b.start_min) }}</td><td>{{ b.litres }}</td><td>{{ fmt_ar(b.amount) }}</td><td>{{ status(b.status) }}</td><td class="text-right">{% if b.id in paid %}<button type="button" class="btn btn-ghost btn-sm" data-receipt="{{ url_for('receipt', ref=b.ref) }}">{{ icon('receipt') }}{{ t('Receipt') }}</button>{% endif %}</td></tr>
+{% else %}<tr><td colspan="7" class="py-8 text-center text-mute">{{ t('No bookings yet.') }}</td></tr>{% endfor %}</tbody></table></div>
+{{ pager(page, 'bookings', status=flt) }}
+{% endblock %}

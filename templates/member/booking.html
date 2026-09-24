@@ -1,0 +1,17 @@
+{% extends "app_base.html" %}{% from "partials/macros.html" import status, icon with context %}
+{% block title %}{{ b.ref }}{% endblock %}
+{% block app %}
+<a class="text-sm" href="{{ url_for('bookings') if current_user.role == 'member' else url_for('coord_bookings') }}">&larr; {{ t('All bookings') }}</a>
+<div class="glass-strong mt-3 p-7">
+  <div class="flex flex-wrap items-start justify-between gap-4"><div><p class="font-mono text-sm text-mute">{{ b.ref }}</p><h1 class="text-3xl font-extrabold">{{ b.source.name }}</h1></div>{{ status(b.status) }}</div>
+  <dl class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    {% for k, v in (('Date', b.date.strftime('%A %d/%m/%Y')), ('Slot', fmt_min(b.start_min) ~ ' to ' ~ fmt_min(b.end_min)), ('Litres', b.litres ~ ' L'), ('Paid', fmt_ar(b.amount) ~ (' (-' ~ b.discount_pct ~ '%)' if b.discount_pct else ''))) %}<div><dt class="text-sm text-mute">{{ t(k) }}</dt><dd class="text-lg font-semibold">{{ v }}</dd></div>{% endfor %}
+  </dl>
+  {% if b.decision_note %}<p class="mt-5 rounded-2xl bg-ink/[.06] p-4 text-sm"><b>{{ t('Coordinator note') }}:</b> {{ b.decision_note }}</p>{% endif %}
+  <div class="mt-6 flex flex-wrap gap-2">
+    {% if debit %}<a class="btn btn-primary" href="{{ url_for('receipt', ref=b.ref) }}">{{ icon('receipt') }}{{ t('Receipt') }}</a>{% endif %}
+    {% if can_cancel and current_user.role == 'member' %}<form method="post" action="{{ url_for('booking_cancel', ref=b.ref) }}" data-confirm="{{ t('Cancel this booking and refund the money?') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost">{{ t('Cancel booking') }}</button></form>{% endif %}
+  </div>
+  {% if refund %}<p class="mt-4 text-sm text-ok">{{ t('Refunded {amount} on {ref}', amount=fmt_ar(refund.amount), ref=refund.reference) }}</p>{% endif %}
+</div>
+{% endblock %}
