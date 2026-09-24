@@ -1198,5 +1198,114 @@ class Platform(unittest.TestCase):
         self.assertIn('matchMedia("(max-width: 767px), (pointer: coarse)")', js); self.assertIn('cv.className = "gt-canvas"', js)
         self.assertIn(".gt-canvas{", (root / "static" / "css" / "input.css").read_text())
 
+    def test_103_sms_wording_phone_picker_pin_sign_in_and_admin(self):
+        from flask import url_for
+        from models import Notification
+        from web import external_url
+        root = os.path.dirname(os.path.abspath(A.__file__))
+        read = lambda p: open(os.path.join(root, p), encoding="utf-8").read()
+        # SMS: no CWAS SMS label, balances as sentences; no USSD administrator code left anywhere
+        for f in ("translations.py", "ussd.py", "services.py"):
+            self.assertNotIn("CWAS SMS", read(f)); self.assertNotIn("enroll_admin", read(f))
+        self.assertIn('"Your balance is {balance}"', read("ussd.py"))
+        # phone numbers are checked against the country picked beside them; Madagascar is first and every row has a flag
+        self.assertEqual(S.parse_phone("034 12 345 67", "MG"), "+261341234567")
+        self.assertEqual(S.parse_phone("06 12 34 56 78", "FR"), "+33612345678")
+        self.assertEqual(S.parse_phone("+261 34 12 345 67", "FR"), "+261341234567")
+        self.assertEqual(S.parse_phone("12", "MG"), "")
+        rows = S.phone_countries()
+        self.assertEqual(rows[0][:2], ["MG", 261]); self.assertGreater(len(rows), 200)
+        self.assertTrue(all(os.path.exists(os.path.join(root, "static", "flags", r[0].lower() + ".svg")) for r in rows))
+        c = self.app.test_client()
+        page = c.get("/login").get_data(as_text=True)
+        for s in ("data-phone", "data-either", "flags/mg.svg", "js/phone.js", 'name="cc" value="MG"', "USSD PIN"):
+            self.assertIn(s, page)
+        page = c.get("/register").get_data(as_text=True)
+        self.assertIn('autocomplete="tel-national"', page); self.assertIn('placeholder="03', page)
+        # someone registered by USSD signs in once with the PIN, sets a password without a current one, then uses it
+        with self.app.app_context():
+            u = User(role="member", name="Pin Only", phone="+261349990011", language="en", pin_hash=generate_password_hash("4826"), is_active_flag=True)
+            db.session.add(u); db.session.flush(); db.session.add(Household(user_id=u.id, name="Pin Only", village="Ampotaka")); db.session.commit()
+        with self.app.test_request_context():
+            change = url_for("change_password")
+        c = self.app.test_client()
+        r = post(c, "/login", {"identifier": "034 99 900 11", "cc": "MG", "password": "4826"})
+        self.assertEqual(r.status_code, 302); self.assertTrue(r.headers["Location"].endswith(change))
+        page = c.get(change).get_data(as_text=True)
+        self.assertNotIn('name="current"', page); self.assertIn("Your USSD PIN stays the same.", page)
+        self.assertEqual(post(c, change, {"password": "River Pump #2026", "confirm": "River Pump #2026"}).status_code, 302)
+        login("+261349990011", "River Pump #2026")
+        self.assertEqual(post(self.app.test_client(), "/login", {"identifier": "+261349990011", "password": "4826"}).status_code, 200)
+        # an administrator: no USSD code in settings, an email (required) and no phone on the profile, users made in a dialog
+        with self.app.app_context():
+            db.session.add(User(role="admin", name="Round Admin", email="round-admin@cwas.test", password_hash=generate_password_hash("Round Admin #2026"), is_active_flag=True))
+            m = User(role="member", name="Role Change", phone="+261349990022", password_hash=generate_password_hash("Role Change #2026"), is_active_flag=True)
+            db.session.add(m); db.session.flush(); db.session.add(Household(user_id=m.id, name="Role Change", village="Ampotaka"))
+            S.event(m, "Welcome {name}! Account created. Dial {dial} to book a slot.", "system", name="Role", dial=S.DIAL); db.session.commit(); mid = m.id
+        ac = login("round-admin@cwas.test", "Round Admin #2026")
+        page = ac.get("/admin/settings").get_data(as_text=True)
+        self.assertNotIn("enroll_admin", page); self.assertIn("enroll_coord", page)
+        with self.app.test_request_context():
+            prof = url_for("profile")
+        page = ac.get(prof).get_data(as_text=True)
+        self.assertNotIn("Email (optional)", page); self.assertNotIn('value="" disabled>', page)
+        page = ac.get("/admin/users").get_data(as_text=True)
+        for s in ('popovertarget="user-new"', 'id="user-new" popover', "data-village", "user-form"):
+            self.assertIn(s, page)
+        # a role change clears the member welcome and says what the account is now
+        self.assertEqual(post(ac, f"/admin/users/{mid}/role", {"role": "coordinator"}).status_code, 302)
+        with self.app.app_context():
+            keys = [n.key for n in Notification.query.filter_by(user_id=mid)]
+        self.assertFalse(any(k.startswith("Welcome {name}! Account created.") for k in keys))
+        self.assertIn("Your account is now a coordinator account.", keys)
+        # links sent by SMS or email are https in production; a session lasts 30 days of use
+        with self.app.test_request_context("/", base_url="http://cwas.example.org"):
+            prod = self.app.config["IS_PROD"]; self.app.config["IS_PROD"] = True
+            try:
+                self.assertTrue(external_url("reset_password", token="abc").startswith("https://cwas.example.org/"))
+            finally:
+                self.app.config["IS_PROD"] = prod
+        self.assertEqual(self.app.config["PERMANENT_SESSION_LIFETIME"].days, 30)
+        # the four figures count up, active states are green in Default, cards are glass, the footer languages share a line
+        self.assertEqual(self.app.test_client().get("/").get_data(as_text=True).count("data-count>"), 4)
+        self.assertIn('e.hasAttribute("data-count")', read("static/js/fx.js"))
+        self.assertIn("resolvedOptions().timeZone", read("static/js/sim.js"))
+        css = read("static/css/input.css")
+        for s in ("--active:0 126 58", ".field:focus{outline:none;border-color:rgb(var(--active,var(--hot)))", "polish 11: pure liquid glass",
+                  ".user-form:has(select[name=role] option[value=member]:checked) [data-village]{display:block}", ".foot-bar :has(> .foot-lang){flex-wrap:nowrap"):
+            self.assertIn(s, css)
+        self.assertIn(".cc-panel", read("static/css/app.css"))
+        # the deck is drawn at full size, the Default hero drop is red, the README walks through every setup step
+        self.assertIn(".dk-card{--dk:3;", css); self.assertIn('html[data-theme="saina"] .tframe{background:#FC3D32}', css)
+        readme = read("README.md")
+        for s in ("git clone https://github.com/banituze/cwas-platform.git", "python3 -m venv .venv", ".venv\\Scripts\\Activate.ps1", "python3 -m unittest tests.test_platform", "${{Postgres.DATABASE_URL}}"):
+            self.assertIn(s, readme)
+
+    def test_104_install_card_theme_icons_and_lab_typing(self):
+        root = os.path.dirname(os.path.abspath(A.__file__))
+        read = lambda p: open(os.path.join(root, p), encoding="utf-8").read()
+        c = self.app.test_client()
+        page = c.get("/").get_data(as_text=True)
+        for s in ("data-install", "js/install.js", "/manifest.webmanifest?theme=saina", 'data-brand="manifest"'):
+            self.assertIn(s, page)
+        for th, colour in (("saina", "#FFFFFF"), ("fotsy", "#FFFFFF"), ("maitso", "#007E3A"), ("mena", "#D42A20")):
+            m = c.get(f"/manifest.webmanifest?theme={th}").get_json()
+            self.assertEqual((m["id"], m["theme_color"]), ("/app", colour))
+            for icon in m["icons"]:
+                self.assertTrue(icon["src"].startswith(f"/static/icons/{th}/"))
+                self.assertTrue(os.path.exists(os.path.join(root, icon["src"].lstrip("/"))))
+            self.assertTrue(os.path.exists(os.path.join(root, "static", "icons", th, "apple-touch-icon.png")))
+        self.assertTrue(c.get("/manifest.webmanifest?theme=nope").get_json()["icons"][0]["src"].startswith("/static/icons/saina/"))
+        self.assertIn('set("manifest", `/manifest.webmanifest?theme=${th}`)', read("static/js/app.js"))
+        js = read("static/js/install.js")
+        for s in ("beforeinstallprompt", "appinstalled", "cwas-install-dismissed", "display-mode: standalone", "cwas:theme"):
+            self.assertIn(s, js)
+        css = read("static/css/input.css")
+        for s in (".install-card{position:fixed", "@media print{.install-card{display:none!important}}", ".lab{touch-action:manipulation}",
+                  ".lab :is(.stage,.os-view) :is(input,textarea,select){font-size:max(16px,1em)}", ".stage.is-typing{position:fixed"):
+            self.assertIn(s, css)
+        sim = read("static/js/sim.js")
+        self.assertIn('stage.classList.add("is-typing")', sim); self.assertIn("visualViewport", sim)
+
 if __name__ == "__main__":
     unittest.main()
