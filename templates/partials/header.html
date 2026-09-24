@@ -1,0 +1,79 @@
+{% from "partials/macros.html" import icon, flag, logo, logo_tile with context %}
+{% set in_app = current_user.is_authenticated and request.path.startswith(('/app','/coord','/admin','/account')) %}
+<header class="hdr">
+<div class="hdr-bar glass-pill">
+  <a href="{{ url_for('index') }}" class="flex items-center gap-2.5 no-underline" aria-label="CWAS">{{ logo_tile(36) }}<span class="brand-word font-display text-lg font-extrabold tracking-tight">CWAS</span></a>
+  {% if not in_app %}
+  <nav class="ml-3 hidden items-center gap-0.5 lg:flex" aria-label="{{ t('Main') }}">
+    {% set ep = request.endpoint %}
+    <div class="nav-item{{ ' is-active' if ep == 'platform' }}" data-menu><a class="pr-1.5" href="{{ url_for('platform') }}"{% if ep == 'platform' %} aria-current="page"{% endif %}>{{ t('Platform') }}</a><button type="button" class="nav-caret" data-menu-btn aria-expanded="false" aria-controls="nav-platform" aria-label="{{ t('Menu') }}: {{ t('Platform') }}">{{ icon('chev') }}</button>
+      <div class="nav-panel glass-strong" id="nav-platform">
+        <a href="{{ url_for('platform') }}#booking"><span class="ico">{{ icon('calendar') }}</span><span><b class="block text-sm">{{ t('Book and pay') }}</b><span class="text-xs text-mute">{{ t('Slots, wallet and receipts in under two minutes') }}</span></span></a>
+        <a href="{{ url_for('platform') }}#approvals"><span class="ico">{{ icon('check') }}</span><span><b class="block text-sm">{{ t('Approvals and sources') }}</b><span class="text-xs text-mute">{{ t('Coordinators decide with the facts in front of them') }}</span></span></a>
+        <a href="{{ url_for('platform') }}#ai"><span class="ico">{{ icon('spark') }}</span><span><b class="block text-sm">{{ t('Explainable AI') }}</b><span class="text-xs text-mute">{{ t('Fair priority, forecasts and anomaly checks') }}</span></span></a>
+      </div></div>
+    <div class="nav-item{{ ' is-active' if ep in ('access', 'simulator') }}" data-menu><a class="pr-1.5" href="{{ url_for('access') }}"{% if ep == 'access' %} aria-current="page"{% endif %}>{{ t('Access') }}</a><button type="button" class="nav-caret" data-menu-btn aria-expanded="false" aria-controls="nav-access" aria-label="{{ t('Menu') }}: {{ t('Access') }}">{{ icon('chev') }}</button>
+      <div class="nav-panel glass-strong" id="nav-access">
+        <a href="{{ url_for('access') }}#ussd"><span class="ico">{{ icon('phone') }}</span><span><b class="block text-sm">USSD {{ USSD_CODE }}</b><span class="text-xs text-mute">{{ t('Every feature on any feature phone') }}</span></span></a>
+        <a href="{{ url_for('access') }}#sms"><span class="ico">{{ icon('message') }}</span><span><b class="block text-sm">SMS {{ SMS_CODE }}</b><span class="text-xs text-mute">{{ t('Check balance, bookings and notices') }}</span></span></a>
+        <a href="{{ url_for('simulator') }}"><span class="ico">{{ icon('play') }}</span><span><b class="block text-sm">{{ t('Try the simulator') }}</b><span class="text-xs text-mute">{{ t('Dial the service from your browser') }}</span></span></a>
+      </div></div>
+    <div class="nav-item{{ ' is-active' if ep == 'water_points' }}"><a href="{{ url_for('water_points') }}"{% if ep == 'water_points' %} aria-current="page"{% endif %}>{{ t('Water points') }}</a></div>
+    <div class="nav-item{{ ' is-active' if ep == 'about' }}"><a href="{{ url_for('about') }}"{% if ep == 'about' %} aria-current="page"{% endif %}>{{ t('About') }}</a></div>
+  </nav>
+  {% else %}
+  <span class="ml-3 hidden text-sm font-semibold text-mute md:inline">{{ t({'member':'Household','coordinator':'Coordinator','admin':'Administrator'}[current_user.role]) }}</span>
+  {% endif %}
+  <div class="ml-auto flex items-center gap-1.5">
+    {% if current_user.is_authenticated %}
+    <a class="btn-icon relative" href="{{ url_for('notifications') }}" data-tip="{{ t('Notifications') }}" aria-label="{{ t('Notifications') }}">{{ icon('bell') }}{% set n = unread() %}<span data-badge class="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-hot px-1 text-[10px] font-bold text-onbrand" {{ 'hidden' if not n }}>{{ n }}</span></a>
+    {% endif %}
+    <button type="button" class="btn-icon snd" data-sound-toggle data-tip="{{ t('Sounds') }}" aria-label="{{ t('Sounds') }}" aria-pressed="true"><span class="on">{{ icon('volume') }}</span><span class="off">{{ icon('volume-off') }}</span></button>
+    <div class="menu" data-menu>
+      <button type="button" class="btn-icon" data-menu-btn data-tip="{{ t('Language') }}" aria-label="{{ t('Language') }}" aria-expanded="false">{{ flag(lang) }}</button>
+      <form method="post" action="{{ url_for('set_language') }}" class="nav-panel glass-strong">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+        {% for code, l in LANGS.items() %}<button name="code" value="{{ code }}" class="flex w-full items-center gap-3 rounded-2xl p-3 text-left text-sm font-semibold hover:bg-ink/10" {{ 'aria-current=true' if code == lang }}>{{ flag(code) }}{{ l.name }}{% if code == lang %}<span class="ml-auto">{{ icon('check') }}</span>{% endif %}</button>{% endfor %}
+      </form>
+    </div>
+    <div class="menu" data-menu>
+      <button type="button" class="btn-icon" data-menu-btn data-tip="{{ t('Theme') }}" aria-label="{{ t('Theme') }}" aria-expanded="false">{{ icon('palette') }}</button>
+      <div class="nav-panel glass-strong">
+        {% for key, th in THEMES.items() %}<button type="button" data-theme-set="{{ key }}" class="flex w-full items-center gap-3 rounded-2xl p-3 text-left text-sm font-semibold hover:bg-ink/10" aria-pressed="{{ 'true' if key == theme else 'false' }}"><span class="swatch" style="--a:{{ th.f1 }};--b:{{ th.f2 }};--c:{{ th.f3 }}"><i><b style="background:{{ th.f1 }}"></b><b style="background:{{ th.f2 }}"></b><b style="background:{{ th.f3 }}"></b></i></span>{{ t(th.label) }}<span class="tick ml-auto" aria-hidden="true">{{ icon('check') }}</span></button>{% endfor %}
+      </div>
+    </div>
+    {% if current_user.is_authenticated %}
+      <div class="menu" data-menu>
+        <button type="button" class="btn-icon" data-menu-btn data-tip="{{ current_user.name }}" aria-label="{{ t('Account') }}" aria-expanded="false">{{ icon('user') }}</button>
+        <div class="nav-panel glass-strong">
+          <a href="{{ home_url }}" class="!p-3"><span class="ico">{{ icon('home') }}</span><span class="text-sm font-semibold">{{ t('Open app') }}</span></a>
+          <a href="{{ url_for('profile') }}" class="!p-3"><span class="ico">{{ icon('user') }}</span><span class="text-sm font-semibold">{{ t('Profile') }}</span></a>
+          <a href="{{ url_for('security') }}" class="!p-3"><span class="ico">{{ icon('lock') }}</span><span class="text-sm font-semibold">{{ t('Security') }}</span></a>
+          <form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="flex w-full items-center gap-3 rounded-2xl !p-3 text-left hover:bg-ink/10"><span class="ico flex h-9 w-9 items-center justify-center rounded-full bg-ink/10">{{ icon('logout') }}</span><span class="text-sm font-semibold">{{ t('Log out') }}</span></button></form>
+        </div>
+      </div>
+      {% if not in_app %}<a class="btn btn-primary hidden sm:inline-flex" href="{{ home_url }}">{{ t('Open app') }}</a>{% endif %}
+    {% else %}
+      <a class="btn btn-ghost hidden sm:inline-flex" href="{{ url_for('login') }}">{{ t('Log in') }}</a>
+      <a class="btn btn-primary hidden sm:inline-flex" href="{{ url_for('register') }}">{{ t('Get started') }}</a>
+    {% endif %}
+    {% if not in_app %}<button type="button" class="btn-icon lg:hidden" data-sheet-open aria-label="{{ t('Menu') }}">{{ icon('menu') }}</button>{% endif %}
+  </div>
+</div>
+</header>
+{% if not in_app %}
+<div class="sheet glass-strong !rounded-none" data-sheet hidden>
+  <button type="button" class="btn-icon fixed right-5 top-5" data-sheet-close aria-label="{{ t('Close') }}">{{ icon('x') }}</button>
+  <nav class="flex flex-col gap-1 font-display text-3xl font-bold" aria-label="{{ t('Main') }}">
+    {% set groups = (('Platform', 'platform', (('platform', '#booking', 'calendar', t('Book and pay')), ('platform', '#approvals', 'check', t('Approvals and sources')), ('platform', '#ai', 'spark', t('Explainable AI')))),
+                     ('Access', 'access', (('access', '#ussd', 'phone', 'USSD ' ~ USSD_CODE), ('access', '#sms', 'message', 'SMS ' ~ SMS_CODE), ('simulator', '', 'play', t('Try the simulator')))),
+                     ('Water points', 'water_points', ()), ('About', 'about', ())) %}
+    {% for label, ep, kids in groups %}<div class="sheet-row"{% if kids %} data-menu{% endif %}>
+      <a class="rounded-2xl px-3 py-3 no-underline hover:bg-ink/10" href="{{ url_for(ep) }}"{% if request.endpoint == ep %} aria-current="page"{% endif %}>{{ t(label) }}</a>
+      {% if kids %}<button type="button" class="sheet-caret" data-menu-btn aria-expanded="false" aria-controls="sheet-{{ ep }}" aria-label="{{ t('Menu') }}: {{ t(label) }}">{{ icon('chev') }}</button>
+      <div class="sheet-sub font-sans text-base font-semibold" id="sheet-{{ ep }}">{% for kep, frag, ico, kl in kids %}<a href="{{ url_for(kep) }}{{ frag }}"><span class="ico">{{ icon(ico) }}</span>{{ kl }}</a>{% endfor %}</div>{% endif %}
+    </div>{% endfor %}
+  </nav>
+  <div class="mt-6 flex gap-2">{% if current_user.is_authenticated %}<a class="btn btn-primary" href="{{ home_url }}">{{ t('Open app') }}</a>{% else %}<a class="btn btn-ghost" href="{{ url_for('login') }}">{{ t('Log in') }}</a><a class="btn btn-primary" href="{{ url_for('register') }}">{{ t('Get started') }}</a>{% endif %}</div>
+</div>
+{% endif %}

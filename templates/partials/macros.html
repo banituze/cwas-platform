@@ -1,0 +1,35 @@
+{% macro icon(name, cls="") %}<svg class="icon {{ cls }}" aria-hidden="true"><use href="#i-{{ name }}"/></svg>{% endmacro %}
+{% macro flag(code, cls="") %}<svg class="flag {{ cls }}" viewBox="0 0 32 32" aria-hidden="true"><use href="#flag-{{ code }}"/></svg>{% endmacro %}
+{% macro logo_tile(size=36) %}<span class="logo-tile" style="width:{{ size }}px;height:{{ size }}px"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#logo"/></svg></span>{% endmacro %}
+{% macro logo(size=36) %}<svg width="{{ size }}" height="{{ size }}" viewBox="0 0 48 48" aria-hidden="true"><use href="#logo"/></svg>{% endmacro %}
+{% macro status(s) %}{% set cls = {'approved':'chip-ok','collected':'chip-ok','operational':'chip-ok','posted':'chip-ok','pending':'','denied':'chip-hot','cancelled':'chip-mute','no_show':'chip-hot','maintenance':'chip-hot','closed':'chip-hot','failed':'chip-hot'}.get(s,'') %}<span class="chip {{ cls }}"><span class="dot"></span>{{ t(s.replace('_',' ')) }}</span>{% endmacro %}
+{% macro field(name, label, value="", type="text", required=False, hint="", attrs="", autocomplete="off") %}
+<div><label class="label" for="f-{{ name }}">{{ t(label) }}</label>
+<input class="field" id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}" autocomplete="{{ autocomplete }}" {{ 'required' if required }} {{ attrs|safe }}>
+{% if hint %}<p class="hint">{{ t(hint) }}</p>{% endif %}</div>
+{% endmacro %}
+{% macro bars(items, height=120, unit="") %}
+{% set top = (items|map(attribute=1)|max) if items else 0 %}{% set wide = items|length > 12 %}
+{# a long series scrolls inside its card; the padding keeps room for the tooltips drawn above the columns #}
+{% if wide %}<div class="-mx-2 -mt-11 overflow-x-auto px-2 pt-11">{% endif %}<div class="flex {{ 'w-max min-w-full ' if wide }}items-end gap-2" style="height:{{ height }}px" role="img" aria-label="chart" data-bars>
+{% for label, v in items %}
+<div class="flex h-full flex-1 flex-col items-center justify-end gap-1" data-tip="{{ v }}{{ unit }}" data-tip-up>
+<div class="bar-grow w-full rounded-t-2xl bg-brand/90" style="--i:{{ loop.index0 }};height:{{ ((v / top) * 100) if top else 0 }}%;min-height:{{ 4 if v else 0 }}px"></div>
+<span class="text-[11px] text-mute">{{ label }}</span></div>
+{% endfor %}</div>{% if wide %}</div>{% endif %}
+{% endmacro %}
+{% macro pager(page, endpoint) %}
+{% if page.pages > 1 %}<nav class="mt-5 flex items-center justify-center gap-2" aria-label="pages">
+{% if page.has_prev %}<a class="btn btn-ghost btn-sm" href="{{ url_for(endpoint, page=page.prev_num, **kwargs) }}">{{ t('Previous') }}</a>{% endif %}
+<span class="text-sm text-mute">{{ page.page }} / {{ page.pages }}</span>
+{% if page.has_next %}<a class="btn btn-ghost btn-sm" href="{{ url_for(endpoint, page=page.next_num, **kwargs) }}">{{ t('Next') }}</a>{% endif %}</nav>{% endif %}
+{% endmacro %}
+{% macro barcode(ref) %}<div class="rc-bars">{{ code128(ref) }}</div>{% endmacro %}
+
+{% macro printer(auto=False) %}
+<div class="printer" data-printer {{ 'data-autoprint' if auto }} data-state="idle" data-l-ready="{{ t('READY') }}" data-l-print="{{ t('PRINTING') }}" data-l-tear="{{ t('TEAR OFF') }}" data-l-torn="{{ t('TORN') }}">
+  <div class="p-body"><div class="p-top"><span class="p-brand">WINEBALD</span><span class="p-lcd" data-lcd>{{ t('READY') }}</span><span class="p-led"></span></div><div class="p-keys"><i></i><i></i><i></i></div><div class="p-slot"></div></div>
+  <div class="p-foot"></div>
+  <div class="paper-window"><div class="paper">{{ caller() }}</div></div>
+</div>
+{% endmacro %}

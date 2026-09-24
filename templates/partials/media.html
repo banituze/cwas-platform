@@ -1,0 +1,30 @@
+{# Madagascar media shipped with the app. Photos live in static/img/photos in several widths and the browser picks
+   one (srcset). Sources and licences: docs/ASSET_CREDITS.md. Only pictures about water, its collection and its upkeep. #}
+{% set PHOTOS = {
+ 'borehole-windmill': ('A wind pump over a borehole at dusk.', 960, 540, 960, [480, 960, 1600]),
+ 'pour-bucket': ('Water is poured into a bucket at a well.', 960, 540, 960, [480, 960, 1600]),
+ 'catchment-build': ('Neighbours dig a water catchment together.', 960, 540, 960, [480, 960, 1600]),
+ 'jerrycan-bw': ("A boy fills a jerrycan at the water's edge.", 960, 614, 960, [480, 960, 1600]),
+ 'spiny-baobabs': ('Baobabs in the spiny forest of southern Madagascar.', 960, 626, 960, [480, 960, 1600, 2400]),
+ 'school-well': ('A covered well beside a village building.', 960, 1280, 960, [480, 960, 1600]),
+ 'borehole-tower': ('A water tower with jerrycans waiting below.', 960, 1280, 960, [480, 960, 1600]),
+ 'pump-workshop': ('A pump mechanic in his workshop.', 960, 1280, 960, [480, 960, 1600]),
+ 'zebu-pond': ('Zebu drinking at a pond.', 960, 540, 960, [480, 960, 1600, 2400]),
+ 'porteuses': ('Women carrying water jars, in an old photograph.', 923, 864, 960, [480, 960]),
+ 'lamba-portrait': ('A young woman in a lamba walks home from the water.', 960, 1320, 960, [480, 960, 1600]),
+ 'pump-repair': ('Hands repairing a hand pump.', 960, 1707, 960, [480, 960, 1600]),
+ 'catchment-full': ('People collect water at a full catchment.', 960, 540, 960, [480, 960, 1600, 2400]),
+} %}
+{# Films. Toliara is shipped with the app. The two water clips come from Pexels (free licence) and are streamed from
+   Pexels: they show a local poster first, and that poster stays if the clip cannot load, so a page is never blank. #}
+{% set VIDEOS = {
+ 'toliara': ('media/toliara-sd.mp4', 'media/toliara-hd.mp4', 'media/toliara-poster.webp', 'Toliara seen from space, from 1984 to today.'),
+ 'well': ('https://videos.pexels.com/video-files/27247532/12102165_1920_1080_24fps.mp4', None, 'img/photos/catchment-full-1600.webp', 'People collect clean water in jerrycans.'),
+} %}
+
+{% macro photo(key, cls='', sizes='100vw', priority='auto') %}{% set m = PHOTOS[key] %}<img class="{{ cls }}" src="{{ url_for('static', filename='img/photos/' ~ key ~ '-' ~ m[3] ~ '.webp') }}" srcset="{% for w in m[4] %}{{ url_for('static', filename='img/photos/' ~ key ~ '-' ~ w ~ '.webp') }} {{ w }}w{{ ', ' if not loop.last }}{% endfor %}" sizes="{{ sizes }}" alt="{{ t(m[0]) }}" width="{{ m[1] }}" height="{{ m[2] }}" decoding="async" fetchpriority="{{ priority }}">{% endmacro %}
+
+{# A film at the top of a page (eager) loads at once. One further down shows its poster straight away and starts loading as it
+   nears the view (static/js/app.js), choosing the HD file only on wide screens and never when the visitor saves data. #}
+{% macro video(key, eager=False) %}{% set m = VIDEOS[key] %}{% set src = m[0] if m[0].startswith('http') else url_for('static', filename=m[0]) %}<video class="vid" autoplay muted loop playsinline preload="{{ 'auto' if eager else 'none' }}" poster="{{ url_for('static', filename=m[2]) }}" {{ 'src' if eager else 'data-src' }}="{{ src }}"{% if m[1] %} data-hd="{{ url_for('static', filename=m[1]) }}"{% endif %} aria-label="{{ t(m[3]) }}"></video>{% endmacro %}
+

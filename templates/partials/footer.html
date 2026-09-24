@@ -1,0 +1,65 @@
+{% from "partials/macros.html" import icon, flag, logo_tile with context %}{% from "partials/media.html" import photo with context %}
+{# Site footer: the call to action, pilot news and a liquid-glass card over a full-bleed photograph of the south. #}
+<footer class="site-foot media-dark relative isolate mt-16 overflow-hidden text-white">
+  {{ photo('spiny-baobabs', 'foot-photo', '100vw', 'low') }}<div class="foot-scrim" aria-hidden="true"></div>
+  <div class="relative mx-auto max-w-page px-4 pb-28 pt-24 md:pt-32 lg:pb-12">
+    <div class="foot-top mx-auto max-w-3xl text-center">
+      <h2 class="foot-dialh font-display font-extrabold leading-[.92] tracking-tight" style="font-size:clamp(52px,8.6vw,128px)">{{ t('Dial') }}<br><a class="foot-code" href="tel:{{ USSD_CODE|replace('#', '%23') }}">{{ USSD_CODE }}</a></h2>
+      <p class="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-white/85">{{ t('Or register on the web in two minutes. Your household, your wallet, your time at the water point.') }}</p>
+      <div class="mt-8 flex flex-wrap justify-center gap-3">
+        {% if current_user.is_authenticated %}<a class="btn foot-cta !px-6 !py-3.5 !text-base" href="{{ home_url }}">{{ icon('home') }}{{ t('Open my dashboard') }}</a>
+        {% else %}<a class="btn foot-cta !px-6 !py-3.5 !text-base" href="{{ url_for('register') }}">{{ icon('user') }}{{ t('Register your household') }}</a>
+        <a class="btn btn-ghost !px-6 !py-3.5 !text-base" href="{{ url_for('login') }}">{{ t('Log in') }}</a>{% endif %}
+      </div>
+      <p class="mt-10 font-mono text-[11px] font-semibold uppercase tracking-[.22em] text-white/80">{{ t('Follow the pilot') }}</p>
+      <form method="post" action="{{ url_for('pilot_follow') }}" class="follow mt-3"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+        <label class="sr-only" for="follow-email">{{ t('Your email for pilot news') }}</label>
+        <input id="follow-email" type="email" name="email" required autocomplete="email" placeholder="{{ t('Your email for pilot news') }}">
+        <button type="submit" aria-label="{{ t('Follow') }}">{{ icon('arrow') }}</button></form>
+      <p class="mt-3 text-sm text-white/75">{{ t('A short note when the pilot reaches a milestone. Nothing else.') }}</p>
+    </div>
+
+    <div class="glass foot-card mt-20 p-7 md:mt-28 md:p-12">
+      <div class="grid gap-10 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
+        <div class="sm:col-span-2 lg:col-span-1">
+          <a class="inline-flex items-center gap-3 text-white no-underline" href="{{ url_for('index') }}">{{ logo_tile(48) }}<span class="font-display text-3xl font-extrabold">CWAS</span></a>
+          <p class="foot-text mt-4 max-w-md">{{ t('CWAS gives every household in Ampotaka a fair, recorded time to collect water, on a smartphone, a basic phone or through a coordinator.') }}</p>
+          <div class="foot-chips">
+            <a class="foot-chip" href="tel:{{ USSD_CODE|replace('#', '%23') }}">{{ icon('phone') }}<span>{{ USSD_CODE }}</span></a>
+            <a class="foot-chip" href="sms:{{ SMS_CODE }}">{{ icon('message') }}<span>SMS {{ SMS_CODE }}</span></a></div>
+          <div class="mt-5 flex items-center gap-3">
+            <img src="{{ url_for('static', filename='img/providers/orange-money.webp') }}" alt="Orange Money" width="40" height="40" class="h-10 w-10 rounded-full object-cover" decoding="async">
+            <img src="{{ url_for('static', filename='img/providers/airtel-money.webp') }}" alt="Airtel Money" width="40" height="40" class="h-10 w-10 rounded-full object-cover" decoding="async">
+          </div>
+        </div>
+        <nav aria-label="{{ t('Platform') }}"><h3 class="foot-h">{{ t('Platform') }}</h3>
+          <ul class="foot-links">
+            <li><a href="{{ url_for('platform') }}">{{ t('Features') }}</a></li>
+            <li><a href="{{ url_for('water_points') }}">{{ t('Water points') }}</a></li>
+            <li><a href="{{ url_for('simulator') }}">{{ t('Try the simulator') }}</a></li></ul></nav>
+        <nav aria-label="{{ t('Access') }}"><h3 class="foot-h">{{ t('Access') }}</h3>
+          <ul class="foot-links">
+            <li><a href="{{ url_for('access') }}#ussd">USSD</a></li>
+            <li><a href="{{ url_for('access') }}#sms">SMS</a></li>
+            <li><a href="{{ url_for('login') }}">{{ t('Log in') }}</a></li>
+            <li><a href="{{ url_for('register') }}">{{ t('Get started') }}</a></li></ul></nav>
+        <nav aria-label="{{ t('About') }}"><h3 class="foot-h">{{ t('About') }}</h3>
+          <ul class="foot-links">
+            <li><a href="{{ url_for('about') }}">{{ t('Our story') }}</a></li>
+            <li><a href="{{ url_for('simulator') }}">{{ t('Device lab') }}</a></li></ul></nav>
+        <nav aria-label="{{ t('Legal') }}"><h3 class="foot-h">{{ t('Legal') }}</h3>
+          <ul class="foot-links">
+            <li><a href="{{ url_for('legal', doc='terms') }}">{{ t('Terms of Service') }}</a></li>
+            <li><a href="{{ url_for('legal', doc='privacy') }}">{{ t('Privacy Policy') }}</a></li>
+            <li><a href="{{ url_for('legal', doc='refunds') }}">{{ t('Refund Policy') }}</a></li></ul></nav>
+      </div>
+      {% include "partials/seals.html" %}
+      <p class="foot-big" data-liquid aria-hidden="true">CWAS</p>
+      <div class="foot-bar">
+        <span class="foot-copy">&copy; 2026 Winebald Technologies. {{ t('All rights reserved.') }}</span>
+        <form method="post" action="{{ url_for('set_language') }}" class="flex flex-wrap items-center gap-1"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+          {% for code, l in LANGS.items() %}<button name="code" value="{{ code }}" class="foot-lang" aria-pressed="{{ 'true' if code == lang else 'false' }}">{{ flag(code) }}{{ l.name }}</button>{% endfor %}</form>
+      </div>
+    </div>
+  </div>
+</footer>
