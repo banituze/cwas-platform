@@ -550,11 +550,7 @@ def cancel_flow(ctx, user, h):
 
 
 def balance_flow(ctx, user, h):
-    last = WalletTxn.query.filter_by(household_id=h.id, status="posted").order_by(WalletTxn.id.desc()).first()
-    lines = [ctx.L("Your balance is {balance}", balance=M(h.balance))]
-    if last:
-        lines.append(f"{'+' if last.amount > 0 else ''}{M(last.amount)} {ctx.L(last.kind.replace('_', ' '))}")
-    yield from info(ctx, *lines)
+    yield from info(ctx, ctx.L("Your balance is {balance}", balance=M(h.balance)))
     return None
 
 
@@ -1155,8 +1151,7 @@ def handle_sms(phone, text):
             reply = (L("BAL, SOURCES, BOOKINGS, BOOKING <ref>, CANCEL <ref>, DEPOSIT <amount>, BOOK <n> <day> <HH:MM> <litres>, RECEIPT <ref>, NOTICES, PROFILE, PIN HELP, LANG MG/FR/EN. Menu: dial {dial}.", dial=DIAL)
                      if not staff else L("PENDING, APPROVE <ref>, DENY <ref>, COLLECT <ref>, REG MEMBER Name|Phone|Village|Size|LANG|PIN, SOURCES, LANG MG/FR/EN."))
         elif cmd in ("BAL", "BALANCE", "WALLET") and h:
-            last = WalletTxn.query.filter_by(household_id=h.id, status="posted").order_by(WalletTxn.id.desc()).first()
-            reply = L("Your balance is {balance}", balance=M(h.balance)) + (f" ({'+' if last.amount > 0 else ''}{M(last.amount)})" if last else "")
+            reply = L("Your balance is {balance}", balance=M(h.balance))
         elif cmd == "SOURCES":
             reply = "; ".join(f"{i}. {short(s.name, 20)} [{_STATE.get(s.status, '?')}] {S.fmt_min(s.open_min)}-{S.fmt_min(s.close_min)}"
                               for i, s in enumerate(WaterSource.query.order_by(WaterSource.name).all(), 1))
@@ -1291,13 +1286,13 @@ def demo_script(lang):
         hhmm = S.fmt_min(t["start_min"])
         ref2 = "CW-7K3M9Q21"
         amt2 = S.price_quote(home, sms_src, litres)[0]
-        script["max"] = [["type", "BAL"], ["in", L("Your balance is {balance}", balance=M(balance)) + f" (+{M(deposit)})"],
+        script["max"] = [["type", "BAL"], ["in", L("Your balance is {balance}", balance=M(balance))],
                          ["type", f"BOOK {n} TOMORROW {hhmm} {litres}"],
                          ["in", L("Booked {ref}: {source} {date} {time}, {litres} L, {amount}. Status: pending approval.", ref=ref2, source=sms_src.name,
                                   date=f"{days[1]:%Y-%m-%d}", time=hhmm, litres=litres, amount=M(amt2))],
                          ["wait", 1600],
                          ["in", tt("Booking {ref} is approved: {source}, {date} {time}.", lang, ref=ref2, source=sms_src.name, date=f"{days[1]:%Y-%m-%d}", time=hhmm)]]
     else:
-        script["max"] = [["type", "BAL"], ["in", L("Your balance is {balance}", balance=M(balance)) + f" (+{M(deposit)})"]]
+        script["max"] = [["type", "BAL"], ["in", L("Your balance is {balance}", balance=M(balance))]]
     script["nova"] = nova
     return script
