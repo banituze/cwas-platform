@@ -881,3 +881,53 @@ body{background-image:radial-gradient(70vw 60vh at 8% 0%,var(--amb1),transparent
   .os-view input::placeholder,.ussd-card input::placeholder,.os-view textarea::placeholder{color:rgba(0,0,0,.45)}
   .os-view.dark input::placeholder,.os-view.dark textarea::placeholder{color:rgba(255,255,255,.5)}
 }
+
+/* ── polish 6: black buttons in white mode, footer tile and dial colour, clearer phones ── */
+:root,[data-theme="fotsy"]{--paper:#FFFFFF;--paper-ink:#141414;--paper-mute:#737373;--paper-rule:#C4C4BC;--stamp-ink:#FFFFFF}
+[data-theme="maitso"]{--paper:#007E3A;--paper-ink:#FFFFFF;--paper-mute:rgba(255,255,255,.74);--paper-rule:rgba(255,255,255,.45);--rc:#FFFFFF;--rc-arc:#FC3D32;--stamp:#FFFFFF;--stamp-ink:#007E3A;--bc:#FFFFFF}
+[data-theme="mena"]{--paper:#D42A20;--paper-ink:#FFFFFF;--paper-mute:rgba(255,255,255,.76);--paper-rule:rgba(255,255,255,.45);--rc:#FFFFFF;--rc-arc:#7CF0A8;--stamp:#FFFFFF;--stamp-ink:#C42B21;--bc:#FFFFFF}
+:root,[data-theme="fotsy"]{--accent2:#007E3A}[data-theme="maitso"]{--accent2:#FC3D32}[data-theme="mena"]{--accent2:#34C46F}
+@layer components{
+  /* the supplied black barcode figure on the white theme's receipt; the themed figure elsewhere */
+  .rc-art .bc-art.bc-bw{display:none}
+  [data-theme=fotsy] .rc-art .bc-art.bc-bw{display:block}
+  [data-theme=fotsy] .rc-art .bc-art:not(.bc-bw){display:none}
+  /* footer: "Dial *384*9411#" in the theme's colour */
+  .foot-dialh,.foot-dialh .foot-code{color:var(--big)}
+  /* registration: the name field appears when the water point is Other */
+  .other-src{display:none}
+  form:has(select[name=home_source] option[value=other]:checked) .other-src{display:block}
+  /* phones: the CWAS icon is the theme's tile, and inside a light app the status bar turns dark */
+  .cw-ico{background:var(--tile)!important;border:1px solid var(--tile-line);--logo-ring:var(--tile-ring);--logo-drop:var(--tile-drop);--logo-arc:var(--tile-arc)}
+  .os.in-app .os-status{color:#111}
+}
+@layer components{.dial-row{padding:0 46px}.dial-row .dial-out{white-space:nowrap;overflow:hidden;font-size:26px}}
+
+/* ── polish 7: receipt paper in the theme colour, green-theme links, the big jerrycan ── */
+@layer components{
+  .paper{background:var(--paper);color:var(--paper-ink)}
+  .paper::after{background:var(--paper)}
+  .paper hr{border-top-color:var(--paper-rule)}
+  .rc-kind,.rc-amount,.paper .row>span:last-child,.paper .tot>span:first-child{color:var(--paper-ink)}
+  .rc-sub,.rc-foot,.paper .row>span:first-child{color:var(--paper-mute)}
+  .rc-brand{color:var(--rc)}
+  .rc-stamp{color:var(--stamp-ink)}
+  /* the scannable barcode keeps dark bars on a white quiet zone in every theme: scanners read inverted codes badly */
+  .rc-bars{background:#FFFFFF;color:#111111;padding:8px 10px;border-radius:8px}
+  /* printing always gives a black-on-white slip, which saves ink and stays readable on any printer */
+  @media print{.paper{--paper:#FFFFFF;--paper-ink:#141414;--paper-mute:#737373;--paper-rule:#C4C4BC;--rc:#111111;--rc-arc:#111111;--stamp:#111111;--stamp-ink:#FFFFFF;--bc:#111111}}
+  /* booking: one big 100 L jerrycan beside the row of 20 L ones, filled to the litres chosen */
+  .bigcan{position:relative;display:grid;grid-template-columns:auto 1fr;align-items:end;gap:14px;padding:18px 18px 14px;border-radius:24px;background:rgb(var(--ink)/.05);border:1px solid var(--glass-line)}
+  .can.can-lg{width:clamp(150px,18vw,210px);cursor:default}
+  .can.can-lg:hover{transform:none}
+  .can.can-lg .cl{height:4px}
+  .bigcan-scale{position:absolute;left:18px;bottom:14px;width:clamp(150px,18vw,210px);aspect-ratio:176/247;pointer-events:none}
+  .bigcan-scale span{position:absolute;right:calc(100% + 8px);transform:translateY(50%);font:600 11px/1 "JetBrains Mono",ui-monospace,monospace;color:rgb(var(--mute));white-space:nowrap}
+  .bigcan-scale span::after{content:"";position:absolute;left:calc(100% + 3px);top:50%;width:6px;height:1.5px;background:currentColor;opacity:.6}
+  .bigcan-val{align-self:center;display:grid;gap:4px}
+  .bigcan-val b{font:800 clamp(2.4rem,5vw,3.6rem)/1 "Bricolage Grotesque Variable",system-ui;letter-spacing:-.03em}
+  .bigcan-val span{font-weight:650}
+  .bigcan-val small{color:rgb(var(--mute));font-size:.85rem}
+  .bigcan{padding-left:58px}
+  .bigcan-scale{left:58px}
+}
