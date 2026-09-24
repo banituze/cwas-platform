@@ -410,3 +410,70 @@ def reject_pending_deposit(txn, actor=None, channel="web", reason=""):
     return txn
 
 
+# ── PIN and recovery code (USSD and SMS credentials) ────────────────────────
+_WEAK_PINS = {"0000", "1111", "2222", "9999", "1234", "4321", "0123", "1212"}
+
+
+def set_pin(user, pin, actor=None, channel="web"):
+    """A new PIN. Clears failed attempts and sends a security SMS, so a change nobody asked for is noticed."""
+    user.pin_hash, user.pin_failed, user.pin_locked_until = generate_password_hash(pin), 0, None
+    audit("user.pin_change", "user", user.id, channel, actor=actor or user, channel=channel)
+    event(user, "Your PIN was changed. If this was not you, contact your coordinator.", "system", sms=True)
+
+
+def set_recovery(user, code, actor=None, channel="web"):
+    """A new recovery code. It resets a forgotten PIN without calling anyone, so it is stored hashed like the PIN."""
+    user.recovery_hash = generate_password_hash(code)
+    audit("user.recovery_set", "user", user.id, channel, actor=actor or user, channel=channel)
+    event(user, "Your recovery code was changed. If this was not you, contact your coordinator.", "system", sms=True)
+
+
+def reset_pin_by_staff(target, actor, channel="web"):
+    """A coordinator resets a household PIN after checking the person's details by phone. The temporary PIN goes only
+    to the household's own phone; the coordinator never sees it, and a live send does not keep it in the SMS log."""
+    pin = "0000"
+    while pin in _WEAK_PINS:
+        pin = f"{secrets.randbelow(10000):04d}"
+    target.pin_hash, target.pin_failed, target.pin_locked_until = generate_password_hash(pin), 0, None
+    audit("user.pin_reset", "user", target.id, f"by {actor.role} #{actor.id}", actor=actor, channel=channel)
+    notify(target, "Your PIN was reset by a coordinator. Change the temporary PIN in My profile.", "system")
+    msg = "CWAS: your coordinator reset your PIN. Temporary PIN: {pin}. Dial {dial} and change it in My profile."
+    send_sms(target.phone, tt(msg, target.language, pin=pin, dial=DIAL), target, log_body=tt(msg, target.language, pin="****", dial=DIAL))
+    return True
+
+
+def staff_contacts(user=None, limit=2):
+    """Numbers a person can call for help: coordinators (then administrators) for households, administrators for staff."""
+    from models import User
+    roles = ("admin",) if user is not None and user.role in ("coordinator", "admin") else ("coordinator", "admin")
+    q = User.query.filter(User.role.in_(roles), User.is_active_flag.is_(True), User.phone.isnot(None))
+    if user is not None:
+        q = q.filter(User.id != user.id)
+    rows = sorted(q.all(), key=lambda u: (roles.index(u.role), u.id))
+    return [u.phone for u in rows[:limit]]
+
+
+PIN_HELP_ACK = "You asked for help with your PIN. A coordinator will call you to check your details."
+PIN_HELP_STAFF = "PIN help: {who} forgot the PIN and has no recovery code. Call to check their details, then reset the PIN."
+
+
+def request_pin_help(user, channel="sms"):
+    """PIN HELP: forgot the PIN and has no recovery code. Coordinators (administrators, for staff) get the request in
+    the app and by SMS, call back, check the person's details and reset the PIN. One request an hour, so a repeated
+    text never floods their phones. Returns False when a request is already open."""
+    from models import User
+    if Notification.query.filter(Notification.user_id == user.id, Notification.key == PIN_HELP_ACK,
+                                 Notification.created_at >= utcnow() - timedelta(hours=1)).first():
+        return False
+    roles = ("admin",) if user.role in ("coordinator", "admin") else ("coordinator", "admin")
+    h = user.household
+    who = f"{user.name} ({local_phone(user.phone)})" + (f", {h.village}" if h and h.village else "")
+    for st in User.query.filter(User.role.in_(roles), User.is_active_flag.is_(True), User.id != user.id).all():
+        notify(st, PIN_HELP_STAFF, "system", who=who)
+        if st.phone and st.role == roles[0]:
+            send_sms(st.phone, tt(PIN_HELP_STAFF, st.language, who=who), st)
+    notify(user, PIN_HELP_ACK, "system")
+    audit("user.pin_help", "user", user.id, channel, actor=user, channel=channel)
+    return True
+
+
