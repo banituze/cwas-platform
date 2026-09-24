@@ -109,3 +109,65 @@ def register_routes(app):
     BACKUP_DIR = Path(app.config["INSTANCE_DIR"]) / "backups"
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
+    # ── public ──────────────────────────────────────────────────────────────
+    @app.get("/")
+    def index():
+        sources = WaterSource.query.order_by(WaterSource.name).all()
+        return render_template("index.html", sources=sources)
+
+    @app.get("/platform")
+    def platform():
+        return render_template("platform.html")
+
+    @app.get("/access")
+    def access():
+        return render_template("access.html", menu_screens=U.household_menu_screens(g.lang))
+
+    @app.get("/water-points")
+    def water_points():
+        return render_template("water_points.html", sources=WaterSource.query.order_by(WaterSource.name).all())
+
+    @app.get("/about")
+    def about():
+        return render_template("about.html")
+
+    @app.get("/terms", defaults={"doc": "terms"})
+    @app.get("/privacy", defaults={"doc": "privacy"})
+    @app.get("/refunds", defaults={"doc": "refunds"})
+    def legal(doc):
+        return render_template("legal.html", d=DOCS[doc], doc=doc, updated=UPDATED)
+
+    @app.post("/lang")
+    @limiter.limit("60 per minute")
+    def set_language():
+        code = request.form.get("code", "")
+        target = safe_next(request.form.get("next")) or url_for("index")
+        resp = redirect(target)
+        if code in LANGS:
+            resp.set_cookie("cwas_lang", code, max_age=31536000, samesite="Lax", secure=current_app.config["IS_PROD"])
+            if current_user.is_authenticated:
+                current_user.language = code
+                db.session.commit()
+        return resp
+
+    @app.get("/sw.js")
+    def service_worker():
+        r = send_file(os.path.join(app.static_folder, "js", "sw.js"), mimetype="application/javascript")
+        r.headers["Service-Worker-Allowed"] = "/"
+        r.headers["Cache-Control"] = "no-cache"
+        return r
+
+    @app.get("/manifest.webmanifest")
+    def manifest():
+        th = g.get("theme", "saina")
+        colour = {"saina": "#FFFFFF", "fotsy": "#FFFFFF", "maitso": "#007E3A", "mena": "#D42A20"}.get(th, "#FFFFFF")
+        base = f"/static/icons/{th}/"
+        return jsonify(name="CWAS - Community Water Access Scheduler", short_name="CWAS", start_url="/app", display="standalone",
+                       background_color=colour, theme_color=colour, icons=[{"src": base + "icon-192.png", "sizes": "192x192", "type": "image/png"},
+                              {"src": base + "icon-512.png", "sizes": "512x512", "type": "image/png"},
+                              {"src": base + "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}])
+
+    @app.get("/offline")
+    def offline():
+        return render_template("offline.html")
+
