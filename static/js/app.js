@@ -225,4 +225,22 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
   /* the header is transparent glass; over a hero video it uses the light-on-dark recipe, then follows the theme */
   const bar = $(".hdr-bar"), hero = $("[data-hero]");
   if (bar && hero) { const upd = () => bar.classList.toggle("on-dark", hero.getBoundingClientRect().bottom > 92); addEventListener("scroll", upd, { passive: true }); addEventListener("resize", upd); upd(); }
+
+  /* ── live notifications: a new one pops a toast and plays the chime ── */
+  if (document.body.dataset.auth === "1") {
+    let last = +document.body.dataset.lastNote || 0;
+    const badge = () => $$("[data-badge]");
+    const poll = () => {
+      if (document.hidden) return;
+      fetch(`/api/notifications/poll?after=${last}`, { credentials: "same-origin" }).then(r => r.ok ? r.json() : null).then(d => {
+        if (!d) return;
+        (d.items || []).forEach(n => toast(n.text, "note", { href: n.href, ms: 9000 }));
+        if ((d.items || []).length) { const bl = $(".btn-icon[href*=\"notifications\"]"); if (bl) { bl.classList.add("ring"); setTimeout(() => bl.classList.remove("ring"), 1300); } }
+        if ((d.items || []).length) Audio.play("notify");
+        last = d.last || last;
+        badge().forEach(b => { b.textContent = d.unread; b.hidden = !d.unread; });
+      }).catch(() => {});
+    };
+    setInterval(poll, 20000); document.addEventListener("visibilitychange", poll);
+  }
 })();

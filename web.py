@@ -789,3 +789,13 @@ def register_routes(app):
         base = re.sub(r"[^\w.\- ]+", "_", os.path.basename(name or "file")).strip(" .") or "file"
         return base[:80]
 
+    # ── live notifications ──────────────────────────────────────────────────
+    @app.get("/api/notifications/poll")
+    @login_required
+    @limiter.limit("60 per minute")
+    def api_poll():
+        after = int_arg("after", 0, 0, 10 ** 12, request.args)
+        rows = Notification.query.filter(Notification.user_id == current_user.id, Notification.id > after).order_by(Notification.id).limit(5).all()
+        return jsonify(items=[{"id": n.id, "text": S.render_notification(n, g.lang)[:160], "href": url_for("notification", nid=n.id)} for n in rows],
+                       last=rows[-1].id if rows else after, unread=Notification.query.filter_by(user_id=current_user.id, is_read=False).count())
+
