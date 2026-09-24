@@ -1259,3 +1259,7 @@ html,body{overscroll-behavior-y:none}
    card and it outranked the deck's own rule, so each card in the deck blurred the page behind it on every scroll frame
    while the deck moved the cards in 3D. Deck cards never blur what is behind them, in any theme */
 html[data-theme] .dk-card>.orb-face{-webkit-backdrop-filter:none;backdrop-filter:none}
+
+/* ── polish 19: while a header menu (language, theme, account or a nav menu) is open, the header's tooltips stay hidden,
+   so "Sounds", "Language" and "Theme" never sit over the open menu */
+.hdr-bar:has([data-menu].open) [data-tip]::after{display:none}
