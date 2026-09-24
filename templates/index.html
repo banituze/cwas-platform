@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import icon, flag, status, printer, logo with context %}
+{% from "partials/media.html" import video, photo with context %}
+{% block title %}{{ t('Water on a schedule everyone can trust') }}{% endblock %}
+{% block content %}
+
+<section data-hero class="media-dark relative isolate flex min-h-[100svh] items-end overflow-hidden text-white" >
+  
+  <div class="hero-media" data-hero-media aria-hidden="true">
+    <picture><source type="image/avif" media="(max-aspect-ratio: 4/5)" srcset="{{ url_for('static', filename='media/hero/hero-base-port.avif') }}"><source media="(max-aspect-ratio: 4/5)" srcset="{{ url_for('static', filename='media/hero/hero-base-port.webp') }}"><source type="image/avif" srcset="{{ url_for('static', filename='media/hero/hero-base-land.avif') }}"><img class="hm-still is-on" data-still="base" src="{{ url_for('static', filename='media/hero/hero-base-land.webp') }}" alt="" width="1600" height="900" decoding="async" fetchpriority="high"></picture>
+    <canvas class="hm-liquid" data-hero-liquid></canvas>
+  </div>
+  <div class="hero-scrim" aria-hidden="true"></div>
+  <div class="hero-body relative mx-auto grid w-full max-w-page gap-10 px-5 pb-16 pt-40 lg:grid-cols-[1.25fr_.75fr] lg:items-end lg:pb-24">
+    <div>
+      <h1 class="text-[clamp(2.6rem,7vw,6rem)] font-extrabold leading-[.95]" data-type data-frame data-liquid>{{ t('Book your slot. Skip the queue.') }}</h1>
+      <p class="rise mt-6 max-w-xl text-lg leading-relaxed text-white/85" style="--i:1">{{ t('In Ampotaka, families wait hours at shared water points. CWAS gives every household a booked time, a fair price and a receipt, on a smartphone or on a basic phone.') }}</p>
+      <div class="rise mt-8 flex flex-wrap items-center gap-3" style="--i:2">
+        <a class="btn btn-hot !px-7 !py-3.5 !text-base" href="{{ url_for('register') }}">{{ t('Create an account') }}{{ icon('arrow') }}</a>
+        <a class="btn btn-ghost !px-6 !py-3.5 !text-base" href="tel:{{ USSD_CODE|replace('#', '%23') }}">{{ icon('phone') }}{{ t('Dial') }} {{ USSD_CODE }}</a>
+      </div>
+    </div>
+    <aside class="rise hero-card glass-strong p-5" style="--i:3">
+      <div class="mb-3 flex items-center justify-between"><h2 class="text-lg font-bold">{{ t('Water points right now') }}</h2>{{ icon('drop', 'text-brand') }}</div>
+      <ul class="divide-y divide-ink/10">
+        {% for s in sources[:4] %}<li class="flex items-center justify-between gap-3 py-3"><div class="min-w-0"><p class="truncate font-semibold">{{ s.name }}</p><p class="text-xs text-mute">{{ fmt_min(s.open_min) }}-{{ fmt_min(s.close_min) }} &nbsp; {{ fmt_ar(s.tariff_per_100l) }} / 100 L</p></div>{{ status(s.status) }}</li>{% endfor %}
+      </ul>
+      <a class="btn btn-ghost btn-sm mt-3 w-full" href="{{ url_for('water_points') }}">{{ t('See all water points') }}</a>
+    </aside>
+  </div>
+</section>
+
+<section class="mx-auto mt-14 max-w-page px-4 md:mt-20" data-reveal>
+  <div class="glass-strong grid gap-px overflow-hidden p-2 sm:grid-cols-2 lg:grid-cols-4">
+    {% for big, text in (('89%', 'of households have a conflict over water at least once a month'), ('8.5 h', 'per week is what an average household spends waiting in queues'), ('60-70%', 'of informal water payments are never collected, so pumps are not repaired'), ('91%', 'would use a digital system if it is affordable')) %}
+    <div class="p-6"><p class="font-display text-4xl font-extrabold">{{ big }}</p><p class="mt-2 text-sm leading-relaxed text-mute">{{ t(text) }}</p></div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="mx-auto mt-28 max-w-page px-4" data-printer-scope>
+  <div class="grid items-center gap-12 lg:grid-cols-2">
+    <div>
+      <h2 class="text-4xl font-extrabold md:text-5xl" data-type data-liquid>{{ t('A booking takes two minutes and leaves a receipt.') }}</h2>
+      <ol class="mt-8 space-y-5">
+        {% for h, p in (('Choose a water point and a day', 'Only open sources and the next seven days are shown.'), ('Pick a time and the litres you need', 'The price, including any subsidy for your household, is shown before you confirm.'), ('Your wallet pays, the coordinator approves', 'The money is held for your booking and returned if it is cancelled or denied.'), ('Collect your water', 'Your receipt is saved in the app and can be read again by SMS or USSD.')) %}
+        <li class="flex gap-4"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand font-display text-lg font-bold text-onbrand">{{ loop.index }}</span><div><h3 class="text-lg font-bold">{{ t(h) }}</h3><p class="text-mute">{{ t(p) }}</p></div></li>
+        {% endfor %}
+      </ol>
+    </div>
+    <div class="relative rc-compact">
+      {% call printer(True) %}
+          <div class="rc-head"><span class="rc-brand"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#logo"/></svg>CWAS</span><span class="rc-kind">{{ t('Water receipt') }}<br>Ampotaka</span></div>
+          <p class="rc-amount">90 MGA</p>
+          <hr>
+          <div class="row"><span>{{ t('Receipt') }}</span><span>WT-4F7A9C21</span></div>
+          <div class="row"><span>{{ t('Water point') }}</span><span>Forage Ampotaka Centre</span></div>
+          <div class="row"><span>{{ t('Slot') }}</span><span>21/09 07:30-08:00</span></div>
+          <div class="row"><span>{{ t('Volume') }}</span><span>60 L</span></div>
+          <hr>
+          <div class="row tot"><span>{{ t('Paid') }}</span><span>90 MGA</span></div>
+          <div class="row"><span>{{ t('Status') }}</span><span>{{ t('approved') }}</span></div>
+          <span class="rc-stamp">{{ icon('drop') }}{{ t('approved') }}</span>
+          <div class="rc-art">{% include "partials/barcode_art.svg" %}{% include "partials/barcode_art_bw.svg" %}</div>
+          <p class="rc-foot">{{ t('No data? Dial') }} {{ USSD_CODE }}</p>
+        {% endcall %}
+      <div class="mt-4 flex justify-center gap-2"><button class="btn btn-ghost btn-sm" type="button" data-print-start>{{ icon('refresh') }}{{ t('Print again') }}</button><button class="btn btn-ghost btn-sm" type="button" data-tear>{{ t('Tear off') }}</button></div>
+    </div>
+  </div>
+</section>
+
+<section class="media-dark relative mt-28 isolate overflow-hidden text-white" >
+  {{ photo('borehole-windmill', 'media-bg') }}<div class="scrim"></div>
+  <div class="relative mx-auto max-w-page px-5 py-28 md:py-40">
+    <h2 class="max-w-3xl text-4xl font-extrabold md:text-6xl" data-type data-liquid>{{ t('Boreholes get repaired when the money arrives.') }}</h2>
+    <p class="mt-5 max-w-xl text-lg text-white/85">{{ t('Built-in payment is how the pilot aims to lift collection from about 40% to 85-90%, and keep pumps running.') }}</p>
+  </div>
+</section>
+
+<section class="tunnel mt-28" data-tunnel aria-label="{{ t('Follow one booking, from tap to tap.') }}">
+  <div class="tn-stick">
+    <div class="tn-head"><h2 class="text-3xl font-extrabold md:text-5xl" data-type>{{ t('Follow one booking, from tap to tap.') }}</h2><p class="mt-2 text-sm text-mute">{{ t('Scroll to travel through the steps.') }}</p></div>
+    <div class="tn-scene">
+      {% for i in range(8) %}<i class="tn-ring"></i>{% endfor %}
+      {% for ico, h, p in (('calendar','Choose a water point and a day','Only open sources and the next seven days are shown.'),('clock','Pick a time and the litres you need','The price, including any subsidy for your household, is shown before you confirm.'),('wallet','Your wallet pays, the coordinator approves','The money is held for your booking and returned if it is cancelled or denied.'),('receipt','Collect your water','Your receipt is saved in the app and can be read again by SMS or USSD.')) %}
+      <article class="tn-frame glass-strong p-7"><div class="num">{{ loop.index }}</div><h3 class="mt-3 flex items-center gap-3 text-2xl font-bold"><span class="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-brand text-onbrand">{{ icon(ico) }}</span>{{ t(h) }}</h3><p class="mt-3 text-mute">{{ t(p) }}</p></article>
+      {% endfor %}
+    </div>
+    <div class="tn-hud"><span class="chip" data-tn-count>1 / 4</span><div class="tn-bar"><i data-tn-bar></i></div></div>
+  </div>
+</section>
+
+
+<section class="mx-auto mt-28 max-w-page px-4">
+  <h2 class="typeline" data-typeline><span data-type>{{ t('Every drop') }}</span> <span class="tl-frame" aria-hidden="true">{{ photo('jerrycan-bw', '', '(max-width: 768px) 40vw, 320px') }}</span> <span data-type>{{ t('counted, booked and paid.') }}</span></h2>
+</section>
+
+<section class="mx-auto mt-28 max-w-page px-4" data-reveal>
+  <div class="grid items-center gap-12 lg:grid-cols-[1.15fr_.85fr]">
+    <div class="min-w-0">{% include "partials/phones.html" %}</div>
+    <div class="min-w-0">
+      <h2 class="text-4xl font-extrabold md:text-5xl" data-type data-liquid>{{ t('Every phone works. Not only smartphones.') }}</h2>
+      <p class="mt-5 max-w-xl text-lg leading-relaxed text-mute">{{ t('About 4 in 10 households have a feature phone. Members and coordinators can do everything by USSD, including registering, booking, paying, cancelling and reading receipts. SMS answers quick questions.') }}</p>
+      <div class="mt-6 flex flex-wrap gap-2">
+        <a class="btn btn-primary max-w-full whitespace-normal text-center" href="{{ url_for('access') }}">{{ t('How USSD and SMS work') }}</a>
+        <a class="btn btn-ghost max-w-full whitespace-normal text-center" href="{{ url_for('simulator') }}">{{ icon('play') }}{{ t('Try the simulator') }}</a>
+      </div>
+      <div class="mt-8 grid gap-3 sm:grid-cols-3">
+        {% for code, label in (('mg','Malagasy'),('fr','Français'),('en','English')) %}<div class="glass flex items-center gap-3 !rounded-pill px-4 py-3">{{ flag(code) }}<span class="text-sm font-semibold">{{ label }}</span></div>{% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="mx-auto mt-28 max-w-page overflow-x-clip px-4">
+  <h2 class="max-w-2xl text-4xl font-extrabold md:text-5xl" data-type data-liquid>{{ t('Six tools, one orbit.') }}</h2>
+  <div class="orbit mt-4" data-orbit><div class="orbit-stage">
+    {% for ico, label, desc, href in (('calendar','Book a slot','Slots, wallet and receipts in under two minutes', url_for('platform') ~ '#booking'),('wallet','Wallet','Deposits by Orange Money or Airtel Money, and a full ledger.', url_for('platform') ~ '#booking'),('pin','Water points','Open, full and blocked slots for the next seven days.', url_for('water_points')),('receipt','Receipts','One receipt per payment, printed on screen and readable by SMS.', url_for('platform') ~ '#booking'),('spark','Assistant','Answers in Malagasy, French and English using the household\'s own data.', url_for('platform') ~ '#ai'),('bell','Notifications','Every booking, deposit or change reaches you by app and SMS.', url_for('access'))) %}
+    <a class="orb-card no-underline" href="{{ href }}"><div class="orb-face glass-strong"><span class="ico">{{ icon(ico) }}</span><div><b>{{ t(label) }}</b><p class="mt-2 text-xs leading-snug text-mute">{{ t(desc) }}</p></div></div><div class="orb-face orb-back glass-strong">{{ logo(56) }}</div></a>
+    {% endfor %}
+  </div></div>
+</section>
+
+
+<section class="mx-auto mt-28 max-w-page px-4" data-reveal>
+  <h2 class="max-w-2xl text-4xl font-extrabold md:text-5xl" data-type data-liquid>{{ t('One platform, three people who need it.') }}</h2>
+  <div class="mt-10 grid gap-5 lg:grid-cols-3">
+    {% for ico, title, items in (
+      ('user', 'Household members', ['Register a household and book in a few taps', 'Pay with Orange Money or Airtel Money', 'Cancel and get a refund automatically', 'Read receipts and notices in Malagasy, French or English']),
+      ('check', 'Community coordinators', ['Review requests with balance and priority in view', 'Set hours, capacity and tariffs per water point', 'Schedule maintenance and re-route households', 'Export usage, equity and financial reports']),
+      ('shield', 'Administrators', ['Manage accounts and roles', 'Read a tamper-evident audit trail', 'Back up and check the database', 'Configure prices and subsidies'])) %}
+    {% set variant = ('hv-diagonal', 'hv-swing', 'hv-bloom')[loop.index0] %}{% set target = 'login' if ico == 'shield' else 'register' %}
+    <article class="hv {{ variant }} glass-strong" tabindex="0" data-tilt><div class="p-7"><span class="flex h-12 w-12 items-center justify-center rounded-full bg-brand text-onbrand">{{ icon(ico) }}</span>
+      <h3 class="mt-5 text-2xl font-bold">{{ t(title) }}</h3>
+      <ul class="mt-4 space-y-2.5 text-mute">{% for i in items %}<li class="flex gap-2.5">{{ icon('check', 'mt-0.5 text-ok') }}<span>{{ t(i) }}</span></li>{% endfor %}</ul></div>
+      <a class="hv-layer" href="{{ url_for(target) }}"><span class="hv-in">{{ icon(ico) }}<b>{{ t(title) }}</b><span>{{ t('Log in') if target == 'login' else t('Get started') }} {{ icon('arrow') }}</span></span></a></article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="deck mt-28" data-griddeck aria-label="{{ t('Twelve tools, dealt from one deck.') }}">
+  <div class="dk-stick">
+    <div class="tn-head"><h2 class="text-3xl font-extrabold md:text-5xl" data-type>{{ t('Twelve tools, dealt from one deck.') }}</h2><p class="mt-2 text-sm text-mute">{{ t('Scroll to deal the deck and dive in.') }}</p></div>
+    <div class="dk-scene"><div class="dk-grid">
+      {% for ico, label, role in (('calendar','Book a slot','Household'),('wallet','Wallet','Household'),('receipt','Receipts','Household'),('bell','Notifications','Household'),('spark','Assistant','Household'),('pin','Water points','Household'),('check','Approval queue','Coordinator'),('wrench','Maintenance','Coordinator'),('chart','Reports','Coordinator'),('megaphone','Announcements','Coordinator'),('database','Database','Administrator'),('shield','Security','Administrator')) %}
+      <article class="dk-card"><div class="orb-face glass-strong"><span class="ico">{{ icon(ico) }}</span><div><b>{{ t(label) }}</b><p class="mt-1 text-xs text-mute">{{ t(role) }}</p></div></div><div class="orb-face orb-back glass-strong">{{ logo(44) }}</div></article>
+      {% endfor %}
+    </div></div>
+    <div class="tn-hud"><div class="tn-bar"><i data-dk-bar></i></div></div>
+  </div>
+</section>
+
+<section class="mx-auto mt-28 max-w-page px-4" data-reveal>
+  <div class="glass-strong grid gap-10 p-8 md:p-12 lg:grid-cols-2">
+    <div>
+      <h2 class="text-4xl font-extrabold md:text-5xl" data-type data-liquid>{{ t('Fair priority you can check.') }}</h2>
+      <p class="mt-5 text-lg leading-relaxed text-mute">{{ t('Priority points come from need: vulnerability, household size, distance and fair share. Every point has a stated reason, and approval rates are compared across groups so the system does not repeat old unfairness.') }}</p>
+      <a class="btn btn-primary mt-6" href="{{ url_for('platform') }}#ai">{{ t('See how it works') }}</a>
+    </div>
+    <div class="space-y-3" aria-label="{{ t('Example priority score') }}">
+      {% for label, pts in (('Vulnerability level', 25), ('Household size', 18), ('Distance to water', 4), ('Fair-share boost (few recent bookings)', 7)) %}
+      <div><div class="mb-1 flex justify-between text-sm font-semibold"><span>{{ t(label) }}</span><span>+{{ pts }}</span></div><div class="h-3 rounded-full bg-ink/10"><div class="h-3 rounded-full bg-brand" style="width:{{ pts * 2.2 }}%"></div></div></div>
+      {% endfor %}
+      <p class="pt-2 text-right font-display text-2xl font-bold">54 / 100 <span class="text-sm font-medium text-mute">{{ t('example') }}</span></p>
+    </div>
+  </div>
+</section>
+
+<section class="mx-auto mt-28 max-w-page px-4" data-reveal>
+  <h2 class="max-w-3xl text-4xl font-extrabold md:text-5xl" data-type data-liquid>{{ t('Why households and coordinators choose CWAS') }}</h2>
+  <div class="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+    {% for ico, hd, p in (('clock','No more queueing','Arrive at your booked time instead of waiting for hours in line.'),('wallet','Pay in advance, safely','Your wallet holds the money and every movement has a receipt.'),('bell','Told about everything','Every booking, deposit or change reaches you by app and SMS.'),('users','Fair for everyone','Priority follows need, with reasons anyone can read.'),('wrench','Pumps get repaired','Regular income pays for maintenance before breakdowns.'),('globe','Your language','Malagasy, French and English on the web, USSD and SMS.')) %}
+    {% set variant = ('hv-placard','hv-wipe','hv-diagonal','hv-bloom','hv-swing','hv-placard')[loop.index0] %}
+    <article class="hv {{ variant }} glass-strong" tabindex="0" data-tilt><div class="p-6"><span class="flex h-11 w-11 items-center justify-center rounded-full bg-brand text-onbrand">{{ icon(ico) }}</span><h3 class="mt-4 text-xl font-bold">{{ t(hd) }}</h3><p class="mt-2 text-mute">{{ t(p) }}</p></div>
+      <a class="hv-layer" href="{{ url_for('platform') }}"><span class="hv-in">{{ icon(ico) }}<b>{{ t(hd) }}</b><span>{{ t('See how it works') }} {{ icon('arrow') }}</span></span></a></article>{% endfor %}
+  </div>
+</section>
+
+<section class="mx-auto mt-28 max-w-page px-4" data-reveal>
+  <div class="grid gap-10 lg:grid-cols-[.9fr_1.1fr]">
+    <div><h2 class="text-4xl font-extrabold md:text-5xl" data-type data-liquid>{{ t('Simple prices, kinder to those who need it most.') }}</h2>
+      <p class="mt-5 text-lg leading-relaxed text-mute">{{ t('Each water point sets its price per 100 litres. Households flagged as vulnerable pay less, and the exact price is shown before you confirm.') }}</p></div>
+    <div class="glass-strong overflow-x-auto p-2"><table class="tbl"><thead><tr><th>{{ t('Priority') }}</th><th>{{ t('Subsidy') }}</th><th>{{ t('Example: 60 L') }}</th></tr></thead><tbody>
+      {% for lvl, pct in (('standard', 0), ('elevated', 30), ('high', 60)) %}<tr><td class="font-semibold">{{ t(lvl) }}</td><td>{{ pct }}%</td><td>{{ fmt_ar((150 * 60 / 100 * (100 - pct) / 100)|round|int) }}</td></tr>{% endfor %}</tbody></table>
+      <p class="px-4 pb-3 text-xs text-mute">{{ t('Example at 150 MGA per 100 L. Levels and subsidies are set by the administrator.') }}</p></div>
+  </div>
+</section>
+
+{% set FAQ = (('What if I cancel a booking?','You get the money back in your wallet, once, as long as the slot has not started.'),('Do I need a smartphone?','No. Dial *384*9411# on any phone. SMS to 7380 answers quick questions.'),('How do I add money?','Use Orange Money, Airtel Money or hand cash to an agent or coordinator. Every deposit has a reference.'),('Who decides who gets water first?','Coordinators approve requests using need-based priority. Each point of the score has a stated reason.'),('Can I delete my account?','Yes, from your profile at any time. Your personal data is removed and any balance becomes a refund due.'),('Where do I read the rules?','See the {terms}, {privacy} and {refunds}.')) %}
+<section class="mx-auto mt-28 max-w-3xl px-4" data-reveal>
+  <h2 class="text-4xl font-extrabold md:text-5xl" data-type data-liquid>{{ t('Questions people ask') }}</h2>
+  <div class="mt-8 space-y-3">
+    {% set L_terms %}<a class="lnk" href="{{ url_for('legal', doc='terms') }}">{{ t('Terms of Service') }}</a>{% endset %}{% set L_privacy %}<a class="lnk" href="{{ url_for('legal', doc='privacy') }}">{{ t('Privacy Policy') }}</a>{% endset %}{% set L_refunds %}<a class="lnk" href="{{ url_for('legal', doc='refunds') }}">{{ t('Refund Policy') }}</a>{% endset %}
+    {% for q, a in FAQ %}
+    <details class="glass-strong group p-5"><summary class="flex cursor-pointer items-center justify-between gap-4 font-display text-lg font-bold">{{ t(q) }}<span class="transition group-open:rotate-180">{{ icon('chev') }}</span></summary><p class="mt-3 text-mute">{% if '{terms}' in a %}{{ t(a, terms='{terms}', privacy='{privacy}', refunds='{refunds}')|e|replace('{terms}', L_terms)|replace('{privacy}', L_privacy)|replace('{refunds}', L_refunds) }}{% else %}{{ t(a) }}{% endif %}</p></details>{% endfor %}
+  </div>
+</section>
+
+
+{# the questions above as structured data, so search engines can show them as answers #}
+{% set FAQ_LD = [] %}{% for q, a in FAQ %}{% set _ = FAQ_LD.append({"@type": "Question", "name": t(q), "acceptedAnswer": {"@type": "Answer", "text": t(a, terms=t('Terms of Service'), privacy=t('Privacy Policy'), refunds=t('Refund Policy'))}}) %}{% endfor %}
+<script type="application/ld+json">{{ {"@context": "https://schema.org", "@type": "FAQPage", "inLanguage": lang, "mainEntity": FAQ_LD}|tojson }}</script>
+
+{# Gallery tunnel: photographs of the south travel toward you as you scroll; the pointer sways it, a click speeds it up. #}
+{% set GTU = [] %}{% for k in ['catchment-full', 'pour-bucket', 'borehole-tower', 'jerrycan-bw', 'zebu-pond', 'lamba-portrait', 'pump-repair', 'school-well', 'catchment-build', 'pump-workshop', 'porteuses', 'borehole-windmill'] %}{% set _ = GTU.append(url_for('static', filename='img/photos/' ~ k ~ '-960.webp')) %}{% endfor %}
+{% set GTS = [] %}{% for k in ['catchment-full', 'pour-bucket', 'borehole-tower', 'jerrycan-bw', 'zebu-pond', 'lamba-portrait', 'pump-repair', 'school-well', 'catchment-build', 'pump-workshop', 'porteuses', 'borehole-windmill'] %}{% set _ = GTS.append(url_for('static', filename='img/photos/' ~ k ~ '-480.webp')) %}{% endfor %}
+<section class="gt-section" aria-labelledby="gt-title">
+  <div class="gt-sticky">
+    <div class="gt" data-gallery-tunnel aria-hidden="true" data-images='{{ GTU|tojson }}' data-images-small='{{ GTS|tojson }}' data-words='{{ ["06:30", "60 L", USSD_CODE, SMS_CODE, "Rano", "Eau", "Water", "Ampotaka", "Atsimo-Andrefana", "MGA"]|tojson }}'></div>
+    <div class="gt-copy glass-strong">
+      <h2 id="gt-title" class="text-3xl font-extrabold md:text-5xl">{{ t('Ampotaka and the south, in pictures') }}</h2>
+      <p class="mt-3 text-lg text-mute">{{ t('Scroll through the south of Madagascar, where CWAS begins.') }}</p>
+    </div>
+    <div class="gt-fallback mx-auto w-full max-w-page px-4"></div>
+  </div>
+</section>
+
+<section class="mx-auto mt-28 max-w-page px-4" data-reveal>
+  <p class="mb-4 text-sm font-bold uppercase tracking-wide text-mute">{{ t('Explore CWAS') }}</p>
+  <nav aria-label="{{ t('Explore CWAS') }}">{% for label, ep in (('Platform','platform'),('Access','access'),('Water points','water_points'),('Device lab','simulator'),('About','about')) %}<a class="bigmenu" href="{{ url_for(ep) }}"><span data-letters="{{ t(label) }}">{{ t(label) }}</span>{{ icon('arrow', 'go') }}</a>{% endfor %}</nav>
+</section>
+
+<section class="relative mx-4 mt-28 isolate overflow-hidden rounded-glass text-white lg:mx-auto lg:max-w-page media-dark">
+  {{ video('toliara') }}<div class="scrim"></div>
+  <div class="relative flex flex-col items-start gap-6 p-8 py-20 md:p-16 md:py-28">
+    <h2 class="max-w-2xl text-4xl font-extrabold md:text-6xl" data-type data-liquid>{{ t('Ready for the Ampotaka pilot.') }}</h2>
+    <p class="text-xs text-white/70">{{ t('Toliara seen from space, from 1984 to today.') }} Google Earth Timelapse &middot; Google, Landsat / Copernicus</p>
+    <div class="flex flex-wrap gap-3"><a class="btn btn-hot !px-7 !py-3.5" href="{{ url_for('register') }}">{{ t('Create an account') }}</a><a class="btn btn-ghost !px-6 !py-3.5" href="{{ url_for('login') }}">{{ t('Log in') }}</a></div>
+  </div>
+</section>
+<script src="{{ url_for('static', filename='js/hero.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/home.js') }}" defer></script>
+{% endblock %}
