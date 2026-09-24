@@ -1,0 +1,6 @@
+{% extends "app_base.html" %}
+{% block title %}{{ t('Receipt') }}{% endblock %}
+{% block app %}
+<a class="text-sm" href="{{ url_for('booking_detail', ref=b.ref) }}">&larr; {{ b.ref }}</a>
+<div class="mx-auto mt-6 max-w-md">{% include "member/_receipt.html" %}</div>
+{% endblock %}

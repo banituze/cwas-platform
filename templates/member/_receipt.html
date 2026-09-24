@@ -1,0 +1,33 @@
+{% from "partials/macros.html" import icon, printer with context %}
+{# A booking receipt, printed by the thermal printer and ready for the browser's print dialog. #}
+<div class="glass-strong relative p-6 {{ 'w-[min(420px,94vw)]' if modal }}" data-printer-scope>
+  {% if modal %}<button type="button" class="toast-x absolute right-4 top-4" data-modal-close aria-label="{{ t('Close') }}">{{ icon('x') }}</button>{% endif %}
+  {% call printer(True) %}
+    <div class="rc-head"><span class="rc-brand"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#logo"/></svg>CWAS</span><span class="rc-kind">{{ t('Water receipt') }}<br>Ampotaka</span></div>
+    <p class="rc-amount">{{ fmt_ar(debit.amount|abs) }}</p>
+    <p class="rc-sub">{{ (debit.created_at|local).strftime("%d/%m/%Y") }} &middot; {{ t('Paid') }}</p>
+    <hr>
+    <div class="row"><span>{{ t('Booking') }}</span><span>{{ b.ref }}</span></div>
+    <div class="row"><span>{{ t('Transaction') }}</span><span>{{ debit.reference }}</span></div>
+    <div class="row"><span>{{ t('Household') }}</span><span>{{ b.household.name }}</span></div>
+    <div class="row"><span>{{ t('Water point') }}</span><span>{{ b.source.name }}</span></div>
+    <div class="row"><span>{{ t('Collection') }}</span><span>{{ b.date.strftime('%d/%m/%Y') }}</span></div>
+    <div class="row"><span>{{ t('Time') }}</span><span>{{ fmt_min(b.start_min) }}-{{ fmt_min(b.end_min) }}</span></div>
+    <hr>
+    <div class="row"><span>{{ t('Volume') }}</span><span>{{ b.litres }} L</span></div>
+    {% if b.discount_pct %}<div class="row"><span>{{ t('Subsidy') }}</span><span>-{{ b.discount_pct }}%</span></div>{% endif %}
+    <div class="row tot"><span>{{ t('Total') }}</span><span>{{ fmt_ar(debit.amount|abs) }}</span></div>
+    <div class="row"><span>{{ t('Paid with') }}</span><span>{{ t('CWAS wallet') }}</span></div>
+    <div class="row"><span>{{ t('Booking status') }}</span><span>{{ t(b.status.replace('_',' ')) }}</span></div>
+    <span class="rc-stamp">{{ icon('drop') }}{{ t(b.status.replace('_',' ')) }}</span>
+    <div class="rc-bars">{{ code128(b.ref) }}</div>
+    <p class="rc-foot">{{ b.ref }} &middot; {{ t('Printed') }} {{ now_local().strftime("%d/%m/%Y %H:%M") }}</p>
+    <p class="rc-foot">{{ t('No data? Dial') }} {{ USSD_CODE }}</p>
+  {% endcall %}
+  <div class="mt-5 flex flex-wrap justify-center gap-2">
+    <button class="btn btn-ghost btn-sm" type="button" data-print-start>{{ icon('refresh') }}{{ t('Print again') }}</button>
+    <button class="btn btn-ghost btn-sm" type="button" data-window-print>{{ icon('print') }}{{ t('Print') }}</button>
+    <button class="btn btn-ghost btn-sm" type="button" data-tear>{{ icon('receipt') }}{{ t('Tear off') }}</button>
+    {% if modal %}<a class="btn btn-primary btn-sm" href="{{ url_for('receipt', ref=b.ref) }}">{{ t('Open full page') }}</a>{% endif %}
+  </div>
+</div>

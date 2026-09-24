@@ -235,4 +235,36 @@ html[data-theme="saina"]{
   dialog.modal::backdrop{background:rgba(2,10,6,.62);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
   dialog.modal[open]{animation:pop .28s cubic-bezier(.2,.9,.3,1.2)}
   @keyframes pop{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+
+  /* ── receipt printer: brushed-metal thermal printer ── */
+  .printer{position:relative;width:min(360px,88vw);margin:0 auto;perspective:1100px}
+  .p-body{position:relative;z-index:3;height:150px;border-radius:30px 30px 20px 20px;transform:rotateX(7deg);transform-origin:50% 100%;
+    background:repeating-linear-gradient(90deg,rgba(255,255,255,.07) 0 1px,rgba(0,0,0,.05) 1px 2px),linear-gradient(180deg,#f5f6f7 0%,#d5d8dc 14%,#a7adb5 46%,#8b9199 70%,#5f656d 100%);
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.95),inset 0 -4px 8px rgba(0,0,0,.4),inset 3px 0 6px rgba(255,255,255,.35),inset -3px 0 6px rgba(0,0,0,.25),0 3px 0 #4b5057,0 26px 46px -16px rgba(0,0,0,.65),0 8px 14px rgba(0,0,0,.25);overflow:hidden}
+  .p-body::before{content:"";position:absolute;left:0;right:0;top:0;height:46%;border-radius:30px 30px 60% 60%/30px 30px 30% 30%;background:linear-gradient(180deg,rgba(255,255,255,.75),rgba(255,255,255,0));pointer-events:none}
+  .p-body::after{content:"";position:absolute;top:-30%;bottom:-30%;width:26%;left:-40%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-18deg);animation:sheen 5.5s ease-in-out infinite}
+  @keyframes sheen{0%,55%{left:-40%}100%{left:140%}}
+  .p-top{position:relative;z-index:2;display:flex;align-items:center;gap:10px;padding:14px 18px 0}
+  .p-brand{font:800 11px/1 ui-sans-serif,system-ui;letter-spacing:.22em;color:#3b4148;text-shadow:0 1px 0 rgba(255,255,255,.8)}
+  .p-lcd{margin-left:auto;min-width:96px;padding:5px 10px;border-radius:7px;font:700 11px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.1em;color:#7cffb2;background:#07130c;text-shadow:0 0 6px #35e07f;box-shadow:inset 0 2px 5px #000,0 1px 0 rgba(255,255,255,.85),0 0 0 2px #2a2f35}
+  .p-led{width:9px;height:9px;border-radius:99px;background:#ff4a3d;box-shadow:0 0 10px #ff4a3d,inset 0 -1px 2px rgba(0,0,0,.4);flex:none}
+  .printer[data-state=printing] .p-led{background:#22e07a;box-shadow:0 0 12px #22e07a,inset 0 -1px 2px rgba(0,0,0,.4);animation:blink .35s steps(2) infinite}
+  @keyframes blink{50%{opacity:.35}}
+  .p-keys{position:relative;z-index:2;display:flex;gap:10px;padding:12px 18px 0}
+  .p-keys i{width:22px;height:22px;border-radius:99px;background:radial-gradient(circle at 35% 28%,#fff,#c3c8ce 45%,#7b828a);box-shadow:0 2px 3px rgba(0,0,0,.45),inset 0 -2px 3px rgba(0,0,0,.3)}
+  .p-slot{position:absolute;z-index:2;left:20px;right:20px;bottom:18px;height:14px;border-radius:99px;background:#040506;box-shadow:inset 0 4px 7px #000,0 1px 0 rgba(255,255,255,.9),0 -1px 0 rgba(0,0,0,.35)}
+  .p-foot{position:absolute;z-index:1;left:22px;right:22px;bottom:-8px;height:12px;border-radius:0 0 14px 14px;background:linear-gradient(180deg,#3d4248,#17191c)}
+  .paper-window{position:relative;z-index:2;margin:-4px 26px 0;overflow:hidden;padding-bottom:44px}
+  .paper{background:#FBFBF8;color:#1a1a1a;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.5;padding:22px 20px 26px;transform:translateY(-101%);
+    box-shadow:0 1px 2px rgba(0,0,0,.08),0 20px 40px -12px rgba(0,0,0,.35);position:relative}
+  .paper::after{content:"";position:absolute;left:0;right:0;bottom:-10px;height:10px;background:#FBFBF8;clip-path:polygon(0 0,100% 0,100% 0,97.92% 100%,95.83% 0,93.75% 100%,91.67% 0,89.58% 100%,87.5% 0,85.42% 100%,83.33% 0,81.25% 100%,79.17% 0,77.08% 100%,75% 0,72.92% 100%,70.83% 0,68.75% 100%,66.67% 0,64.58% 100%,62.5% 0,60.42% 100%,58.33% 0,56.25% 100%,54.17% 0,52.08% 100%,50% 0,47.92% 100%,45.83% 0,43.75% 100%,41.67% 0,39.58% 100%,37.5% 0,35.42% 100%,33.33% 0,31.25% 100%,29.17% 0,27.08% 100%,25% 0,22.92% 100%,20.83% 0,18.75% 100%,16.67% 0,14.58% 100%,12.5% 0,10.42% 100%,8.33% 0,6.25% 100%,4.17% 0,2.08% 100%,0 0)}
+  .printer[data-state=printing] .paper{animation:feed 3.6s steps(24,end) forwards}
+  .printer[data-state=done] .paper{transform:none}
+  .printer[data-state=torn] .paper{transform:translate(18px,130%) rotate(5deg);opacity:0;transition:transform .9s cubic-bezier(.5,0,.8,.4),opacity .9s}
+  @keyframes feed{to{transform:none}}
+  .paper hr{border:0;border-top:1px dashed #b9b9b0;margin:10px 0}
+  .paper .row{display:flex;justify-content:space-between;gap:12px}
+  .paper .tot{font-size:16px;font-weight:800}
+  .bars{display:flex;height:34px;align-items:stretch;gap:1px;margin-top:10px}.bars i{display:block;background:#1a1a1a}
+  @media print{body *{visibility:hidden}.paper-window,.paper-window *{visibility:visible}.paper-window{position:absolute;left:50%;top:10mm;width:86mm;margin:0;padding:0;overflow:visible;transform:translateX(-50%)}.paper{transform:none!important;box-shadow:none;border:1px solid #9a9a9a;-webkit-print-color-adjust:exact;print-color-adjust:exact}.paper::after{display:none}}
 }
