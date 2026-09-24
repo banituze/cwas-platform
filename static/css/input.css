@@ -989,7 +989,7 @@ body{background-image:radial-gradient(70vw 60vh at 8% 0%,var(--amb1),transparent
 /* the page never rubber-bands past its ends: the bounce slid the hero out from under the light-on-photo header */
 html,body{overscroll-behavior-y:none}
 /* the seals' accent on the dark footer, per theme */
-:root,[data-theme="fotsy"]{--seal-foot:rgba(255,255,255,.9)}[data-theme="maitso"]{--seal-foot:#2FD27A}[data-theme="mena"]{--seal-foot:#FF786C}html[data-theme="saina"]{--seal-foot:#FC3D32}
+:root,[data-theme="fotsy"]{--seal-foot:rgba(255,255,255,.9)}[data-theme="maitso"]{--seal-foot:#2FD27A}[data-theme="mena"]{--seal-foot:#FF786C}html[data-theme="saina"]{--seal-foot:#2FD27A}
 @layer components{
   /* sign up and log in: the photograph fits the space below the header, so it holds still while the form scrolls */
   .auth-side{height:calc(100svh - 160px)}
