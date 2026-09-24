@@ -102,6 +102,15 @@ def int_arg(name, default, lo, hi, src=None):
     return max(lo, min(hi, v))
 
 
+def external_url(endpoint, **values):
+    """An absolute link for an SMS or an email: SITE_URL when set, otherwise this host, always https in production (a proxy in
+    front of Railway can make the request look like http), so a phone shows it as a link and opens it securely."""
+    base = (os.environ.get("SITE_URL") or request.host_url).rstrip("/")
+    if current_app.config["IS_PROD"] and base.startswith("http://"):
+        base = "https://" + base[len("http://"):]
+    return base + url_for(endpoint, **values)
+
+
 def register_routes(app):
     global BACKUP_DIR
     from extensions import csrf, limiter
@@ -340,7 +349,7 @@ def register_routes(app):
             if user and user.is_active_flag:
                 raw = secrets.token_urlsafe(32)
                 db.session.add(PasswordReset(user_id=user.id, token_hash=hashlib.sha256(raw.encode()).hexdigest(), expires_at=utcnow() + timedelta(minutes=30)))
-                link = url_for("reset_password", token=raw, _external=True)
+                link = external_url("reset_password", token=raw)
                 send_reset(user, link)
                 S.audit("auth.reset_request", "user", user.id, "", actor=user)
                 db.session.commit()
