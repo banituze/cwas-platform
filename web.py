@@ -799,3 +799,79 @@ def register_routes(app):
         return jsonify(items=[{"id": n.id, "text": S.render_notification(n, g.lang)[:160], "href": url_for("notification", nid=n.id)} for n in rows],
                        last=rows[-1].id if rows else after, unread=Notification.query.filter_by(user_id=current_user.id, is_read=False).count())
 
+    # ── your data: export and delete ────────────────────────────────────────
+    @app.get("/account/export.json")
+    @login_required
+    def export_data():
+        u, h = current_user, current_user.household
+        data = {"exported_at": utcnow().isoformat(), "account": {"name": u.name, "email": u.email, "phone": u.phone, "role": u.role, "language": u.language, "created": u.created_at.isoformat() if getattr(u, "created_at", None) else None}}
+        if h:
+            data["household"] = {"name": h.name, "village": h.village, "address": h.address, "family_size": h.family_size, "access_needs": h.access_needs, "priority": h.priority_level, "balance_mga": h.balance}
+            data["bookings"] = [{"ref": b.ref, "date": b.date.isoformat(), "start": S.fmt_min(b.start_min), "water_point": b.source.name, "litres": b.litres, "amount_mga": b.amount, "status": b.status, "channel": b.channel}
+                                for b in Booking.query.filter_by(household_id=h.id).order_by(Booking.id)]
+            data["wallet"] = [{"reference": t.reference, "kind": t.kind, "provider": t.provider, "status": t.status, "amount_mga": t.amount, "at": t.created_at.isoformat()} for t in WalletTxn.query.filter_by(household_id=h.id).order_by(WalletTxn.id)]
+        data["notifications"] = [{"at": n.created_at.isoformat(), "text": S.render_notification(n, g.lang)} for n in Notification.query.filter_by(user_id=u.id).order_by(Notification.id)]
+        data["chats"] = [{"title": t.title, "messages": [{"role": m.role, "text": m.body, "files": [f["name"] for f in json.loads(m.files or "[]")]} for m in t.messages]} for t in ChatThread.query.filter_by(user_id=u.id)]
+        S.audit("account.export", "user", u.id, "", actor=u)
+        db.session.commit()
+        r = make_response(json.dumps(data, indent=2, ensure_ascii=False))
+        r.headers["Content-Type"] = "application/json; charset=utf-8"
+        r.headers["Content-Disposition"] = "attachment; filename=cwas-my-data.json"
+        return r
+
+    def erase_account(u, channel="web"):
+        uid, phone, name, h = u.id, u.phone, u.name, u.household
+        due = 0
+        if h:
+            for b in Booking.query.filter(Booking.household_id == h.id, Booking.status.in_(("pending", "approved"))).all():
+                try:
+                    S.cancel_booking(b, u, channel)
+                except S.ServiceError:
+                    pass  # slot already started: it stays on record
+            db.session.flush()
+            db.session.refresh(h)
+            if h.balance > 0:
+                due = h.balance
+                S.wallet_post(h, "adjustment", -due, "cash", note="Account closed: refund due in cash", actor=u)
+            h.name, h.address, h.access_needs, h.village = "Deleted household", "", "", ""
+        if due:
+            for st in User.query.filter(User.role.in_(("coordinator", "admin")), User.is_active_flag.is_(True), User.id != uid):
+                S.notify(st, "Account closed: {name} ({phone}) is owed {amount} in cash.", "wallet", name=name, phone=phone or "-", amount=S.fmt_ar(due))
+        erase_chats(ChatThread.query.filter_by(user_id=uid).all())
+        shutil.rmtree(os.path.join(instance_root(), "uploads", str(uid)), ignore_errors=True)
+        Notification.query.filter_by(user_id=uid).delete()
+        PasswordReset.query.filter_by(user_id=uid).delete()
+        if phone:
+            UssdSession.query.filter_by(phone=phone).delete()
+            SmsLog.query.filter_by(phone=phone).delete()
+        S.audit("account.delete", "user", uid, f"self-service, refund due {due} MGA", actor=u, channel=channel)
+        u.name, u.email, u.phone, u.password_hash, u.pin_hash = f"Deleted user {uid}", None, None, None, None
+        u.mfa_enabled, u.mfa_secret, u.is_active_flag = False, None, False
+        return due
+
+    app.extensions["cwas.erase_account"] = erase_account  # USSD "Delete account" runs the same erasure
+
+    @app.route("/account/delete", methods=["GET", "POST"])
+    @login_required
+    def delete_account():
+        u, h = current_user, current_user.household
+        bal = h.balance if h else 0
+        last_admin = u.role == "admin" and User.query.filter_by(role="admin", is_active_flag=True).count() <= 1
+        if request.method == "POST" and not last_admin:
+            secret = request.form.get("password", "")
+            ok = bool(u.password_hash and check_password_hash(u.password_hash, secret)) or bool(not u.password_hash and u.pin_hash and check_password_hash(u.pin_hash, secret))
+            if not ok:
+                say("Current password is wrong.", "err")
+            elif request.form.get("confirm", "").strip().upper() != "DELETE":
+                say("Type DELETE to confirm.", "err")
+            elif bal > 0 and not request.form.get("refund"):
+                say("Please confirm how your remaining balance will be handled.", "err")
+            else:
+                erase_account(u)
+                db.session.commit()
+                logout_user()
+                session.clear()
+                flash(T("Your account and personal data were deleted."), "ok")
+                return redirect(url_for("index"))
+        return render_template("account/delete.html", bal=bal, last_admin=last_admin)
+

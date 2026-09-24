@@ -1,0 +1,19 @@
+{% extends "app_base.html" %}{% from "partials/macros.html" import field, icon with context %}
+{% block title %}{{ t('Delete my account') }}{% endblock %}
+{% block app %}
+<h1 class="text-3xl font-extrabold">{{ t('Delete my account') }}</h1>
+<div class="mt-6 grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
+<form method="post" class="glass-strong space-y-5 p-6"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% if last_admin %}<p class="rounded-2xl bg-hot/15 p-4 text-sm font-semibold text-hot">{{ t('You are the only active administrator. Create another administrator before deleting this account.') }}</p>{% endif %}
+  <p class="text-mute">{{ t('This closes your account and removes your name, phone, email, address, chats and uploaded files. Booking, wallet and audit records stay for accounting and security.') }}</p>
+  {% if bal > 0 %}<div class="rounded-2xl bg-ink/[.06] p-4 text-sm"><p class="font-semibold">{{ t('Your wallet still holds {amount}.', amount=fmt_ar(bal)) }}</p>
+    <label class="mt-3 flex items-start gap-3"><input type="checkbox" name="refund" value="1" class="mt-1 h-4 w-4"><span>{{ t('I understand this amount becomes a refund due, and my coordinator will pay it back in cash under the Refund Policy.') }}</span></label></div>{% endif %}
+  {{ field('password','Current password (or USSD PIN)','', type='password', required=True, autocomplete='current-password') }}
+  {{ field('confirm','Type DELETE to confirm','', required=True, attrs='autocapitalize=characters') }}
+  <div class="flex flex-wrap gap-2"><button class="btn btn-hot" {{ 'disabled' if last_admin }}>{{ icon('trash') }}{{ t('Delete my account') }}</button><a class="btn btn-ghost" href="{{ url_for('profile') }}">{{ t('Keep my account') }}</a></div>
+</form>
+<section class="glass-strong p-6"><h2 class="text-xl font-bold">{{ t('Before you go') }}</h2>
+  <ul class="mt-4 space-y-3 text-sm text-mute"><li class="flex gap-3">{{ icon('download', 'mt-0.5') }}<span>{{ t('You can download a copy of your data first.') }}</span></li><li class="flex gap-3">{{ icon('calendar', 'mt-0.5') }}<span>{{ t('Future bookings are cancelled and refunded to your wallet.') }}</span></li><li class="flex gap-3">{{ icon('lock', 'mt-0.5') }}<span>{{ t('This cannot be undone.') }}</span></li></ul>
+  <a class="btn btn-ghost mt-5" href="{{ url_for('export_data') }}">{{ icon('download') }}{{ t('Download my data') }}</a></section>
+</div>
+{% endblock %}
