@@ -1307,5 +1307,58 @@ class Platform(unittest.TestCase):
         sim = read("static/js/sim.js")
         self.assertIn('stage.classList.add("is-typing")', sim); self.assertIn("visualViewport", sim)
 
+    def test_105_flag_sprite_header_icons_install_card_and_sms_wording(self):
+        import re
+        root = os.path.dirname(os.path.abspath(A.__file__))
+        read = lambda p: open(os.path.join(root, p), encoding="utf-8").read()
+        # every picker row names its own cell of the one-image flag sprite, and the page asks for the sprite at once
+        cells = [r[4] for r in S.phone_countries()]
+        self.assertEqual(len(set(cells)), len(cells)); self.assertTrue(all(0 <= i < 256 for i in cells))
+        self.assertTrue(os.path.exists(os.path.join(root, "static", "img", "flags.webp")))
+        c = self.app.test_client()
+        page = c.get("/register").get_data(as_text=True)
+        for s in ('rel="preload" as="image"', "img/flags.webp", 'class="cc-flag"', "--flags:url("):
+            self.assertIn(s, page)
+        self.assertNotIn("/static/flags/", page)
+        self.assertIn("backgroundPosition", read("static/js/phone.js")); self.assertNotIn(".svg", read("static/js/phone.js"))
+        # sign up: email has its own line under a full-width phone field
+        self.assertNotIn("sm:grid-cols-2\">{{ phone_input", read("templates/auth/register.html"))
+        # header icons keep their resting glass; the install card is drawn with the first paint and boot.js settles it
+        css = read("static/css/input.css")
+        for s in (".hdr-bar .btn-icon:hover", ".hdr-bar [data-tip]::after{", "html.no-install .install-card", ".cc-flag{", "background-attachment:scroll"):
+            self.assertIn(s, css)
+        self.assertIn('<aside class="install-card" data-install aria-labelledby="install-title">', c.get("/").get_data(as_text=True))
+        for s in ("no-install", "is-ios", "display-mode: standalone"):
+            self.assertIn(s, read("static/js/boot.js"))
+        self.assertNotIn("sessionStorage", read("static/js/boot.js") + read("static/js/install.js"))
+        self.assertIn('class="logo-tile ic-icon"', c.get("/").get_data(as_text=True))
+        # the White theme icon keeps its black rings, and the header starts white over the hero film
+        self.assertIn('stroke="#111111"', read("static/img/brand/favicon-fotsy.svg"))
+        self.assertIn("hdr-bar glass-pill on-dark", c.get("/").get_data(as_text=True))
+        # message bodies no longer start with the CWAS prefix; the sender ID already says CWAS
+        self.assertIsNone(re.search(r"[\"']CWAS ?: ", read("ussd.py") + read("services.py") + read("translations.py")))
+        self.assertIn('f"Dial {DIAL} to register, or text REGISTER MEMBER Name|Village|FamilySize|LANG|PIN|RecoveryCode to {SHORTCODE}."', read("ussd.py"))
+        # the Lite 2: every key has a job, and messages go to any recipient with the text typed on the keypad
+        sim = read("static/js/sim.js")
+        for s in ("typeChar(", "newMessage(", "async sendSms(text, to = SHORT)", "cwas_sim_sms:", "open(id, origin, arg)"):
+            self.assertIn(s, sim)
+        lab = c.get("/simulator")
+        self.assertEqual(lab.status_code, 200); self.assertIn("Recipient number", lab.get_data(as_text=True))
+        # the header text stays white in every theme, and the deck's cards never blur what is behind them
+        for s in ("html[data-theme] .dk-card>.orb-face", ".hdr-bar.on-dark [data-tip]::after"):
+            self.assertIn(s, css)
+        # the header turns light over every dark section; the phones write new messages from a round plus at the bottom
+        self.assertIn("media-dark", read("static/js/app.js")); self.assertIn("sms-fab", sim)
+        # a balance reply shows the balance alone, with no last movement in brackets
+        self.assertIn('reply = L("Your balance is {balance}", balance=M(h.balance))', read("ussd.py")); self.assertNotIn("M(last.amount)", read("ussd.py"))
+        # the logo on log in and sign up leads home
+        self.assertIn('class="shrink-0" aria-label="CWAS">', c.get("/login").get_data(as_text=True))
+        # the lab opens on the Nova 6, long USSD sessions stay whole, the About film has no poster, the plus can be dragged
+        self.assertIn('model = "nova"', sim); self.assertIn("fabDrag", sim); self.assertIn("[:2000]", read("web.py"))
+        self.assertIn('preload="auto" src=', c.get("/about").get_data(as_text=True))
+        # tooltips step aside while a header menu is open; the White swatch shows its logo colours
+        self.assertIn(".hdr-bar:has([data-menu].open) [data-tip]::after", css)
+        self.assertIn("--a:#FFFFFF;--b:#FC3D32;--c:#111111", c.get("/").get_data(as_text=True))
+
 if __name__ == "__main__":
     unittest.main()
