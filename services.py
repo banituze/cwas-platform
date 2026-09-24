@@ -830,3 +830,29 @@ def sweep(now=None):
     return changed
 
 
+# ── maintenance (FR9) ───────────────────────────────────────────────────────
+def schedule_maintenance(source, start, end, reason, actor=None, channel="web"):
+    """Blocks the affected slots, cancels and refunds bookings inside the window, and offers alternatives."""
+    if end <= start:
+        raise ServiceError("bad_window")
+    m = Maintenance(source_id=source.id, starts_at=start, ends_at=end, reason=clean_text(reason, 250), created_by=actor.id if actor else None)
+    db.session.add(m)
+    db.session.flush()
+    affected = 0
+    q = Booking.query.filter(Booking.source_id == source.id, Booking.status.in_(("pending", "approved")),
+                             Booking.date >= start.date(), Booking.date <= end.date()).all()
+    for b in q:
+        s = datetime.combine(b.date, datetime.min.time()) + timedelta(minutes=b.start_min)
+        e = datetime.combine(b.date, datetime.min.time()) + timedelta(minutes=b.end_min)
+        if s < end and e > start:
+            b.status = "cancelled"
+            amount = _refund(b, f"Refund: maintenance at {source.name}", actor, channel)
+            alts = alternatives(source, b.date, b.litres)
+            for_user = b.household.user
+            event(for_user, "Maintenance at {source}: booking {ref} was cancelled and {amount} refunded. Free slots: {alts}", "maintenance", sms=True,
+                  source=source.name, ref=b.ref, amount=fmt_ar(amount), alts=alt_text(alts, for_user.language))
+            affected += 1
+    audit("maintenance.schedule", "source", source.id, f"{start} to {end}: {reason} ({affected} bookings moved)", actor=actor, channel=channel)
+    return m, affected
+
+
