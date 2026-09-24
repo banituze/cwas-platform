@@ -426,3 +426,219 @@ def register_flow(ctx):
     return END(ctx, ctx.L("Welcome {name}!", name=S.first_name(name)), ctx.L("Account created."), ctx.L("Dial {dial} to book a slot.", dial=DIAL))
 
 
+# ── member ──────────────────────────────────────────────────────────────────
+MEMBER_MENU = ["Deposit funds", "Book water", "My bookings", "Cancel booking", "Balance", "Notifications", "Water points", "My profile",
+               "Help", "Receipts"]
+
+
+def member_main(ctx, user):
+    h = user.household
+    flows = [deposit_flow, book_flow, bookings_flow, cancel_flow, balance_flow, notifications_flow, sources_flow, profile_flow, member_help, receipts_flow]
+    items = list(zip(MEMBER_MENU, flows))
+    while True:
+        db.session.refresh(h)
+        i = yield from menu(ctx, ctx.L("Hello {name}", name=S.first_name(user.name)), [ctx.L(n) for n, _ in items], root=True)
+        out = yield from items[i][1](ctx, user, h)
+        if out:
+            return out
+
+
+def deposit_flow(ctx, user, h):
+    provs = [("orange", "Orange Money"), ("airtel", "Airtel Money")] + ([("cash", "Cash / agent")] if S.get_setting("cash_enabled") == "1" else [])
+    i = yield from menu(ctx, ctx.L("Deposit funds"), [ctx.L(l) for _, l in provs])
+    provider, label = provs[i]
+    lo, hi = S.get_int("min_deposit"), S.get_int("max_deposit")
+    presets = [1000, 2000, 5000, 10000, 20000, 50000]
+    j = yield from menu(ctx, ctx.L("Choose amount"), [M(a) for a in presets] + [ctx.L("Other amount")])
+    if j == len(presets):
+        amount = yield from entry(ctx, ctx.L("Enter amount in MGA") + "\n" + ctx.L("Min {min}", min=lo), v_int(lo, hi))
+    else:
+        amount = presets[j]
+    ok = yield from confirm(ctx, ctx.L("Deposit {amount}", amount=M(amount)), ctx.L("via {provider}", provider=ctx.L(label)))
+    if not ok:
+        return END(ctx, ctx.L("Cancelled."))
+    stop = yield from require_pin(ctx, user)
+    if stop:
+        return stop
+    try:
+        txn = S.deposit(h, amount, provider, user, "ussd")
+        db.session.commit()
+    except S.ServiceError as e:
+        return _err(ctx, e)
+    if txn.status == "posted":
+        return END(ctx, ctx.L("Deposit recorded"), ctx.L(label), "+" + M(amount), f"Ref: {txn.reference}", ctx.L("Balance: {balance}", balance=M(h.balance)))
+    return END(ctx, ctx.L("Deposit pending"), ctx.L(label), M(amount), f"Ref: {txn.reference}", ctx.L("Waiting for confirmation."))
+
+
+def _day_label(ctx, d, i):
+    return ctx.L("Today") if i == 0 else ctx.L("Tomorrow") if i == 1 else d.strftime("%m-%d")
+
+
+def book_flow(ctx, user, h):
+    srcs = S.operational_sources()
+    if not srcs:
+        return END(ctx, ctx.L("No water point is open now."))
+    i = yield from menu(ctx, ctx.L("Select water point:"), [short(s.name, 22) for s in srcs])
+    src = srcs[i]
+    days = S.booking_days()
+    j = yield from menu(ctx, ctx.L("Select day:"), [_day_label(ctx, d, n) for n, d in enumerate(days)])
+    day = days[j]
+    slots = S.slot_list(src, day, only_open=True)
+    if not slots:
+        return END(ctx, ctx.L("No free slot that day."))
+    k = yield from menu(ctx, ctx.L("Select slot:"), [f"{s['label']} ({s['free']})" for s in slots])
+    slot = slots[k]
+    opts = S.litre_options(src)
+    quotes = [S.price_quote(h, src, l)[0] for l in opts]
+    q = yield from menu(ctx, ctx.L("Quantity:"), [f"{l} L ({M(p)})" for l, p in zip(opts, quotes)])
+    litres, amount = opts[q], quotes[q]
+    db.session.refresh(h)
+    if h.balance < amount:
+        return END(ctx, ctx.L("Not enough balance. Need {need}, you have {balance}.", need=M(amount), balance=M(h.balance)), ctx.L("Deposit funds first: dial {dial}.", dial=DIAL))
+    ok = yield from confirm(ctx, ctx.L("Confirm booking"), short(src.name, 20), f"{day:%Y-%m-%d} {slot['label']}", f"{litres} L - {M(amount)}",
+                            ctx.L("Wallet: {balance}", balance=M(h.balance)), yes="Pay from wallet")
+    if not ok:
+        return END(ctx, ctx.L("Cancelled."))
+    stop = yield from require_pin(ctx, user)
+    if stop:
+        return stop
+    try:
+        b = S.create_booking(h, src.id, day, slot["start_min"], litres, "ussd", user)
+        db.session.commit()
+    except S.ServiceError as e:
+        return _err(ctx, e)
+    return END(ctx, ctx.L("Booked!"), f"Ref: {b.ref}", short(src.name, 18), f"{day:%Y-%m-%d} {slot['label']}", f"{litres} L - {M(amount)}",
+               ctx.L("Status: {status}", status=ctx.L("pending approval") if b.status == "pending" else st(ctx, b.status)))
+
+
+def _my_bookings(h, limit=6, only_open=False):
+    q = Booking.query.filter_by(household_id=h.id)
+    if only_open:
+        q = q.filter(Booking.status.in_(("pending", "approved")), Booking.date >= S.today_local())
+    return q.order_by(Booking.date.desc(), Booking.start_min.desc()).limit(limit).all()
+
+
+def bookings_flow(ctx, user, h):
+    rows = _my_bookings(h)
+    if not rows:
+        yield from info(ctx, ctx.L("You have no bookings yet."))
+        return None
+    i = yield from menu(ctx, ctx.L("Your bookings:"), [f"{b.ref} {st(ctx, b.status)} {b.date:%m-%d}" for b in rows])
+    b = rows[i]
+    yield from info(ctx, b.ref, short(b.source.name, 24), f"{b.date:%Y-%m-%d} {S.fmt_min(b.start_min)}-{S.fmt_min(b.end_min)}",
+                    f"{b.litres} L - {M(b.amount)}", ctx.L("Status: {status}", status=st(ctx, b.status)),
+                    short(b.decision_note, 40) if b.status == "denied" and b.decision_note else "")
+    return None
+
+
+def cancel_flow(ctx, user, h):
+    rows = _my_bookings(h, 6, only_open=True)
+    if not rows:
+        return END(ctx, ctx.L("No booking can be cancelled."))
+    i = yield from menu(ctx, ctx.L("Cancel which?"), [f"{b.ref} {b.date:%m-%d} {S.fmt_min(b.start_min)}" for b in rows])
+    b = rows[i]
+    ok = yield from confirm(ctx, ctx.L("Cancel {ref}?", ref=b.ref), yes="Confirm", no="Keep")
+    if not ok:
+        return END(ctx, ctx.L("Kept."))
+    stop = yield from require_pin(ctx, user)
+    if stop:
+        return stop
+    try:
+        S.cancel_booking(b, user, "ussd")
+        db.session.commit()
+    except S.ServiceError as e:
+        return _err(ctx, e)
+    db.session.refresh(h)
+    return END(ctx, ctx.L("Cancelled {ref}. Eligible payment was refunded once.", ref=b.ref), ctx.L("Balance: {balance}", balance=M(h.balance)))
+
+
+def balance_flow(ctx, user, h):
+    last = WalletTxn.query.filter_by(household_id=h.id, status="posted").order_by(WalletTxn.id.desc()).first()
+    lines = [ctx.L("Balance: {balance}", balance=M(h.balance))]
+    if last:
+        lines.append(f"{'+' if last.amount > 0 else ''}{M(last.amount)} {ctx.L(last.kind.replace('_', ' '))}")
+    yield from info(ctx, *lines)
+    return None
+
+
+_TITLES = [("Booked ", "Booking created"), ("Booking {ref} is approved", "Booking approved"), ("Booking {ref} was cancelled", "Booking cancelled"),
+           ("Booking {ref} was not approved", "Booking denied"), ("Booking {ref} expired", "Booking expired"), ("Booking {ref} was marked", "Not collected"),
+           ("Deposit {ref} of", "Deposit pending"), ("Deposit ", "Deposit recorded"), ("Your deposit {ref} of {amount} was not", "Deposit rejected"),
+           ("Your deposit", "Deposit confirmed"), ("Water collected", "Water collected"), ("Maintenance", "Maintenance notice"), ("Welcome", "Welcome"),
+           ("Your PIN was changed", "PIN changed"), ("Your PIN was reset", "PIN reset"), ("Your PIN", "PIN set"),
+           ("Your recovery code", "Recovery code changed"), ("Your profile", "Profile updated"), ("You asked for help", "PIN help"),
+           ("PIN help", "PIN help"), ("Language set", "Language"), ("Your priority", "Priority updated")]
+
+
+def _title(ctx, n):
+    if n.body and not n.key:
+        return ctx.L("Announcement")
+    for prefix, title in _TITLES:
+        if n.key.startswith(prefix):
+            return ctx.L(title)
+    return short(S.render_notification(n, ctx.lang), 22)
+
+
+def notifications_flow(ctx, user, h):
+    rows = Notification.query.filter_by(user_id=user.id).order_by(Notification.id.desc()).limit(6).all()
+    if not rows:
+        yield from info(ctx, ctx.L("No notifications."))
+        return None
+    i = yield from menu(ctx, ctx.L("Notifications:"), [("* " if not n.is_read else "") + _title(ctx, n) for n in rows])
+    n = rows[i]
+    n.is_read = True
+    db.session.commit()
+    yield from info(ctx, S.render_notification(n, ctx.lang)[:140])
+    return None
+
+
+_STATE = {"operational": "OPER", "maintenance": "MAIN", "closed": "CLOS"}
+
+
+def sources_flow(ctx, user, h=None):
+    srcs = WaterSource.query.order_by(WaterSource.name).all()
+    if not srcs:
+        yield from info(ctx, ctx.L("No water points."))
+        return None
+    i = yield from menu(ctx, ctx.L("Water points:"), [f"{short(s.name, 18)} [{_STATE.get(s.status, '?')}]" for s in srcs])
+    s = srcs[i]
+    yield from info(ctx, short(s.name, 24), ctx.L("{name} is open {a} to {b}.", name=_STATE.get(s.status, "?"), a=S.fmt_min(s.open_min), b=S.fmt_min(s.close_min)),
+                    f"{M(s.tariff_per_100l)} / 100 L", f"{s.slot_minutes} min, {s.slot_capacity}/slot")
+    return None
+
+
+def language_flow(ctx, user, h=None):
+    i = yield from menu(ctx, ctx.L("Language:"), LANG_NAMES)
+    code = LANG_CODES[str(i + 1)]
+    user.language = code
+    S.audit("user.language", "user", user.id, code, actor=user, channel="ussd")
+    S.notify(user, "Language set to {code}.", "system", code=code.upper())  # in the app only: not worth an SMS
+    db.session.commit()
+    return END(ctx, tt("Language set to {code}.", code, code=code.upper()))
+
+
+def member_help(ctx, user, h):
+    contacts = S.staff_contacts(user, 1)
+    yield from info(ctx, ctx.L("00 main menu, 97 back, 99 exit."), ctx.L("SMS {sms}: HELP for commands.", sms=SHORTCODE),
+                    ctx.L("Coordinator: {phone}", phone=S.local_phone(contacts[0])) if contacts else "")
+    return None
+
+
+def receipts_flow(ctx, user, h):
+    rows = WalletTxn.query.filter_by(household_id=h.id, status="posted").filter(WalletTxn.kind != "adjustment").order_by(WalletTxn.id.desc()).limit(5).all()
+    if not rows:
+        yield from info(ctx, ctx.L("No receipts yet."))
+        return None
+    i = yield from menu(ctx, ctx.L("Receipts"), [f"{r.reference} {'+' if r.amount > 0 else ''}{r.amount:,}" for r in rows])
+    r = rows[i]
+    ok = yield from confirm(ctx, r.reference, f"{ctx.L(r.kind.replace('_', ' '))} {'+' if r.amount > 0 else ''}{M(r.amount)}",
+                            (r.created_at + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M"), ctx.L("Balance: {balance}", balance=M(r.balance_after or 0)),
+                            yes="Send to my SMS", no="Back")
+    if ok:
+        S.send_sms(user.phone, ctx.L("Receipt {ref}: {kind} {amount}, balance {balance}.", ref=r.reference, kind=ctx.L(r.kind.replace("_", " ")),
+                                     amount=M(r.amount), balance=M(r.balance_after or 0)), user)
+        db.session.commit()
+        return END(ctx, ctx.L("Receipt sent by SMS."))
+    return None
+
+
