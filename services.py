@@ -923,3 +923,52 @@ def to_csv(header, rows):
     return buf.getvalue()
 
 
+# ── assistant (FR11.3): keyword intents answered from live data ─────────────
+_INTENTS = [
+    ("balance", ("balance", "wallet", "solde", "vola", "sisa", "money left")),
+    ("bookings", ("my booking", "next booking", "réservation", "famandrihana", "reservation", "bookings")),
+    ("book", ("book", "reserve", "slot", "réserver", "mamandrika", "famandrihana vaovao")),
+    ("cancel", ("cancel", "annul", "foano", "foana")),
+    ("price", ("price", "cost", "tarif", "prix", "vidiny", "sarany", "how much")),
+    ("hours", ("hour", "open", "horaire", "ouvert", "ora", "misokatra")),
+    ("sources", ("water point", "source", "borehole", "puits", "fantsakana", "forage", "where")),
+    ("ussd", ("ussd", "sms", "feature phone", "*384", "code")),
+    ("deposit", ("deposit", "add money", "orange", "airtel", "pay", "recharge", "dépôt", "manampy", "mandoa")),
+    ("language", ("language", "langue", "fiteny", "malagasy", "français", "english")),
+    ("help", ("help", "aide", "fanampiana", "hello", "bonjour", "salama", "hi")),
+]
+
+
+def assistant_reply(user, text, lang):
+    t = (text or "").lower()
+    intent = next((name for name, keys in _INTENTS if any(k in t for k in keys)), "fallback")
+    h = user.household if user and user.role == "member" else None
+    if intent == "balance" and h:
+        return tt("Your wallet balance is {balance}.", lang, balance=fmt_ar(h.balance))
+    if intent == "bookings" and h:
+        nxt = Booking.query.filter(Booking.household_id == h.id, Booking.date >= today_local(),
+                                   Booking.status.in_(("pending", "approved"))).order_by(Booking.date, Booking.start_min).first()
+        if nxt:
+            return tt("Next booking {ref}: {source}, {date} {time}, {litres} L ({status}).", lang, ref=nxt.ref, source=nxt.source.name,
+                      date=f"{nxt.date:%d/%m}", time=fmt_min(nxt.start_min), litres=nxt.litres, status=tt(nxt.status.replace("_", " "), lang))
+        return tt("You have no upcoming booking.", lang)
+    if intent == "sources":
+        names = ", ".join(s.name for s in operational_sources()[:6]) or "-"
+        return tt("Open water points: {names}.", lang, names=names)
+    if intent == "price":
+        s = operational_sources()
+        if s:
+            return tt("Tariff is about {p} per 100 L, reduced for vulnerable households.", lang, p=fmt_ar(s[0].tariff_per_100l))
+    if intent == "hours":
+        s = operational_sources()
+        if s:
+            return tt("{name} is open {a} to {b}.", lang, name=s[0].name, a=fmt_min(s[0].open_min), b=fmt_min(s[0].close_min))
+    if intent in ("book", "cancel", "deposit"):
+        return tt({"book": "Open Book a slot, choose a water point, a day and a time. Payment comes from your wallet.",
+                   "cancel": "Open My bookings, pick a future booking and press Cancel. Your money returns to the wallet.",
+                   "deposit": "Open Wallet and add money with Orange Money or Airtel Money."}[intent], lang)
+    if intent == "ussd":
+        return tt("Dial *384*9411# from any phone. SMS shortcode 7380 answers HELP, BALANCE, SOURCES and more.", lang)
+    if intent == "language":
+        return tt("Change the language from the flag menu at the top of the page.", lang)
+    return tt("I can help with balance, bookings, prices, water points and USSD. What do you need?", lang)
