@@ -1254,3 +1254,8 @@ html,body{overscroll-behavior-y:none}
 .sms-err{margin:8px 16px 0;font-size:12px;opacity:.8}
 .sms-new-form .compose{margin-top:auto}
 @media (prefers-reduced-motion:reduce){.lt-caret{animation:none}}
+
+/* ── polish 18: the card deck stays smooth in every theme. The White theme's glass rule blurs whatever lies behind a glass
+   card and it outranked the deck's own rule, so each card in the deck blurred the page behind it on every scroll frame
+   while the deck moved the cards in 3D. Deck cards never blur what is behind them, in any theme */
+html[data-theme] .dk-card>.orb-face{-webkit-backdrop-filter:none;backdrop-filter:none}
