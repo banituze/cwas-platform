@@ -171,3 +171,285 @@ def register_routes(app):
     def offline():
         return render_template("offline.html")
 
+    # ── auth ────────────────────────────────────────────────────────────────
+    def finish_login(user, nxt=None):
+        session.clear()
+        login_user(user)
+        session.permanent = True
+        user.last_login_at, user.failed_logins, user.locked_until = utcnow(), 0, None
+        S.audit("auth.login", "user", user.id, user.role, actor=user)
+        db.session.commit()
+        return redirect(safe_next(nxt) or home_for(user))
+
+    @app.route("/login", methods=["GET", "POST"])
+    @limiter.limit("10 per minute", methods=["POST"])
+    def login():
+        if current_user.is_authenticated:
+            return redirect(home_for(current_user))
+        if request.method == "POST":
+            ident = S.clean_text(request.form.get("identifier"), 190).lower()
+            pw = request.form.get("password", "")
+            phone = S.norm_phone(ident)
+            user = User.query.filter(or_(User.email == ident, User.phone == phone if phone else False)).first()
+            now = utcnow()
+            if user and user.locked_until and user.locked_until > now:
+                say("Too many attempts. Try again in 15 minutes.", "err")
+            elif user and user.password_hash and check_password_hash(user.password_hash, pw):
+                if not user.is_active_flag:
+                    say("This account is not active yet. Ask an administrator.", "err")
+                elif user.mfa_enabled:
+                    session.clear()
+                    session["mfa_uid"], session["mfa_next"], session["mfa_tries"] = user.id, request.form.get("next", ""), 0
+                    return redirect(url_for("login_mfa"))
+                else:
+                    return finish_login(user, request.form.get("next"))
+            else:
+                check_password_hash(DUMMY_HASH, pw)
+                if user:
+                    user.failed_logins += 1
+                    if user.failed_logins >= 5:
+                        user.locked_until, user.failed_logins = now + timedelta(minutes=15), 0
+                        S.audit("auth.lock", "user", user.id, "5 failed sign-ins", actor=user)
+                    db.session.commit()
+                say("Wrong email, phone or password.", "err")
+        return render_template("auth/login.html", nxt=safe_next(request.args.get("next")) or "")
+
+    @app.route("/login/mfa", methods=["GET", "POST"])
+    @limiter.limit("10 per minute", methods=["POST"])
+    def login_mfa():
+        uid = session.get("mfa_uid")
+        user = db.session.get(User, uid) if uid else None
+        if not user:
+            return redirect(url_for("login"))
+        if request.method == "POST":
+            session["mfa_tries"] = session.get("mfa_tries", 0) + 1
+            if session["mfa_tries"] > 5:
+                session.clear()
+                say("Too many attempts. Sign in again.", "err")
+                return redirect(url_for("login"))
+            if S.totp_verify(user.mfa_secret, request.form.get("code", "")):
+                return finish_login(user, session.get("mfa_next"))
+            say("That code is not valid.", "err")
+        return render_template("auth/mfa.html")
+
+    @app.post("/logout")
+    def logout():
+        if current_user.is_authenticated:
+            S.audit("auth.logout", "user", current_user.id)
+            db.session.commit()
+        logout_user()
+        session.clear()
+        return redirect(url_for("index"))
+
+    @app.route("/register", methods=["GET", "POST"])
+    @limiter.limit("10 per hour", methods=["POST"])
+    def register():
+        if current_user.is_authenticated:
+            return redirect(home_for(current_user))
+        f, errors = request.form, []
+        if request.method == "POST":
+            name, village = S.clean_text(f.get("name"), 120), S.clean_text(f.get("village"), 120)
+            phone, email = S.norm_phone(f.get("phone")), S.clean_text(f.get("email"), 190).lower()
+            pw, pin = f.get("password", ""), f.get("pin", "").strip()
+            recovery = f.get("recovery", "").strip()
+            want_coord = f.get("role") == "coordinator"
+            if want_coord:
+                code = f.get("access_code", "").strip()
+                if not code:
+                    errors.append("Enter the coordinator access code.")
+                elif not hmac.compare_digest(code.encode(), S.get_setting("coord_access").encode()):
+                    errors.append("That code is not valid.")
+            flags = S.clean_flags(f.getlist("vuln"))
+            band = int_arg("distance", 0, 0, 20000)
+            home = home_choice(f)
+            if not want_coord:
+                if band not in [d for d, _ in S.DISTANCE]:
+                    errors.append("Choose how far your household is from water.")
+                if not pin:
+                    errors.append("Create a 4-digit PIN. It lets you use the service on any phone.")
+            if not f.get("accept"):
+                errors.append("Please accept the Terms, Privacy Policy and Refund Policy to continue.")
+            size = int_arg("family_size", 4, 1, 40)
+            if len(name) < 2:
+                errors.append("Enter your full name.")
+            if not phone:
+                errors.append("Enter a valid phone number.")
+            if email and not S.valid_email(email):
+                errors.append("Enter a valid email address.")
+            if S.password_error(pw):
+                errors.append(S.password_error(pw))
+            if pin and not U.PIN_RE.match(pin):
+                errors.append("PIN must be 4 digits")
+            if pin and not recovery:
+                errors.append("Add a 6-digit recovery code to go with your PIN.")
+            if recovery and not S.RECOVERY_RE.match(recovery):
+                errors.append("Recovery code must be 6 digits")
+            if phone and User.query.filter_by(phone=phone).first() or email and User.query.filter_by(email=email).first():
+                errors.append("An account with this phone or email already exists.")
+            if not errors:
+                u = User(role="coordinator" if want_coord else "member", name=name, phone=phone, email=email or None, language=g.lang,
+                         password_hash=generate_password_hash(pw), pin_hash=generate_password_hash(pin) if pin else None,
+                         recovery_hash=generate_password_hash(recovery) if recovery else None, is_active_flag=not want_coord)
+                db.session.add(u)
+                db.session.flush()
+                if not want_coord:
+                    hh = Household(user_id=u.id, name=name, village=village, family_size=size)
+                    S.set_needs(hh, flags, band, home)
+                    db.session.add(hh)
+                S.audit("user.register", "user", u.id, u.role, actor=u)
+                for a in User.query.filter_by(role="admin"):
+                    if want_coord:
+                        S.notify(a, "{name} asked for coordinator access. Approve in Users.", "system", name=name)
+                db.session.commit()
+                if want_coord:
+                    say("Request sent. An administrator will activate your coordinator account.")
+                    return redirect(url_for("login"))
+                return finish_login(u)
+            for e in errors:
+                say(e, "err")
+        return render_template("auth/register.html", f=f, VULN=S.VULN, DISTANCE=S.DISTANCE, sources=S.operational_sources())
+
+    def send_reset(user, link):
+        body = T("CWAS password reset link (valid 30 minutes): {link}", link=link)
+        if os.environ.get("SMTP_HOST") and user.email:
+            try:
+                m = EmailMessage()
+                m["Subject"], m["From"], m["To"] = "CWAS password reset", os.environ.get("SMTP_FROM", "no-reply@cwas.mg"), user.email
+                m.set_content(body)
+                with smtplib.SMTP(os.environ["SMTP_HOST"], int(os.environ.get("SMTP_PORT", "587")), timeout=8) as s:
+                    s.starttls()
+                    if os.environ.get("SMTP_USER"):
+                        s.login(os.environ["SMTP_USER"], os.environ.get("SMTP_PASSWORD", ""))
+                    s.send_message(m)
+            except Exception:  # noqa: BLE001
+                app.logger.exception("reset email failed")
+        if user.phone:
+            S.send_sms(user.phone, body, user)
+
+    @app.route("/forgot", methods=["GET", "POST"])
+    @limiter.limit("5 per hour", methods=["POST"])
+    def forgot():
+        if request.method == "POST":
+            ident = S.clean_text(request.form.get("identifier"), 190).lower()
+            phone = S.norm_phone(ident)
+            user = User.query.filter(or_(User.email == ident, User.phone == phone if phone else False)).first()
+            if user and user.is_active_flag:
+                raw = secrets.token_urlsafe(32)
+                db.session.add(PasswordReset(user_id=user.id, token_hash=hashlib.sha256(raw.encode()).hexdigest(), expires_at=utcnow() + timedelta(minutes=30)))
+                link = url_for("reset_password", token=raw, _external=True)
+                send_reset(user, link)
+                S.audit("auth.reset_request", "user", user.id, "", actor=user)
+                db.session.commit()
+                if not current_app.config["IS_PROD"]:
+                    flash(link, "dev")  # development convenience only; never shown in production
+            say("If that account exists, a reset link is on its way by SMS or email.")
+            return redirect(url_for("login"))
+        return render_template("auth/forgot.html")
+
+    @app.route("/forgot-pin", methods=["GET", "POST"])
+    @limiter.limit("8 per hour", methods=["POST"])
+    def forgot_pin():
+        """Web twin of the USSD Forgot PIN screen: the recovery code sets a new PIN; without it, ask for a call."""
+        if request.method == "POST":
+            f = request.form
+            phone = S.norm_phone(f.get("phone"))
+            user = User.query.filter_by(phone=phone, is_active_flag=True).first() if phone else None
+            if f.get("action") == "help":
+                if user and user.phone:
+                    S.request_pin_help(user, "web")
+                    db.session.commit()
+                say("If this number has an account, a coordinator will call it to check the details and reset the PIN.")
+                return redirect(url_for("forgot_pin"))
+            code, pin, pin2, now = f.get("code", "").strip(), f.get("pin", "").strip(), f.get("pin2", "").strip(), utcnow()
+            if not U.PIN_RE.match(pin) or pin != pin2:
+                say("Enter the same 4-digit PIN twice.", "err")
+            elif user and user.pin_locked_until and user.pin_locked_until > now:
+                say("Too many wrong PINs. Try again in 15 minutes.", "err")
+            elif user and user.recovery_hash and check_password_hash(user.recovery_hash, code):
+                S.set_pin(user, pin, channel="web")
+                db.session.commit()
+                say("PIN changed. Use it next time you dial {dial}.", dial=S.DIAL)
+                return redirect(url_for("forgot_pin"))
+            else:
+                check_password_hash(DUMMY_HASH, code)  # same work either way, so timing does not reveal accounts
+                if user:
+                    user.pin_failed = (user.pin_failed or 0) + 1
+                    if user.pin_failed >= 3:
+                        user.pin_locked_until, user.pin_failed = now + timedelta(minutes=15), 0
+                        S.audit("user.pin_lock", "user", user.id, "3 wrong recovery codes on the web", actor=user)
+                    db.session.commit()
+                say("That phone number and recovery code do not match.", "err")
+        return render_template("auth/forgot_pin.html")
+
+    @app.route("/reset/<token>", methods=["GET", "POST"])
+    @limiter.limit("10 per hour", methods=["POST"])
+    def reset_password(token):
+        row = PasswordReset.query.filter_by(token_hash=hashlib.sha256(token.encode()).hexdigest()).first()
+        if not row or row.used_at or row.expires_at < utcnow():
+            say("This reset link is invalid or expired.", "err")
+            return redirect(url_for("forgot"))
+        if request.method == "POST":
+            pw = request.form.get("password", "")
+            if S.password_error(pw):
+                say(S.password_error(pw), "err")
+            else:
+                u = db.session.get(User, row.user_id)
+                u.password_hash, u.failed_logins, u.locked_until, u.must_change_password = generate_password_hash(pw), 0, None, False
+                row.used_at = utcnow()
+                S.audit("auth.reset_done", "user", u.id, "", actor=u)
+                db.session.commit()
+                say("Password updated. Sign in with the new one.")
+                return redirect(url_for("login"))
+        return render_template("auth/reset.html")
+
+    @app.route("/account/password", methods=["GET", "POST"])
+    @login_required
+    @limiter.limit("10 per hour", methods=["POST"])
+    def change_password():
+        if request.method == "POST":
+            cur, new = request.form.get("current", ""), request.form.get("password", "")
+            if not check_password_hash(current_user.password_hash or DUMMY_HASH, cur):
+                say("Current password is wrong.", "err")
+            elif S.password_error(new):
+                say(S.password_error(new), "err")
+            elif cur == new:
+                say("Choose a password different from the current one.", "err")
+            else:
+                current_user.password_hash, current_user.must_change_password = generate_password_hash(new), False
+                S.audit("auth.password_change", "user", current_user.id)
+                db.session.commit()
+                say("Password changed.")
+                if current_user.role == "admin" and not current_user.mfa_enabled:
+                    say("Add a second sign-in step under Security to protect this account.")
+                return redirect(home_for(current_user))
+        return render_template("auth/password.html")
+
+    @app.route("/account/security", methods=["GET", "POST"])
+    @login_required
+    def security():
+        action = request.form.get("action")
+        if request.method == "POST" and action == "start":
+            session["mfa_setup"] = S.new_totp_secret()
+        elif request.method == "POST" and action == "enable":
+            secret = session.get("mfa_setup")
+            if secret and S.totp_verify(secret, request.form.get("code", "")):
+                current_user.mfa_secret, current_user.mfa_enabled = secret, True
+                session.pop("mfa_setup", None)
+                S.audit("auth.mfa_enable", "user", current_user.id)
+                db.session.commit()
+                say("Two-step sign-in is on.")
+            else:
+                say("That code is not valid.", "err")
+        elif request.method == "POST" and action == "disable":
+            if check_password_hash(current_user.password_hash or DUMMY_HASH, request.form.get("password", "")):
+                current_user.mfa_enabled, current_user.mfa_secret = False, None
+                S.audit("auth.mfa_disable", "user", current_user.id)
+                db.session.commit()
+                say("Two-step sign-in is off.")
+            else:
+                say("Current password is wrong.", "err")
+        secret, qr = session.get("mfa_setup"), None
+        if secret:
+            qr = segno.make(S.totp_uri(secret, current_user.email or current_user.phone or "user")).svg_inline(scale=5, dark="#0E2A1B", light="#FFFFFF", border=2)
+        return render_template("auth/security.html", secret=secret, qr=qr)
+

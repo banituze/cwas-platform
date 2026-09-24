@@ -1,0 +1,4 @@
+{% extends "auth/_shell.html" %}{% from "partials/macros.html" import field with context %}
+{% block heading %}{{ t('Two-step sign-in') }}{% endblock %}
+{% block form %}<p class="mb-4 text-sm text-mute">{{ t('Enter the 6-digit code from your authenticator app.') }}</p>
+<form method="post" class="space-y-4"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{{ field('code','Code','', attrs='inputmode=numeric maxlength=6 autofocus', autocomplete='one-time-code', required=True) }}<button class="btn btn-primary w-full !py-3">{{ t('Verify') }}</button></form>{% endblock %}

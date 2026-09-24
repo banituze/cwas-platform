@@ -1,0 +1,17 @@
+{% extends "app_base.html" %}{% from "partials/macros.html" import field, icon with context %}
+{% block title %}{{ t('Security') }}{% endblock %}
+{% block app %}
+<h1 class="text-3xl font-extrabold">{{ t('Security') }}</h1>
+<div class="mt-6 grid gap-5 lg:grid-cols-2">
+  <section class="glass-strong p-6"><h2 class="text-xl font-bold">{{ t('Two-step sign-in') }}</h2>
+  {% if current_user.mfa_enabled %}<p class="mt-3 flex items-center gap-2 text-ok">{{ icon('shield') }}{{ t('Two-step sign-in is on.') }}</p>
+    <form method="post" class="mt-4 space-y-3"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="disable">{{ field('password','Current password','', type='password', required=True) }}<button class="btn btn-ghost">{{ t('Turn off') }}</button></form>
+  {% elif secret %}<p class="mt-3 text-sm text-mute">{{ t('Scan this code with an authenticator app, then enter the 6-digit code.') }}</p>
+    <div class="mt-4 inline-block rounded-3xl bg-white p-3">{{ qr|safe }}</div><p class="mt-3 break-all font-mono text-xs">{{ secret }}</p>
+    <form method="post" class="mt-4 space-y-3"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="enable">{{ field('code','Code','', attrs='inputmode=numeric maxlength=6', required=True) }}<button class="btn btn-primary">{{ t('Turn on') }}</button></form>
+  {% else %}<p class="mt-3 text-sm text-mute">{{ t('Adds a 6-digit code from your phone to every sign-in.') }}</p>
+    <form method="post" class="mt-4"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="start"><button class="btn btn-primary">{{ t('Set up') }}</button></form>{% endif %}</section>
+  <section class="glass-strong p-6"><h2 class="text-xl font-bold">{{ t('Password') }}</h2><p class="mt-3 text-sm text-mute">{{ t('Change it regularly and never share it.') }}</p><a class="btn btn-primary mt-4" href="{{ url_for('change_password') }}">{{ t('Change password') }}</a></section>
+  <section class="glass-strong p-6"><h2 class="text-xl font-bold">{{ t('Your data') }}</h2><p class="mt-3 text-sm text-mute">{{ t('Download a copy, or close your account.') }}</p><div class="mt-4 flex flex-wrap gap-2"><a class="btn btn-ghost btn-sm" href="{{ url_for('export_data') }}">{{ icon('download') }}{{ t('Download my data') }}</a><a class="btn btn-ghost btn-sm !text-hot" href="{{ url_for('delete_account') }}">{{ icon('trash') }}{{ t('Delete my account') }}</a></div></section>
+</div>
+{% endblock %}

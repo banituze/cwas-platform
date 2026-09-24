@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% from "partials/macros.html" import icon, logo, logo_tile with context %}
+{% block content %}
+{# Sign up, log in and recovery: the live-water pond of the homepage stays in view on the left while the form scrolls. #}
+<section class="mx-auto max-w-page px-4 pb-16 pt-28 lg:pt-24">
+  <div class="grid w-full gap-10 lg:grid-cols-[1fr_.9fr] lg:items-start">
+    <div class="auth-side media-dark hidden lg:flex" data-live-water>
+      <div class="hero-media" data-hero-media aria-hidden="true">
+        <picture><source type="image/avif" media="(max-aspect-ratio: 4/5)" srcset="{{ url_for('static', filename='media/hero/hero-base-port.avif') }}"><source media="(max-aspect-ratio: 4/5)" srcset="{{ url_for('static', filename='media/hero/hero-base-port.webp') }}"><source type="image/avif" srcset="{{ url_for('static', filename='media/hero/hero-base-land.avif') }}"><img class="hm-still is-on" data-still="base" src="{{ url_for('static', filename='media/hero/hero-base-land.webp') }}" alt="" width="1600" height="900" decoding="async" fetchpriority="high"></picture>
+        <canvas class="hm-liquid" data-hero-liquid></canvas>
+      </div>
+      <div class="hero-scrim" aria-hidden="true"></div>
+      <div class="auth-copy"><h1 class="text-6xl font-extrabold leading-[1.02]" data-type data-liquid>{% block side %}{{ t('Water on a schedule everyone can trust') }}{% endblock %}</h1>
+        <p class="mt-5 max-w-md text-lg text-white/85">{{ t('Book a water slot, pay with Orange Money or Airtel Money and collect without queueing. Works on any phone, including USSD and SMS.') }}</p></div>
+    </div>
+    <div class="glass-strong mx-auto w-full max-w-md p-8 lg:self-center"><div class="mb-5 flex items-center gap-3">{{ logo_tile(42) }}<h2 class="text-2xl font-bold" data-type>{% block heading %}{% endblock %}</h2></div>{% block form %}{% endblock %}</div>
+  </div>
+</section>
+{% endblock %}
+{% block footer %}{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/hero.js') }}" defer></script>{% endblock %}
