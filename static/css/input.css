@@ -1,0 +1,146 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face{font-family:"Bricolage Grotesque Variable";font-style:normal;font-display:swap;font-weight:200 800;src:url(/static/fonts/bricolage-latin.woff2) format("woff2-variations");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Bricolage Grotesque Variable";font-style:normal;font-display:swap;font-weight:200 800;src:url(/static/fonts/bricolage-latin-ext.woff2) format("woff2-variations");unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Figtree Variable";font-style:normal;font-display:swap;font-weight:300 900;src:url(/static/fonts/figtree-latin.woff2) format("woff2-variations");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Figtree Variable";font-style:normal;font-display:swap;font-weight:300 900;src:url(/static/fonts/figtree-latin-ext.woff2) format("woff2-variations");unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+
+/* Three themes. Each re-arranges the flag colours: white, red (#FC3D32) and green (#007E3A). The page field is deliberately calm
+   (near-uniform tones), so text never sits on a busy or low-contrast area, whatever the scroll position. */
+/* Three themes, one per flag colour, and the named colour DOMINATES its theme: white pages with white buttons, green pages
+   with green buttons, red pages with red buttons. --fill/--onfill paint buttons and active items; --brand paints data,
+   icon discs and bars; --link colours real links only. Every pair was checked for contrast (text 4.5:1, icons 3:1). */
+:root,[data-theme="fotsy"]{
+  --bg:250 250 250;--ink:17 17 17;--mute:92 96 94;--brand:17 17 17;--onbrand:255 255 255;--hot:17 17 17;--ok:0 118 54;--err:198 36 28;
+  --fill:17 17 17;--onfill:255 255 255;--fill-line:rgba(255,255,255,.22);--link:0 126 58;--t-brand:17 17 17;--t-ink:17 17 17;--t-mute:92 96 94;
+  --glass:rgba(255,255,255,.58);--glass-strong:rgba(255,255,255,.74);--glass-line:rgba(17,17,17,.11);--shine:rgba(255,255,255,.95);--shade:rgba(17,17,17,.16);
+  --f1:#FFFFFF;--f2:#FFE3E0;--f3:#DDF0E5;--scrim:rgba(10,10,10,.5);
+  --logo-ring:#111111;--logo-drop:#111111;--logo-arc:#FC3D32;--tile:#FFFFFF;--tile-ring:#111111;--tile-drop:#111111;--tile-arc:#FC3D32;--tile-line:rgba(17,17,17,.14);
+  --rim-hi:rgba(255,255,255,.95);--rim-lo:rgba(255,255,255,.4);--cta:17 17 17;--oncta:255 255 255;--menu-bg:rgba(255,255,255,.86);--tint:12 12 12;--amb1:rgba(17,17,17,.035);--amb2:rgba(17,17,17,.03);
+  --pb:rgba(255,255,255,.62);--pb-line:rgba(17,17,17,.12);--pc-ink:#111111;--pc4:#E4E9E6;--pc-edge:#C9D1CC;--lcd:#F2F2F2;--led:#22e07a;
+  --rc:#111111;--rc-arc:#FC3D32;--stamp:#111111;--bc:#111111;--bc-panel:transparent;--gt-a:#FFFFFF;--gt-b:#F1F1F1;--gt-c:#E2E2E2;--gt-ink:#111111;--wall-a:#F7F7F7;--wall-b:#E2E2E2;--wall-ink:#111111;
+  --phone-body:#FFFFFF;--phone-edge:#DCE1DE;--phone-accent:#111111;--phone-ink:#1a1a1a;--big:#FFFFFF;--big2:#DDEBE2;color-scheme:light;
+}
+[data-theme="maitso"]{
+  --bg:5 46 23;--ink:255 255 255;--mute:198 228 210;--brand:25 165 90;--onbrand:255 255 255;--hot:150 236 190;--ok:150 236 190;--err:255 190 184;
+  --fill:0 126 58;--onfill:255 255 255;--fill-line:rgba(255,255,255,.42);--link:255 255 255;--t-brand:47 210 122;--t-ink:255 255 255;--t-mute:198 228 210;
+  --glass:rgba(0,126,58,.2);--glass-strong:rgba(0,110,50,.3);--glass-line:rgba(255,255,255,.18);--shine:rgba(255,255,255,.22);--shade:rgba(0,0,0,.4);
+  --f1:#03301A;--f2:#007E3A;--f3:#005A2B;--scrim:rgba(0,28,12,.5);
+  --logo-ring:#FFFFFF;--logo-drop:#FFFFFF;--logo-arc:#FC3D32;--tile:#007E3A;--tile-ring:#FFFFFF;--tile-drop:#FFFFFF;--tile-arc:#FC3D32;--tile-line:rgba(255,255,255,.35);
+  --rim-hi:rgba(255,255,255,.42);--rim-lo:rgba(255,255,255,.12);--cta:0 126 58;--oncta:255 255 255;--menu-bg:rgba(3,52,26,.9);--tint:2 34 16;--amb1:rgba(40,190,110,.22);--amb2:rgba(0,0,0,.25);
+  --pb:rgba(0,126,58,.72);--pb-line:rgba(255,255,255,.3);--pc-ink:#FFFFFF;--pc4:#005A2B;--pc-edge:#003D1D;--lcd:#9BF5C2;--led:#9BF5C2;
+  --rc:#007E3A;--rc-arc:#FC3D32;--stamp:#007E3A;--bc:#007E3A;--bc-panel:transparent;--gt-a:#0E7A3E;--gt-b:#0A6433;--gt-c:#15914C;--gt-ink:#FFFFFF;--wall-a:#0E7A3E;--wall-b:#053D1F;--wall-ink:#FFFFFF;
+  --phone-body:#007E3A;--phone-edge:#005A2B;--phone-accent:#FFFFFF;--phone-ink:#ffffff;--big:#2FD27A;--big2:#007E3A;color-scheme:dark;
+}
+[data-theme="mena"]{
+  --bg:104 12 7;--ink:255 255 255;--mute:255 220 216;--brand:255 96 84;--onbrand:255 255 255;--hot:255 214 208;--ok:150 236 190;--err:255 214 208;
+  --fill:212 42 32;--onfill:255 255 255;--fill-line:rgba(255,255,255,.42);--link:140 242 180;--t-brand:255 120 108;--t-ink:255 255 255;--t-mute:255 220 216;
+  --glass:rgba(212,42,32,.2);--glass-strong:rgba(190,34,26,.3);--glass-line:rgba(255,255,255,.2);--shine:rgba(255,255,255,.22);--shade:rgba(0,0,0,.4);
+  --f1:#5E0A06;--f2:#FC3D32;--f3:#B8241B;--scrim:rgba(64,4,2,.5);
+  --logo-ring:#FFFFFF;--logo-drop:#FFFFFF;--logo-arc:#34C46F;--tile:#D42A20;--tile-ring:#FFFFFF;--tile-drop:#FFFFFF;--tile-arc:#7CF0A8;--tile-line:rgba(255,255,255,.35);
+  --rim-hi:rgba(255,255,255,.42);--rim-lo:rgba(255,255,255,.12);--cta:212 42 32;--oncta:255 255 255;--menu-bg:rgba(84,9,5,.9);--tint:48 4 2;--amb1:rgba(255,90,70,.22);--amb2:rgba(0,0,0,.25);
+  --pb:rgba(212,42,32,.74);--pb-line:rgba(255,255,255,.3);--pc-ink:#FFFFFF;--pc4:#9A1E16;--pc-edge:#6E130D;--lcd:#FFD2CD;--led:#FFD2CD;
+  --rc:#C42B21;--rc-arc:#007E3A;--stamp:#C42B21;--bc:#C42B21;--bc-panel:transparent;--gt-a:#C42B21;--gt-b:#A3221A;--gt-c:#E0483D;--gt-ink:#FFFFFF;--wall-a:#C42B21;--wall-b:#6E0D08;--wall-ink:#FFFFFF;
+  --phone-body:#D42A20;--phone-edge:#9A1E16;--phone-accent:#FFFFFF;--phone-ink:#ffffff;--big:#FF5448;--big2:#C42B21;color-scheme:dark;
+}
+
+
+/* Flag: the default theme and the one that mixes the three colours of the Madagascar flag, white, red (#FC3D32) and
+   green (#007E3A). A white page on a light flag field, deep-green text, green buttons and data, red for the call to
+   action, focus rings and accents. Pure flag red paints large or decorative things (logo arc, flag field, swatch);
+   red at reading size uses #D42A20, which keeps 5:1 on white. html[...] outranks the later :root defaults. */
+html[data-theme="saina"]{
+  --bg:255 255 255;--ink:21 41 28;--mute:84 99 90;--brand:0 126 58;--onbrand:255 255 255;--hot:212 42 32;--ok:0 118 54;--err:198 36 28;
+  --fill:0 126 58;--onfill:255 255 255;--fill-line:rgba(255,255,255,.3);--link:0 126 58;--t-brand:0 126 58;--t-ink:21 41 28;--t-mute:84 99 90;
+  --glass:rgba(255,255,255,.6);--glass-strong:rgba(255,255,255,.76);--glass-line:rgba(21,41,28,.12);--shine:rgba(255,255,255,.95);--shade:rgba(21,41,28,.16);
+  --f1:#FFFFFF;--f2:#FFEEED;--f3:#E8F3ED;--scrim:rgba(8,24,14,.5);
+  --logo-ring:#007E3A;--logo-drop:#007E3A;--logo-arc:#FC3D32;--tile:#FFFFFF;--tile-ring:#007E3A;--tile-drop:#007E3A;--tile-arc:#FC3D32;--tile-line:rgba(21,41,28,.14);
+  --rim-hi:rgba(255,255,255,.95);--rim-lo:rgba(255,255,255,.4);--cta:212 42 32;--oncta:255 255 255;--menu-bg:rgba(255,255,255,.9);--tint:10 30 18;--amb1:transparent;--amb2:transparent;
+  --pb:rgba(255,255,255,.66);--pb-line:rgba(21,41,28,.12);--pc-ink:#15291C;--pc4:#E3EDE7;--pc-edge:#C5D5CB;
+  --rc:#007E3A;--rc-arc:#FC3D32;--stamp:#007E3A;--bc:#007E3A;--bc-panel:transparent;--gt-ink:#15291C;--wall-ink:#15291C;
+  --phone-body:#FFFFFF;--phone-edge:#D9E3DD;--phone-accent:#007E3A;--phone-ink:#15291C;
+  --paper:#FFFFFF;--paper-ink:#15291C;--paper-mute:#5E6E64;--paper-rule:#C8D5CD;--stamp-ink:#FFFFFF;--accent2:#D42A20;--sheet-solid:#FFFFFF;
+  color-scheme:light;
+}
+
+@layer base{
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+  body{@apply bg-bg text-ink font-sans antialiased min-h-screen relative;font-feature-settings:"ss01","cv11";transition:background-color .3s}
+  h1,h2,h3,h4{@apply font-display;letter-spacing:-.02em;text-wrap:balance}
+  p{text-wrap:pretty}
+  ::selection{background:rgb(var(--hot)/.35)}
+  option,optgroup{background:#fff;color:#12261b}
+  input::placeholder,textarea::placeholder{color:rgb(var(--mute)/.75)}
+  :focus-visible{outline:2px solid rgb(var(--hot));outline-offset:3px;border-radius:12px}
+  video{background:#0b1a12}
+  [hidden]{display:none!important}
+}
+
+@layer components{
+  /* The flag is the grid: a white band on the left, red above green on the right. */
+
+  .glass{background:var(--glass);-webkit-backdrop-filter:blur(22px) saturate(1.6);backdrop-filter:blur(22px) saturate(1.6);border:1px solid var(--glass-line);border-radius:28px;
+    box-shadow:inset 0 1px 0 var(--shine),inset 0 -1px 0 rgba(255,255,255,.06),0 18px 48px -18px var(--shade)}
+  .glass-strong{background:var(--glass-strong);-webkit-backdrop-filter:blur(26px) saturate(1.5);backdrop-filter:blur(26px) saturate(1.5);border:1px solid var(--glass-line);border-radius:28px;
+    box-shadow:inset 0 1px 0 var(--shine),0 22px 60px -20px var(--shade)}
+  .glass-pill{@apply glass;border-radius:999px}
+  /* liquid glass: the frosted fill stays; a thin rim catches light on the top and bottom edges. A masked pseudo-element
+     draws it, so it never covers content and never takes clicks. */
+  .glass,.glass-strong{position:relative}
+  .glass::before,.glass-strong::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.2px;pointer-events:none;
+    background:linear-gradient(180deg,var(--rim-hi) 0%,var(--rim-lo) 20%,transparent 42%,transparent 62%,var(--rim-lo) 84%,var(--rim-hi) 100%);
+    -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;
+    mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude}
+  @supports not (backdrop-filter:blur(1px)){.glass,.glass-pill{background:var(--glass-strong)}}
+
+  .btn{@apply inline-flex items-center justify-center gap-2 rounded-pill px-5 py-2.5 text-sm font-semibold no-underline transition duration-200 select-none whitespace-nowrap;cursor:pointer;border:1px solid transparent}
+  .btn:active{transform:scale(.97)}
+  .btn-primary{@apply bg-brand text-onbrand;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 8px 24px -10px rgb(var(--brand)/.7)}
+  .btn-primary:hover{filter:brightness(1.08)}
+  .btn-hot{background:rgb(var(--cta));color:rgb(var(--oncta));box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 8px 24px -10px rgb(var(--cta)/.7)}
+  .btn-hot:hover{filter:brightness(1.06)}
+  .btn-ghost{@apply glass-pill text-ink;box-shadow:inset 0 1px 0 var(--shine)}
+  .btn-ghost:hover{background:var(--glass-strong)}
+  .btn-sm{@apply px-3.5 py-1.5 text-xs}
+  .btn-icon{@apply glass-pill inline-flex h-10 w-10 items-center justify-center p-0 transition;cursor:pointer}
+  .btn-icon:hover{background:var(--glass-strong)}
+  .btn[disabled]{opacity:.45;cursor:not-allowed}
+
+  .field{@apply w-full rounded-2xl px-4 py-3 text-sm text-ink placeholder:text-mute/70;background:rgb(var(--ink)/.06);border:1px solid rgb(var(--ink)/.18);transition:border-color .15s,background .15s}
+  .field:focus{outline:none;border-color:rgb(var(--hot));background:rgb(var(--ink)/.09)}
+  select.field{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M1 1l5 5 5-5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 1rem center;padding-right:2.5rem}
+  .label{@apply mb-1.5 block text-sm font-semibold}
+  .hint{@apply mt-1 text-xs text-mute}
+
+  .chip{@apply inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-xs font-semibold;background:rgb(var(--ink)/.09)}
+  .chip-ok{background:rgb(var(--ok)/.16);color:rgb(var(--ok))}
+  .chip-hot{background:rgb(var(--err)/.16);color:rgb(var(--err))}
+  .chip-mute{color:rgb(var(--mute))}
+  .dot{@apply inline-block h-2 w-2 rounded-full bg-current}
+
+  .tbl{@apply w-full text-left text-sm}
+  .tbl th{@apply px-4 py-3 text-xs font-semibold text-mute}
+  .tbl td{@apply px-4 py-3 align-middle;border-top:1px solid rgb(var(--ink)/.1)}
+  .tbl tbody tr:hover{background:rgb(var(--ink)/.04)}
+
+  /* tooltip: a small glass pill that follows the target */
+  [data-tip]{position:relative}
+  [data-tip]::after{content:attr(data-tip);position:absolute;left:50%;top:calc(100% + 10px);transform:translate(-50%,-4px) scale(.96);opacity:0;pointer-events:none;white-space:nowrap;z-index:70;
+    padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;color:rgb(var(--ink));background:var(--glass-strong);border:1px solid var(--glass-line);
+    -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:0 10px 30px -10px var(--shade);transition:opacity .16s,transform .16s}
+  [data-tip]:hover::after,[data-tip]:focus-visible::after{opacity:1;transform:translate(-50%,0) scale(1)}
+  [data-tip-up]::after{top:auto;bottom:calc(100% + 10px)}
+
+  .kpi{@apply glass p-5}
+  .kpi b{@apply block font-display text-3xl font-bold tracking-tight}
+  .flash{@apply glass-pill mx-auto flex items-center gap-3 px-5 py-3 text-sm font-semibold}
+  .flash-err{color:rgb(var(--err))}
+  .prose-cwas p{@apply mb-4 leading-relaxed}
+
+
+  /* one frosted-glass recipe everywhere: over video and on the header, every theme gets the transparent "dial" glass */
+  .media-dark,.hdr-bar.on-dark{--logo-ring:#FFFFFF;--logo-drop:#FFFFFF;--rim-hi:rgba(255,255,255,.5);--rim-lo:rgba(255,255,255,.14);--ink:255 255 255;--mute:226 238 231;--glass:rgba(255,255,255,.10);--glass-strong:rgba(8,30,19,.9);--glass-line:rgba(255,255,255,.3);--shine:rgba(255,255,255,.26);--shade:rgba(0,0,0,.4);--brand:255 255 255;--onbrand:4 74 36;--hot:255 214 209;--ok:172 240 202;color-scheme:dark}
+  .hdr-bar{color:rgb(var(--ink));transition:background .35s,border-color .35s,color .35s}
+}
