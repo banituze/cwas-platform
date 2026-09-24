@@ -274,6 +274,11 @@ html[data-theme="saina"]{
   .stage{position:relative;display:grid;place-items:center;min-height:calc(100svh - 190px);padding:10px 0 30px;border-radius:32px;background:rgb(var(--ink)/.05);border:1px solid var(--glass-line);overflow:hidden}
   .stage::before{content:"";position:absolute;left:12%;right:12%;bottom:26px;height:34px;border-radius:50%;background:rgba(0,0,0,.35);filter:blur(22px)}
   .rig{position:relative;transform-origin:50% 50%;transform:scale(var(--s,1));transition:transform .4s}
+  /* touch screens: no double-tap zoom in the lab (pinch still works); fields in the phone at 16px so iOS does not zoom into them;
+     while one has focus the stage is pinned over the area the keyboard leaves visible and fit() scales the whole phone into it */
+  .lab{touch-action:manipulation}
+  @media (pointer:coarse){.lab :is(.stage,.os-view) :is(input,textarea,select){font-size:max(16px,1em)}}
+  .stage.is-typing{position:fixed;z-index:65;left:8px;right:8px;top:calc(var(--vv-top,0px) + 8px);height:calc(var(--vv-h,100dvh) - 16px);min-height:0;padding:6px 0;background-color:var(--menu-bg);-webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6);box-shadow:0 30px 80px -30px rgba(0,0,0,.5)}
   .flipper{position:relative;transform-style:preserve-3d;transition:transform 1s cubic-bezier(.3,.8,.2,1);width:var(--w);height:var(--h)}
   .flipper.flipped{transform:rotateY(180deg)}
   .face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden}

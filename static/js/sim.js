@@ -313,6 +313,20 @@
   phoneIn.addEventListener("change", () => { const v = phoneIn.value.trim(); if (v) { mount(); } });
   $$("[data-pick]").forEach(b => b.addEventListener("click", () => { let v = b.dataset.pick; if (v === "new") v = "+2613400009" + String(Math.floor(Math.random() * 900) + 100); phoneIn.value = v; A.play("tap"); mount(); }));
   addEventListener("resize", fit); document.addEventListener("cwas:theme", () => { /* colours follow the theme through CSS variables */ });
+  /* typing on a touch screen: the stage is pinned over the area the keyboard leaves visible and the whole phone is scaled into
+     it, so the conversation and the line being typed stay in view; a spacer holds the page still until the field loses focus */
+  if (matchMedia("(pointer:coarse)").matches) {
+    const vv = window.visualViewport, spacer = document.createElement("div"), typing = () => stage.classList.contains("is-typing");
+    const place = () => { if (vv) { stage.style.setProperty("--vv-top", vv.offsetTop + "px"); stage.style.setProperty("--vv-h", vv.height + "px"); } fit(); };
+    const enter = () => { if (typing()) return; spacer.style.height = stage.offsetHeight + "px"; stage.before(spacer); stage.classList.add("is-typing"); place(); };
+    const leave = () => setTimeout(() => {
+      if (!typing() || stage.contains(document.activeElement)) return;
+      stage.classList.remove("is-typing"); spacer.remove(); stage.style.removeProperty("--vv-top"); stage.style.removeProperty("--vv-h"); fit();
+    }, 80);
+    stage.addEventListener("focusin", e => { if (e.target.matches("input, textarea")) enter(); });
+    stage.addEventListener("focusout", leave);
+    if (vv) { vv.addEventListener("resize", () => { if (typing()) place(); }); vv.addEventListener("scroll", () => { if (typing()) place(); }); }
+  }
   document.addEventListener("keydown", e => {
     if (!ui || e.target.matches("input,textarea,select") || e.metaKey || e.ctrlKey) return;
     if (model === "lite") { const m = { Enter: "ok", Backspace: "clear", ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", Escape: "end" }[e.key]; if (m) { e.preventDefault(); ui.press(m); } else if (/^[0-9*#]$/.test(e.key)) ui.press(e.key); }
