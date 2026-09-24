@@ -1,0 +1,4 @@
+{% extends "app_base.html" %}
+{% block title %}{{ t('Announcements') }}{% endblock %}
+{% block app %}<h1 class="text-3xl font-extrabold">{{ t('Announcements') }}</h1>
+<form method="post" class="glass-strong mt-6 max-w-2xl space-y-4 p-6"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div><label class="label" for="m">{{ t('Message to every household') }}</label><textarea class="field" id="m" name="message" rows="4" maxlength="300" required></textarea><p class="hint">{{ t('Sent in the app and by SMS in each household\'s language. Keep it under 300 characters.') }}</p></div><button class="btn btn-primary">{{ t('Send announcement') }}</button></form>{% endblock %}
