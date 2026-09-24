@@ -14,7 +14,7 @@
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  const TZ = "Indian/Antananarivo", locale = { mg: "fr-FR", fr: "fr-FR", en: "en-GB" }[document.documentElement.lang] || "en-GB";
+  const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || "Indian/Antananarivo", /* the visitor's own time zone, no location asked */ locale = { mg: "fr-FR", fr: "fr-FR", en: "en-GB" }[document.documentElement.lang] || "en-GB";
   const clock = () => new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: TZ }).format(new Date());
   const dateLong = () => new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long", timeZone: TZ }).format(new Date());
   const LETTERS = { 2: "ABC", 3: "DEF", 4: "GHI", 5: "JKL", 6: "MNO", 7: "PQRS", 8: "TUV", 9: "WXYZ", 0: "+" };
