@@ -130,3 +130,27 @@ def clean_text(s, limit=120):
     return re.sub(r"\s+", " ", s).strip()[:limit]
 
 
+# ── TOTP (RFC 6238) for optional MFA ────────────────────────────────────────
+def new_totp_secret():
+    return base64.b32encode(secrets.token_bytes(20)).decode().rstrip("=")
+
+
+def _hotp(secret, counter, digits=6):
+    key = base64.b32decode(secret + "=" * (-len(secret) % 8), casefold=True)
+    mac = hmac.new(key, struct.pack(">Q", counter), hashlib.sha1).digest()
+    o = mac[-1] & 0x0F
+    return str((struct.unpack(">I", mac[o:o + 4])[0] & 0x7FFFFFFF) % 10 ** digits).zfill(digits)
+
+
+def totp_verify(secret, code, window=1):
+    code = re.sub(r"\s", "", code or "")
+    if not secret or not code.isdigit() or len(code) != 6:
+        return False
+    counter = int(time.time() // 30)
+    return any(hmac.compare_digest(_hotp(secret, counter + d), code) for d in range(-window, window + 1))
+
+
+def totp_uri(secret, email):
+    return f"otpauth://totp/CWAS:{urllib.parse.quote(email)}?secret={secret}&issuer=CWAS&digits=6&period=30"
+
+
