@@ -222,9 +222,19 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
   document.addEventListener("change", e => { if (e.target.matches("[data-autosubmit]")) e.target.form.submit(); });
 
 
-  /* the header is transparent glass; over a hero video it uses the light-on-dark recipe, then follows the theme */
-  const bar = $(".hdr-bar"), hero = $("[data-hero]");
-  if (bar && hero) { const upd = () => bar.classList.toggle("on-dark", hero.getBoundingClientRect().bottom > 92); addEventListener("scroll", upd, { passive: true }); addEventListener("resize", upd); upd(); }
+  /* the header is transparent glass; over the hero film or any other dark picture section (.media-dark: the film sections
+     and the footer) it uses the light-on-dark recipe, then follows the theme again over light content. A section counts
+     when it runs under the middle of the header across most of its width, so a half-width side panel does not */
+  const bar = $(".hdr-bar"), darks = Array.from(document.querySelectorAll("[data-hero], .media-dark"));
+  if (bar && darks.length) {
+    let queued = false;
+    const upd = () => {
+      queued = false; const b = bar.getBoundingClientRect(), y = b.top + b.height / 2, inset = b.width * 0.2;
+      bar.classList.toggle("on-dark", darks.some(d => { const r = d.getBoundingClientRect(); return r.top < y && r.bottom > y && r.left <= b.left + inset && r.right >= b.right - inset; }));
+    };
+    const ask = () => { if (!queued) { queued = true; requestAnimationFrame(upd); } };
+    addEventListener("scroll", ask, { passive: true }); addEventListener("resize", ask); upd();
+  }
 
   /* ── live notifications: a new one pops a toast and plays the chime ── */
   if (document.body.dataset.auth === "1") {

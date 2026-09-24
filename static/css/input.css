@@ -1214,3 +1214,8 @@ html,body{overscroll-behavior-y:none}
   .tn-stick,.dk-stick{height:100vh;height:100svh}
   .hdr-bar,.install-card{-webkit-backdrop-filter:blur(16px) saturate(1.5);backdrop-filter:blur(16px) saturate(1.5)}
 }
+
+/* ── polish 16: over the hero film, the other film sections and the footer photo the header turns light-on-dark
+   (app.js). What drops down from it there, the tooltips and the language and theme menus, has no fill, so its white
+   text gets a soft dark shadow to stay readable over the picture */
+.hdr-bar.on-dark [data-tip]::after,.hdr-bar.on-dark .menu>form.nav-panel,.hdr-bar.on-dark .menu>.nav-panel:has([data-theme-set]){text-shadow:0 1px 3px rgba(0,0,0,.6)}
