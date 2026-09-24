@@ -234,3 +234,195 @@ def _err(ctx, e):
     return END(ctx, ctx.L(msgs.get(e.code, "Something went wrong."), **params))
 
 
+# ── session: language, registration, PIN ────────────────────────────────────
+def _enroll_locked(phone):
+    now = time.time()
+    with _ENROLL_LOCK:
+        for k in [k for k, (_, t0) in _ENROLL_FAILS.items() if now - t0 > 900]:
+            _ENROLL_FAILS.pop(k, None)
+        return _ENROLL_FAILS.get(phone, (0, 0))[0] >= 3 or _ENROLL_FAILS.get("*", (0, 0))[0] >= 30
+
+
+def _enroll_fail(phone):
+    now = time.time()
+    with _ENROLL_LOCK:
+        for k in (phone, "*"):
+            n, t0 = _ENROLL_FAILS.get(k, (0, now))
+            _ENROLL_FAILS[k] = (n + 1, t0)
+
+
+def session_flow(ctx):
+    """Welcome and language, then straight to the menu. Menus, balances and water points need no PIN: require_pin()
+    asks for it only right before an action that moves money, changes a booking or changes the account."""
+    ctx.secret = False
+    while True:
+        tok = yield CON(ctx, "Tongasoa eto amin'ny CWAS/Welcome to CWAS/Bienvenue sur CWAS", BLANK,
+                        "Safidio ny fiteny/Choose language/Choisissez votre langue:", BLANK, "1. Malagasy", "2. English", "3. Francais",
+                        BLANK, "99. Exit")
+        if tok in LANG_CODES:
+            ctx.lang = LANG_CODES[tok]
+            break
+        ctx.rejected, ctx.flash = True, "Invalid choice"
+    user = ctx.user
+    if user is None:
+        return (yield from register_flow(ctx))
+    if user.role == "member" and not user.household:
+        return END(ctx, ctx.L("Something went wrong."))
+    if not user.pin_hash:
+        return (yield from pin_setup_flow(ctx, user))
+    ctx.home_len = ctx.consumed
+    if user.role == "member":
+        return (yield from member_main(ctx, user))
+    return (yield from staff_main(ctx, user))
+
+
+def _confirm_pin(ctx, pin):
+    while True:
+        again = yield from entry(ctx, ctx.L("Confirm PIN"), v_pin, secret=True)
+        if again == pin:
+            return again
+        ctx.rejected, ctx.flash = True, ctx.L("PINs do not match")
+
+
+def _new_recovery(ctx):
+    """A 6-digit recovery code, typed twice. It resets a forgotten PIN without calling anyone."""
+    code = yield from entry(ctx, ctx.L("Create a 6-digit recovery code") + "\n" + ctx.L("It resets a forgotten PIN. Keep it private."),
+                            v_recovery, secret=True)
+    while True:
+        again = yield from entry(ctx, ctx.L("Confirm recovery code"), v_recovery, secret=True)
+        if again == code:
+            return code
+        ctx.rejected, ctx.flash = True, ctx.L("Codes do not match")
+
+
+def pin_setup_flow(ctx, user):
+    """An account opened on the web without a PIN chooses one, and a recovery code, the first time it dials in.
+    The session ends right after saving, so a later hop never replays the write."""
+    pin = yield from entry(ctx, ctx.L("Create a 4-digit PIN"), v_pin, secret=True)
+    yield from _confirm_pin(ctx, pin)
+    code = yield from _new_recovery(ctx)
+    user.pin_hash, user.pin_failed, user.pin_locked_until = generate_password_hash(pin), 0, None
+    user.recovery_hash = generate_password_hash(code)
+    S.audit("user.pin_set", "user", user.id, "ussd", actor=user, channel="ussd")
+    S.event(user, "Your PIN was set. If this was not you, contact your coordinator.", "system", sms=True)
+    db.session.commit()
+    return END(ctx, ctx.L("PIN saved."), ctx.L("Dial {dial} again to continue.", dial=DIAL))
+
+
+def require_pin(ctx, user, forgot=True):
+    """The PIN, asked right before a crucial action and only once per session. Returns None to go ahead, or the END
+    screen to show. With forgot=True, 0 opens PIN recovery; the action then runs with the new PIN in the same hop, so
+    the reset is never replayed. Callers that still need input after the PIN pass forgot=False."""
+    if ctx.pin_ok:
+        return None
+    if user.pin_locked_until and user.pin_locked_until > utcnow():
+        return END(ctx, ctx.L("Too many wrong PINs. Try again in 15 minutes."))
+    while True:
+        ctx.secret = True
+        tok = yield CON(ctx, ctx.L("Enter your 4-digit PIN to confirm"), BLANK,
+                        *(["0. " + ctx.L("Forgot PIN")] if forgot else []), *back(ctx, True))
+        ctx.secret = False
+        if forgot and tok == "0":
+            return (yield from forgot_pin_flow(ctx, user, resume=True))
+        if not PIN_RE.match(tok):
+            ctx.rejected, ctx.flash = True, ctx.L("PIN must be 4 digits")
+            continue
+        if check_password_hash(user.pin_hash, tok):
+            user.pin_failed, ctx.pin_ok = 0, True
+            return None
+        return _pin_failed(ctx, user, "PIN incorrect.")
+
+
+def _pin_failed(ctx, user, message):
+    """A wrong PIN or recovery code ends the session, so a repeated hop never counts it twice. Three in a row lock
+    the PIN for 15 minutes."""
+    user.pin_failed = (user.pin_failed or 0) + 1
+    if user.pin_failed >= 3:
+        user.pin_locked_until, user.pin_failed = utcnow() + timedelta(minutes=15), 0
+        S.audit("user.pin_lock", "user", user.id, "3 wrong PINs or recovery codes", actor=user, channel="ussd")
+        db.session.commit()
+        return END(ctx, ctx.L(message), ctx.L("Too many wrong PINs. Try again in 15 minutes."))
+    db.session.commit()
+    return END(ctx, ctx.L(message), ctx.L("Attempts left: {n}", n=3 - user.pin_failed))
+
+
+def forgot_pin_flow(ctx, user, resume=False):
+    """Forgot PIN. The recovery code sets a new PIN at once. Without it, the person asks a coordinator, who checks
+    their details by phone and resets the PIN (texting PIN HELP to the shortcode does the same)."""
+    if user.pin_locked_until and user.pin_locked_until > utcnow():
+        return END(ctx, ctx.L("Too many wrong PINs. Try again in 15 minutes."))
+    i = yield from menu(ctx, ctx.L("Forgot PIN"), [ctx.L("I have my recovery code"), ctx.L("I do not have it")])
+    if i == 1 or not user.recovery_hash:
+        return (yield from pin_help_flow(ctx, user, missing=(i == 0)))
+    code = yield from entry(ctx, ctx.L("Enter your 6-digit recovery code"), v_recovery, secret=True)
+    if not check_password_hash(user.recovery_hash, code):
+        return _pin_failed(ctx, user, "Recovery code incorrect.")
+    pin = yield from entry(ctx, ctx.L("Create a new 4-digit PIN"), v_pin, secret=True)
+    yield from _confirm_pin(ctx, pin)
+    S.set_pin(user, pin, channel="ussd")
+    db.session.commit()
+    ctx.pin_ok = True
+    if resume:
+        return None
+    return END(ctx, ctx.L("PIN changed."), ctx.L("Use it next time you dial {dial}.", dial=DIAL))
+
+
+def pin_help_flow(ctx, user, missing=False):
+    """No recovery code: how to reach a coordinator, and a call-back request."""
+    contacts = S.staff_contacts(user, 1)
+    lines = [ctx.L("No recovery code is saved.")] if missing else []
+    lines.append(ctx.L("SMS PIN HELP to {sms}, or call {phone}.", sms=SHORTCODE, phone=S.local_phone(contacts[0])) if contacts
+                 else ctx.L("SMS PIN HELP to {sms}.", sms=SHORTCODE))
+    ok = yield from confirm(ctx, *lines, yes="Ask for a call", no="Exit")
+    if not ok:
+        return END(ctx, ctx.L("Thank you for using CWAS."))
+    sent = S.request_pin_help(user, "ussd")
+    db.session.commit()
+    return END(ctx, ctx.L("Request sent. A coordinator will call you to check your details and reset your PIN.") if sent
+               else ctx.L("A request is already open. A coordinator will call you soon."))
+
+
+def register_flow(ctx):
+    i = yield from menu(ctx, ctx.L("Register as:"), [ctx.L("Household member"), ctx.L("Community coordinator"), ctx.L("Help")])
+    if i == 2:
+        yield from info(ctx, ctx.L("CWAS: book water, pay by mobile money, no queue."), ctx.L("Register to start. SMS help: {sms}", sms=SHORTCODE))
+        return END(ctx, ctx.L("Thank you for using CWAS."))
+    role = "member"
+    if i == 1:
+        while True:
+            if _enroll_locked(ctx.phone):
+                return END(ctx, ctx.L("Too many attempts. Try again in 15 minutes."))
+            code = yield from entry(ctx, ctx.L("Enter enrollment code"), lambda t: (True, t.strip()), secret=True)
+            if code and code == S.get_setting("enroll_admin"):
+                role = "admin"
+                break
+            if code and code == S.get_setting("enroll_coord"):
+                role = "coordinator"
+                break
+            _enroll_fail(ctx.phone)
+            ctx.rejected, ctx.flash = True, ctx.L("Code not recognised")
+    name = yield from entry(ctx, ctx.L("Enter full name"), v_text(2, 40))
+    village, size, needs = "", 4, ("", None, None)
+    if role == "member":
+        village = yield from entry(ctx, ctx.L("Enter village / area"), v_text(2, 40))
+        size = yield from entry(ctx, ctx.L("Enter household size (number)"), v_int(1, 40))
+        needs = yield from household_needs(ctx)
+    pin = yield from entry(ctx, ctx.L("Create 4-digit PIN"), v_pin, secret=True)
+    yield from _confirm_pin(ctx, pin)
+    recovery = yield from _new_recovery(ctx)
+    if User.query.filter_by(phone=ctx.phone).first():
+        return END(ctx, ctx.L("An account with this phone or email already exists."))
+    u = User(role=role, name=name, phone=ctx.phone, language=ctx.lang, pin_hash=generate_password_hash(pin),
+             recovery_hash=generate_password_hash(recovery))
+    db.session.add(u)
+    db.session.flush()
+    if role == "member":
+        hh = Household(user_id=u.id, name=name, village=village, family_size=size)
+        S.set_needs(hh, *needs)
+        db.session.add(hh)
+    S.audit("user.register", "user", u.id, f"{role} via ussd", actor=u, channel="ussd")
+    S.event(u, "Welcome {name}! Account created. Dial {dial} to book a slot.", "system", sms=True, name=S.first_name(name), dial=DIAL)
+    db.session.commit()
+    return END(ctx, ctx.L("Welcome {name}!", name=S.first_name(name)), ctx.L("Account created."), ctx.L("Dial {dial} to book a slot.", dial=DIAL))
+
+
