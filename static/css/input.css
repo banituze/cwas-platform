@@ -931,3 +931,35 @@ body{background-image:radial-gradient(70vw 60vh at 8% 0%,var(--amb1),transparent
   .bigcan{padding-left:58px}
   .bigcan-scale{left:58px}
 }
+
+/* ── polish 8: Flag theme components, compact homepage receipt, whole words in split labels, centred auth copy ── */
+@layer components{
+  /* Flag theme: the page sits on the flag itself, a white band on the left and red above green on the right, in tints
+     light enough that text reads the same everywhere. Fixed, so it stays put while the page scrolls. */
+  [data-theme=saina] body::before{content:"";position:fixed;inset:0;z-index:-10;pointer-events:none;
+    background:linear-gradient(90deg,var(--f1) 0 34%,transparent 34%),linear-gradient(180deg,var(--f2) 0 50%,var(--f3) 50% 100%)}
+  @media (max-width:767px){[data-theme=saina] body::before{background:linear-gradient(90deg,var(--f1) 0 22%,transparent 22%),linear-gradient(180deg,var(--f2) 0 50%,var(--f3) 50% 100%)}}
+  /* green for everyday buttons, red for the main call to action: the flag's colours side by side */
+  [data-theme=saina] .btn-hot{background:rgb(var(--cta));color:rgb(var(--oncta))}
+  [data-theme=saina] .btn-hot:hover{background:rgb(var(--cta)/.9)}
+  [data-theme=saina] .hero-card{--brand:0 126 58;--ok:0 118 54;--glass:rgba(21,41,28,.05);--glass-strong:rgba(21,41,28,.09);--glass-line:rgba(21,41,28,.14)}
+  [data-theme=saina] .side a[aria-current=page],[data-theme=saina] .bottomnav a[aria-current=page],[data-theme=saina] input:checked+.slot,[data-theme=saina] input:checked+.pick{box-shadow:0 0 0 1.5px rgb(var(--brand)),0 8px 20px -12px rgba(0,0,0,.4)}
+  [data-theme=saina] .dev-nova .wb-mark,[data-theme=saina] .dev-max .wb-mark{color:rgba(0,0,0,.28)}
+  /* split labels (Explore CWAS, the phone menu): each word stays whole, so a long label wraps between words */
+  .ltw{white-space:nowrap}
+  /* homepage receipt: the same slip, printed tighter so it reads at a glance */
+  .rc-compact .printer{width:min(330px,86vw)}
+  .rc-compact .paper{padding:16px 18px 18px;line-height:1.45}
+  .rc-compact .rc-brand{font-size:19px}
+  .rc-compact .rc-brand svg{width:26px;height:26px}
+  .rc-compact .rc-amount{margin-top:10px;font-size:28px}
+  .rc-compact .paper hr{margin:9px 0}
+  .rc-compact .rc-stamp{margin-top:10px}
+  .rc-compact .rc-art{width:40%;margin-top:10px;padding:6px}
+  .rc-compact .rc-foot{margin-top:6px}
+  /* Explore CWAS on the smallest phones (under 360 px): one size down, so the longest single word
+     ("Laboratoirin'ny", "Toeram-pakàna") and its arrow still fit on the line */
+  @media (max-width:359px){.bigmenu{font-size:2rem}}
+  /* sign up and log in: the words sit in the middle of the photograph, on a scrim that is darkest behind them */
+  .auth-side .hero-scrim{background:radial-gradient(120% 90% at 50% 50%,rgba(4,18,10,.52),rgba(4,18,10,.26))}
+}
