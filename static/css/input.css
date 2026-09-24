@@ -983,3 +983,122 @@ body{background-image:radial-gradient(70vw 60vh at 8% 0%,var(--amb1),transparent
   .lite-app .app-ico svg{width:19px;height:19px}
   .lite-app small{font:600 9px/1.2 system-ui,sans-serif;padding:1px 5px;border-radius:6px;background:rgba(255,255,255,.88);color:#111111}
 }
+
+/* ── polish 10 (Sep 2026): no overscroll bounce, link colours per theme, a still auth panel, coordinator tabs, seals in
+   the footer, a quieter keypad menu, Gallery Rise on About ── */
+/* the page never rubber-bands past its ends: the bounce slid the hero out from under the light-on-photo header */
+html,body{overscroll-behavior-y:none}
+/* the seals' accent on the dark footer, per theme */
+:root,[data-theme="fotsy"]{--seal-foot:rgba(255,255,255,.9)}[data-theme="maitso"]{--seal-foot:#2FD27A}[data-theme="mena"]{--seal-foot:#FF786C}html[data-theme="saina"]{--seal-foot:#FC3D32}
+@layer components{
+  /* sign up and log in: the photograph fits the space below the header, so it holds still while the form scrolls */
+  .auth-side{height:calc(100svh - 160px)}
+  /* sign up: household member or community coordinator, two tabs made of radio buttons */
+  .role-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:0;padding:4px;border-radius:999px;border:1px solid rgb(var(--ink)/.16);background:rgb(var(--ink)/.05)}
+  .role-tabs label{position:relative;display:flex;min-width:0;cursor:pointer}
+  .role-tabs input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+  .role-tabs span{flex:1;display:flex;align-items:center;justify-content:center;min-height:42px;padding:8px 12px;border-radius:999px;text-align:center;font-size:.85rem;font-weight:650;line-height:1.2;color:rgb(var(--mute));transition:background-color .2s ease,color .2s ease}
+  .role-tabs input:checked+span{background:rgb(var(--fill));color:rgb(var(--onfill))}
+  .role-tabs input:focus-visible+span{outline:2px solid rgb(var(--hot));outline-offset:2px}
+  @media (hover:hover) and (pointer:fine){.role-tabs label:hover input:not(:checked)+span{color:rgb(var(--ink))}}
+  @supports selector(:has(*)){
+    .coord-only{display:none}
+    form:has(input[name=role][value=coordinator]:checked) .coord-only{display:block}
+    form:has(input[name=role][value=coordinator]:checked) .hh-only{display:none}
+  }
+  /* footer: the four seals in one centred row above the big CWAS, in the footer's white with the theme's accent */
+  .foot-seals{--seal:rgba(255,255,255,.9);--seal-2:var(--seal-foot);display:flex;flex-wrap:wrap;justify-content:center;gap:clamp(16px,3vw,32px);margin:48px 0 0;padding:0;list-style:none}
+  .foot-seals .seal{width:clamp(58px,6vw,72px)}
+  .foot-seals+.foot-big{margin-top:24px}
+  /* device lab: the chosen phone is ringed in the theme's accent, black in Default */
+  [data-device][aria-pressed=true]{outline:2px solid rgb(var(--hot));outline-offset:0}
+  [data-theme=saina] [data-device][aria-pressed=true]{outline-color:#111111}
+  /* smartphone home screen: the clock and date in black on light frosted glass, readable in every theme */
+  .os-widget{grid-column:1/-1;margin-bottom:6px;padding:14px 16px;border-radius:22px;color:#111111;background:rgba(255,255,255,.74);border:1px solid rgba(255,255,255,.6);-webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4)}
+  .os-widget b{display:block;font:700 34px/1 "Bricolage Grotesque Variable",system-ui,sans-serif}
+  .os-widget span{display:block;margin-top:4px;font-weight:600}
+  /* keypad phone menu: app names with nothing behind them, icons without shadows, a hairline on the chosen app; a
+     lighter veil over the wallpaper keeps the names readable */
+  .lite-os[data-state=menu]::before{background:rgba(255,255,255,.72)}
+  .lite-app small{background:none;padding:0;font-weight:700;color:#111111}
+  .lite-app .app-ico{box-shadow:none}
+  .lite-app.on{background:rgba(17,17,17,.06);box-shadow:none;outline:1px solid rgba(17,17,17,.28);outline-offset:-1px}
+  /* about: Gallery Rise. static/js/fx.js adds .is-live (never under reduced motion); without it this is the plain mosaic */
+  .rg.is-live{height:250vh}
+  .rg.is-live .rg-stick{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;padding:clamp(84px,12vh,104px) 0 clamp(16px,3vh,32px)}
+  .rg.is-live .rg-field{height:100%;display:flex;flex-direction:column}
+  .rg.is-live .mosaic{flex:1;min-height:0;margin-top:clamp(12px,2.4vh,28px);grid-template-columns:repeat(12,minmax(0,1fr));grid-template-rows:repeat(6,minmax(0,1fr));grid-auto-rows:auto;perspective:1400px;perspective-origin:50% 30%}
+  .rg.is-live .rg-item{will-change:transform,opacity}
+  .rg.is-live .rg-item img{will-change:transform}
+  .rg.is-live .rg-item:nth-child(1){grid-column:1/5;grid-row:1/4}
+  .rg.is-live .rg-item:nth-child(2){grid-column:5/8;grid-row:1/7}
+  .rg.is-live .rg-item:nth-child(3){grid-column:8/10;grid-row:2/6}
+  .rg.is-live .rg-item:nth-child(4){grid-column:10/13;grid-row:1/3}
+  .rg.is-live .rg-item:nth-child(5){grid-column:1/5;grid-row:4/7}
+  .rg.is-live .rg-item:nth-child(6){grid-column:10/13;grid-row:3/7}
+  @media (max-width:767px){
+    .rg.is-live{height:210vh}
+    .rg.is-live .mosaic{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(7,minmax(0,1fr));gap:8px}
+    .rg.is-live .rg-item{border-radius:18px}
+    .rg.is-live .rg-item:nth-child(1){grid-column:1/2;grid-row:1/3}
+    .rg.is-live .rg-item:nth-child(2){grid-column:2/3;grid-row:1/4}
+    .rg.is-live .rg-item:nth-child(3){grid-column:1/2;grid-row:3/6}
+    .rg.is-live .rg-item:nth-child(4){grid-column:2/3;grid-row:4/6}
+    .rg.is-live .rg-item:nth-child(5){grid-column:2/3;grid-row:6/8}
+    .rg.is-live .rg-item:nth-child(6){grid-column:1/2;grid-row:6/8}
+  }
+  /* footer: the description, the two dial chips and every column link read exactly like the Legal links (15px, the
+     footer's quiet white, full white under the pointer); the chips keep their icon and their pill; headings stay white */
+  .foot-text{font-size:15px;line-height:1.65;color:var(--foot-ink)}
+  .foot-chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+  .foot-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 14px 8px 11px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);font-size:15px;line-height:1.3;color:var(--foot-ink);transition:color .2s,background-color .2s,border-color .2s}
+  .foot-chip .icon{width:16px;height:16px;flex:none}
+  .foot-chip:hover{color:#FFFFFF;border-color:rgba(255,255,255,.38);background:rgba(255,255,255,.1)}
+  .foot-links a:focus-visible,.foot-chip:focus-visible{outline:2px solid #FFFFFF;outline-offset:3px}
+  /* the copyright line reads as written, in the footer's quiet white */
+  .foot-bar .foot-copy{font-size:14px;letter-spacing:0;text-transform:none;color:var(--foot-ink)}
+  /* platform: Gallery Depth. Real CWAS screens, captured from the running app once per theme (the page shows the current
+     theme's set and static/js/app.js swaps sets when the theme changes). Each screen keeps the capture's exact proportions
+     inside its device, so nothing is cropped, stretched or hidden. One column on phones, the two phones side by side on
+     tablets, phones beside the desktop screens on wide viewports. static/js/fx.js lets each screen arrive from depth once as
+     it comes into view, then it rests flat, sharp and whole; with reduced motion or no script it simply sits in place */
+  .gd{display:grid;grid-template-columns:minmax(0,1fr);gap:clamp(40px,6vw,72px) clamp(20px,3vw,40px);align-items:center}
+  .gd-item{margin:0;min-width:0;perspective:1600px}
+  .gd-phone{justify-self:center;width:min(280px,74vw)}
+  @media (min-width:640px){.gd{grid-template-columns:repeat(2,minmax(0,1fr))}.gd-desk{grid-column:1/-1}.gd-phone{width:min(280px,100%)}}
+  @media (min-width:1100px){.gd{grid-template-columns:repeat(12,minmax(0,1fr))}.gd-a{grid-column:1/9}.gd-b{grid-column:9/13}.gd-c{grid-column:1/5;grid-row:2}.gd-d{grid-column:5/13;grid-row:2}.gd-phone{width:min(300px,100%)}}
+  .gd-frame{overflow:hidden;background:rgb(var(--ink)/.05);border:1px solid var(--glass-line)}
+  .gd-screen{position:relative;overflow:hidden;background:rgb(var(--ink)/.06)}
+  .gd-desk .gd-screen{aspect-ratio:16/10}
+  .gd-phone .gd-screen{aspect-ratio:390/844;border-radius:32px}
+  .gd-screen picture{display:contents}
+  .gd-screen img{display:block;width:100%;height:100%;object-fit:cover;object-position:top center}
+  .gd-desk .gd-frame{border-radius:16px;box-shadow:0 40px 90px -48px var(--shade)}
+  .gd-bar{display:flex;align-items:center;gap:6px;height:26px;padding:0 12px;background:rgb(var(--ink)/.07);border-bottom:1px solid var(--glass-line)}
+  .gd-bar i{width:9px;height:9px;border-radius:50%;background:rgb(var(--ink)/.24)}
+  .gd-phone .gd-frame{padding:8px;border-radius:40px;background:#0E1110;border-color:#0E1110;box-shadow:0 40px 90px -48px rgba(0,0,0,.55)}
+  .gd-item figcaption{margin-top:14px;text-align:center;font-size:.92rem;font-weight:650;color:rgb(var(--mute))}
+  .gd.is-live .gd-move{transition:transform 1s cubic-bezier(.16,1,.3,1);transform-origin:50% 80%}
+  .gd.is-live .gd-item:not(.is-in) .gd-move{transform:translate3d(0,48px,-420px) rotateX(10deg)}
+  /* mobile menu: Platform and Access open their page; the chevron beside each shows or hides its pages */
+  .sheet-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:4px}
+  .sheet-caret{display:grid;place-items:center;width:48px;height:48px;border-radius:999px;cursor:pointer;transition:background-color .15s}
+  .sheet-caret:hover,.sheet a[aria-current=page]{background:rgb(var(--ink)/.1)}
+  .sheet-caret .icon{width:22px;height:22px;transition:transform .2s}
+  .sheet-row.open .sheet-caret .icon{transform:rotate(180deg)}
+  .sheet-sub{grid-column:1/-1;display:none;gap:2px;padding:0 0 10px 12px}
+  .sheet-row.open .sheet-sub{display:grid}
+  .sheet-sub a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:16px}
+  .sheet-sub a:hover{background:rgb(var(--ink)/.1)}
+  .sheet-sub .ico{display:grid;place-items:center;width:34px;height:34px;border-radius:999px;background:rgb(var(--brand)/.14);color:rgb(var(--brand))}
+  [data-theme=maitso] .sheet-sub .ico,[data-theme=mena] .sheet-sub .ico{background:rgba(255,255,255,.14);color:#FFFFFF}
+  .sheet-caret:focus-visible,.sheet a:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+  /* a code chip that dials: a clear pointer and keyboard state */
+  .chip-link{transition:background-color .15s}
+  .chip-link:hover{background:rgb(var(--ink)/.12)}
+  .chip-link:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+  /* narrow phones: the header's buttons tighten so the last one never leaves the screen */
+  @media (max-width:400px){.hdr{padding:0 8px}.hdr-bar{gap:8px;padding:6px 6px 6px 12px}.hdr-bar .btn-icon{width:36px;height:36px}}
+  /* form fields keep 16px text on phones, so the phone does not zoom the page when a field is focused */
+  @media (max-width:639px){.field{font-size:16px}}
+}
