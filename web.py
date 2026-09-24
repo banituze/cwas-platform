@@ -1439,3 +1439,83 @@ def register_routes(app):
         return render_template("admin/channels.html", sessions=UssdSession.query.order_by(UssdSession.updated_at.desc()).limit(30).all(),
                                sms=SmsLog.query.order_by(SmsLog.id.desc()).limit(30).all())
 
+    # ── telco webhooks (Africa's Talking) ───────────────────────────────────
+    def telco_guard():
+        """Telco callbacks name the caller's phone number, so an unsigned one could act as any household. In production the
+        line stays closed until AT_WEBHOOK_TOKEN is set; locally (no token) it stays open for testing."""
+        want = os.environ.get("AT_WEBHOOK_TOKEN")
+        if not want:
+            if current_app.config["IS_PROD"]:
+                current_app.logger.error("AT_WEBHOOK_TOKEN is not set: telco callbacks are refused until it is")
+                abort(503)
+            return
+        if not hmac.compare_digest(request.args.get("token", ""), want):
+            abort(403)
+
+    @app.route("/ussd", methods=["POST", "GET"])
+    @app.route("/api/ussd", methods=["POST", "GET"])
+    @app.route("/webhooks/ussd", methods=["POST", "GET"])
+    @csrf.exempt
+    @limiter.limit("1200 per minute")
+    def ussd_callback():
+        telco_guard()
+        f = request.values
+        out = U.handle_ussd(S.clean_text(f.get("sessionId"), 80) or "none", f.get("phoneNumber", ""), f.get("text", ""), "telco")
+        return out, 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+    @app.route("/sms/incoming", methods=["POST", "GET"])
+    @app.route("/api/sms/inbound", methods=["POST", "GET"])
+    @csrf.exempt
+    @limiter.limit("600 per minute")
+    def sms_incoming():
+        telco_guard()
+        f = request.values
+        phone = S.norm_phone(f.get("from", ""))
+        reply = U.handle_sms(phone, f.get("text", ""))
+        if reply:
+            S.send_sms(phone, reply)
+        db.session.commit()
+        return "OK", 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+    @app.route("/sms/delivery", methods=["POST", "GET"])
+    @app.route("/api/sms/delivery", methods=["POST", "GET"])
+    @csrf.exempt
+    def sms_delivery():
+        telco_guard()
+        return "OK", 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+    @app.post("/webhooks/payments/<provider>")
+    @csrf.exempt
+    def payment_webhook(provider):
+        """Mobile-money adapters confirm a pending deposit here. Without a shared secret nothing is ever confirmed."""
+        secret = os.environ.get("PAYMENT_WEBHOOK_SECRET", "")
+        if not secret:
+            return jsonify(error="not configured"), 503
+        sig = hmac.new(secret.encode(), request.get_data(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig, request.headers.get("X-Signature", "")):
+            return jsonify(error="bad signature"), 403
+        try:
+            body = json.loads(request.get_data() or b"{}")
+        except ValueError:
+            body = {}
+        txn = WalletTxn.query.filter_by(reference=str(body.get("reference", "")), provider=provider, status="pending").first()
+        if not txn:
+            return jsonify(error="unknown reference"), 404
+        # the provider must confirm exactly the amount that was requested; anything else is refused and recorded
+        if body.get("status") == "success" and body.get("amount") is not None:
+            try:
+                paid = int(round(float(body.get("amount"))))
+            except (TypeError, ValueError):
+                return jsonify(error="bad amount"), 400
+            if paid != abs(int(txn.amount)):
+                S.audit("wallet.mismatch", "wallet", txn.reference, f"{provider} confirmed {paid}, expected {abs(int(txn.amount))}", channel="system")
+                db.session.commit()
+                return jsonify(error="amount mismatch"), 409
+        if body.get("status") == "success":
+            S.confirm_pending_deposit(txn, None, "system")
+        else:
+            txn.status = "failed"
+            S.audit("wallet.failed", "wallet", txn.reference, provider, channel="system")
+        db.session.commit()
+        return jsonify(ok=True)
+
