@@ -194,3 +194,37 @@ class Setting(db.Model):
     value = db.Column(db.String(255), nullable=False, default="")
 
 
+class UssdSession(db.Model):
+    __tablename__ = "ussd_sessions"
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.String(80), unique=True, nullable=False)
+    phone = db.Column(db.String(24), nullable=False, index=True)
+    channel = db.Column(db.String(12), nullable=False, default="telco")  # telco|simulator
+    trail = db.Column(db.String(400), nullable=False, default="")  # masked input trail, never PINs
+    last_response = db.Column(db.String(200), nullable=False, default="")
+    hops = db.Column(db.Integer, nullable=False, default=0)
+    ended = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+
+class SmsLog(db.Model):
+    __tablename__ = "sms_logs"
+    id = db.Column(db.Integer, primary_key=True)
+    direction = db.Column(db.String(3), nullable=False)  # in|out
+    phone = db.Column(db.String(24), nullable=False, index=True)
+    body = db.Column(db.String(700), nullable=False)
+    status = db.Column(db.String(16), nullable=False, default="queued")  # queued|sent|simulated|failed|received
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+
+class PasswordReset(db.Model):
+    __tablename__ = "password_resets"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token_hash = db.Column(db.String(64), unique=True, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+
