@@ -44,6 +44,7 @@
 <script src="{{ url_for('static', filename='js/boot.js') }}"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
 <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/install.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/fx.js') }}" defer></script>
 </head>
 <body class="{% block body_class %}{% endblock %}" data-page="{{ request.endpoint }}" data-auth="{{ 1 if current_user.is_authenticated else 0 }}" data-last-note="{{ last_note_id() }}">
@@ -57,5 +58,6 @@
 <main id="main">{% block content %}{% endblock %}</main>
 {% block footer %}{% include "partials/footer.html" %}{% endblock %}
 {% block scripts %}{% endblock %}
+{% include "partials/install.html" %}
 </body>
 </html>
