@@ -1,0 +1,34 @@
+{% extends "auth/_shell.html" %}{% from "partials/macros.html" import field with context %}
+{% block title %}{{ t('Create an account') }}{% endblock %}
+{% block heading %}{{ t('Create an account') }}{% endblock %}
+{% block form %}
+{# The same questions, in the same order, as the USSD registration (*384*9411#) and a coordinator's registration,
+   so every household record is kept the same way whatever the channel. Two tabs choose the account; they are radio
+   buttons, so CSS shows the chosen tab's fields without a script. The server checks the coordinator access code, and a
+   coordinator account still waits for an administrator. #}
+{% set coord = f.get('role') == 'coordinator' %}
+<form method="post" class="space-y-4" novalidate><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<fieldset class="role-tabs"><legend class="sr-only">{{ t('Register as:') }}</legend>
+  <label><input type="radio" name="role" value="member" {{ 'checked' if not coord }}><span>{{ t('Household member') }}</span></label>
+  <label><input type="radio" name="role" value="coordinator" {{ 'checked' if coord }}><span>{{ t('Community coordinator') }}</span></label></fieldset>
+{{ field('name','Full name', f.get('name',''), required=True, autocomplete='name') }}
+<div class="grid gap-4 sm:grid-cols-2">{{ field('phone','Phone number', f.get('phone',''), type='tel', required=True, hint='Used for USSD, SMS and sign-in.', autocomplete='tel') }}{{ field('email','Email (optional)', f.get('email',''), type='email', autocomplete='email') }}</div>
+<div class="coord-only">{{ field('access_code', 'Access code', '', type='password', autocomplete='off', hint='Given to you by the CWAS administrator. An administrator still approves your account before it opens.') }}</div>
+<div class="hh-only space-y-4">
+<div class="grid gap-4 sm:grid-cols-2">{{ field('village','Village', f.get('village','')) }}{{ field('family_size','People in the household', f.get('family_size','4'), type='number', attrs='min=1 max=40') }}</div>
+<fieldset><legend class="label">{{ t('Household needs') }}</legend><p class="hint !mt-0 mb-2">{{ t('Tick everything that applies to people in your home. A coordinator checks it before any discount starts.') }}</p>
+  {% set picked = f.getlist('vuln') if f.getlist else [] %}
+  <div class="grid gap-2 sm:grid-cols-2">{% for code, label, _ in VULN %}<label class="need"><input type="checkbox" name="vuln" value="{{ code }}" {{ 'checked' if code in picked }}>{{ t(label) }}</label>{% endfor %}</div></fieldset>
+<div class="grid gap-4 sm:grid-cols-2">
+  <div><label class="label" for="f-distance">{{ t('Distance to water') }}</label><select class="field" id="f-distance" name="distance"><option value="">{{ t('Choose') }}</option>{% for m, label in DISTANCE %}<option value="{{ m }}" {{ 'selected' if f.get('distance') == m|string }}>{{ t(label) }}</option>{% endfor %}</select></div>
+  <div><label class="label" for="f-home">{{ t('Water point you use most') }}</label><select class="field" id="f-home" name="home_source">{% for s in sources %}<option value="{{ s.id }}" {{ 'selected' if f.get('home_source') == s.id|string }}>{{ s.name }}</option>{% endfor %}<option value="other" {{ 'selected' if f.get('home_source') == 'other' }}>{{ t('Other') }}</option><option value="" {{ 'selected' if not f.get('home_source') }}>{{ t('Not sure') }}</option></select></div>
+</div>
+<div class="other-src"><label class="label" for="f-home-other">{{ t('Name of the water point') }}</label><input class="field" id="f-home-other" name="home_other" maxlength="80" value="{{ f.get('home_other', '') }}"></div>
+</div>
+{{ field('password','Password', '', type='password', required=True, hint='At least 10 characters with upper and lower case, a digit and a symbol.', autocomplete='new-password') }}
+<div class="grid gap-4 sm:grid-cols-2">{{ field('pin','USSD PIN (4 digits)', '', type='password', attrs='inputmode=numeric maxlength=4 pattern=[0-9]{4}', hint='Lets you use the service on any phone, even without data.') }}
+{{ field('recovery', 'Recovery code (6 digits)', '', type='password', attrs='inputmode=numeric maxlength=6 pattern=[0-9]{6}', hint='It resets a forgotten PIN. Keep it private.') }}</div>
+<label class="flex items-start gap-3 text-sm"><input type="checkbox" name="accept" value="1" required class="mt-1 h-4 w-4 accent-[rgb(var(--brand))]"><span>{{ t('I agree to the') }} <a class="lnk" href="{{ url_for('legal', doc='terms') }}" target="_blank" rel="noopener">{{ t('Terms of Service') }}</a>, <a class="lnk" href="{{ url_for('legal', doc='privacy') }}" target="_blank" rel="noopener">{{ t('Privacy Policy') }}</a> {{ t('and') }} <a class="lnk" href="{{ url_for('legal', doc='refunds') }}" target="_blank" rel="noopener">{{ t('Refund Policy') }}</a>.</span></label>
+<button class="btn btn-primary w-full !py-3">{{ t('Create an account') }}</button></form>
+<p class="mt-5 text-sm">{{ t('Already registered?') }} <a class="lnk" href="{{ url_for('login') }}">{{ t('Log in') }}</a></p>
+{% endblock %}
