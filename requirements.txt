@@ -1,0 +1,15 @@
+# Runtime dependencies. Every package installs from a prebuilt wheel, no compiler needed.
+# SQLite is the default database; psycopg2-binary is only used when DATABASE_URL points at PostgreSQL.
+Flask==3.0.3
+Flask-SQLAlchemy==3.1.1
+Flask-Login==0.6.3
+Flask-WTF==1.2.1
+Flask-Limiter==3.8.0
+SQLAlchemy==2.0.36
+Werkzeug==3.0.4
+python-dotenv==1.0.1
+waitress==3.0.0
+segno==1.6.1
+Pillow==12.1.1  # re-encodes photos uploaded to the assistant at the same visual quality
+psycopg2-binary==2.9.10
+tzdata==2024.2  # zone data for zoneinfo on slim images and Windows; used without an import
