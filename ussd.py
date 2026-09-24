@@ -1240,3 +1240,67 @@ def handle_sms(phone, text):
     return reply[:320]
 
 
+# ── homepage demo phones ────────────────────────────────────────────────────
+def household_menu_screens(lang):
+    """The household main menu, every page exactly as a caller sees it. /access shows these, so it cannot drift from the engine."""
+    ctx = Ctx(lang=lang, phone="+261340000000")
+    gen = menu(ctx, ctx.L("Hello {name}", name="Rasoa"), [ctx.L(n) for n in MEMBER_MENU], root=True)
+    screens = [next(gen)[4:]]
+    while "\n98. " in screens[-1] and len(screens) < 6:
+        screens.append(gen.send("98")[4:])
+    return screens
+
+
+def demo_script(lang):
+    """The three demo phones on the website play screens drawn by THIS engine: the same renderers, menus, wording,
+    blank lines, key numbers, water points, slots and prices a caller gets. Only the person (Rasoa), her balance and the
+    booking reference are examples, and nothing is written. SMS replies use the same templates as handle_sms()."""
+    from types import SimpleNamespace
+    ctx = Ctx(lang=lang, phone="+261340000000")
+    L = ctx.L
+    first = lambda gen: next(gen)[4:]  # noqa: E731  the first screen of a real step, without the CON prefix
+    lk = {v: k for k, v in LANG_CODES.items()}[lang]
+    welcome = first(session_flow(Ctx(lang=lang)))
+    main = first(menu(ctx, L("Hello {name}", name="Rasoa"), [L(n) for n in MEMBER_MENU], root=True))
+    balance, deposit = 12500, 10000
+    bal = first(info(ctx, L("Balance: {balance}", balance=M(balance)), f"+{M(deposit)} {L('deposit')}"))
+    script = {"ui": {"cancel": L("Cancel"), "send": L("Send"), "ok": L("OK")},
+              "lite": [["dial", DIAL], ["call", ""], ["screen", welcome], ["key", lk], ["screen", main], ["key", str(MEMBER_MENU.index("Balance") + 1)], ["screen", bal]]}
+    srcs = S.operational_sources()
+    days = S.booking_days()
+    src = srcs[0] if srcs else None
+    slots = S.slot_list(src, days[1], only_open=True) if src and len(days) > 1 else []
+    nova = [["dial", DIAL], ["call", ""], ["screen", welcome], ["key", lk], ["screen", main], ["key", str(MEMBER_MENU.index("Book water") + 1)]]
+    if src and slots:
+        home = SimpleNamespace(priority_level="standard")
+        slot = slots[0]
+        opts = S.litre_options(src)
+        litres = 60 if 60 in opts else opts[0]
+        amount = S.price_quote(home, src, litres)[0]
+        ref = "CW-4F7A9C21"
+        nova += [["screen", first(menu(ctx, L("Select water point:"), [short(x.name, 22) for x in srcs]))], ["key", "1"],
+                 ["screen", first(menu(ctx, L("Select day:"), [_day_label(ctx, d, n) for n, d in enumerate(days)]))], ["key", "2"],
+                 ["screen", first(menu(ctx, L("Select slot:"), [f"{x['label']} ({x['free']})" for x in slots]))], ["key", "1"],
+                 ["screen", first(menu(ctx, L("Quantity:"), [f"{l} L ({M(S.price_quote(home, src, l)[0])})" for l in opts]))], ["key", str(opts.index(litres) + 1)],
+                 ["screen", first(confirm(ctx, L("Confirm booking"), short(src.name, 20), f"{days[1]:%Y-%m-%d} {slot['label']}", f"{litres} L - {M(amount)}",
+                                          L("Wallet: {balance}", balance=M(balance)), yes="Pay from wallet"))], ["key", "1"],
+                 ["screen", first(require_pin(ctx, SimpleNamespace(pin_locked_until=None)))], ["pin", "1234"],
+                 ["end", END(ctx, L("Booked!"), f"Ref: {ref}", short(src.name, 18), f"{days[1]:%Y-%m-%d} {slot['label']}", f"{litres} L - {M(amount)}",
+                             L("Status: {status}", status=L("pending approval")))[4:]]]
+        n = [x.id for x in WaterSource.query.order_by(WaterSource.name).all()].index(src.id) + 1  # SMS numbers follow SOURCES
+        sms_src = WaterSource.query.order_by(WaterSource.name).all()[n - 1]
+        sms_slots = S.slot_list(sms_src, days[1], only_open=True)
+        t = sms_slots[min(1, len(sms_slots) - 1)] if sms_slots else slot
+        hhmm = S.fmt_min(t["start_min"])
+        ref2 = "CW-7K3M9Q21"
+        amt2 = S.price_quote(home, sms_src, litres)[0]
+        script["max"] = [["type", "BAL"], ["in", L("Balance: {balance}", balance=M(balance)) + f" (+{M(deposit)})"],
+                         ["type", f"BOOK {n} TOMORROW {hhmm} {litres}"],
+                         ["in", L("Booked {ref}: {source} {date} {time}, {litres} L, {amount}. Status: pending approval.", ref=ref2, source=sms_src.name,
+                                  date=f"{days[1]:%Y-%m-%d}", time=hhmm, litres=litres, amount=M(amt2))],
+                         ["wait", 1600],
+                         ["in", tt("Booking {ref} is approved: {source}, {date} {time}.", lang, ref=ref2, source=sms_src.name, date=f"{days[1]:%Y-%m-%d}", time=hhmm)]]
+    else:
+        script["max"] = [["type", "BAL"], ["in", L("Balance: {balance}", balance=M(balance)) + f" (+{M(deposit)})"]]
+    script["nova"] = nova
+    return script
