@@ -1,0 +1,7 @@
+{% extends "app_base.html" %}{% from "partials/macros.html" import pager with context %}
+{% block title %}{{ t('Households') }}{% endblock %}
+{% block app %}<h1 class="text-3xl font-extrabold">{{ t('Households') }}</h1>
+<form class="mt-5 flex gap-2"><input class="field max-w-md" name="q" value="{{ q }}" placeholder="{{ t('Name, village or phone') }}" aria-label="{{ t('Search') }}"><button class="btn btn-primary">{{ t('Search') }}</button></form>
+<div class="glass-strong mt-5 overflow-x-auto p-2"><table class="tbl"><thead><tr><th>{{ t('Household') }}</th><th>{{ t('Village') }}</th><th>{{ t('People') }}</th><th>{{ t('Priority') }}</th><th>{{ t('Balance') }}</th></tr></thead><tbody>
+{% for h in page.items %}<tr><td><a class="font-semibold" href="{{ url_for('coord_household', hid=h.id) }}">{{ h.name }}</a><br><span class="text-xs text-mute">{{ h.user.phone or h.user.email }}</span></td><td>{{ h.village }}</td><td>{{ h.family_size }}</td><td><span class="chip {{ 'chip-ok' if h.priority_level != 'standard' }}">{{ t(h.priority_level) }}</span>{% if h.needs_review %} <span class="chip chip-hot">{{ t('To check') }}</span>{% endif %}</td><td>{{ fmt_ar(h.balance) }}</td></tr>{% else %}<tr><td colspan="5" class="py-8 text-center text-mute">{{ t('No households found.') }}</td></tr>{% endfor %}</tbody></table></div>
+{{ pager(page, 'coord_households', q=q) }}{% endblock %}

@@ -1,0 +1,7 @@
+{% extends "app_base.html" %}{% from "partials/macros.html" import icon with context %}
+{% block title %}{{ t('Deposits') }}{% endblock %}
+{% block app %}<h1 class="text-3xl font-extrabold">{{ t('Deposits') }}</h1><p class="mt-2 text-mute">{{ t('Deposits waiting for confirmation. Confirm only when the money has reached you or the provider.') }}</p>
+<div class="glass-strong mt-6 overflow-x-auto p-2"><table class="tbl"><thead><tr><th>{{ t('Reference') }}</th><th>{{ t('Household') }}</th><th>{{ t('Method') }}</th><th class="text-right">{{ t('Amount') }}</th><th></th></tr></thead><tbody>
+{% for r in rows %}<tr><td class="font-mono text-xs">{{ r.reference }}<br><span class="text-mute">{{ (r.created_at|local).strftime('%d/%m %H:%M') }}</span></td><td><a href="{{ url_for('coord_household', hid=r.household_id) }}">{{ r.household.name }}</a></td><td>{{ r.provider }}</td><td class="text-right font-semibold">{{ fmt_ar(r.amount) }}</td>
+<td class="text-right"><form method="post" class="inline-flex gap-2"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="id" value="{{ r.id }}"><button class="btn btn-primary btn-sm" name="action" value="confirm">{{ icon('check') }}{{ t('Confirm') }}</button><button class="btn btn-ghost btn-sm" name="action" value="reject">{{ t('Reject') }}</button></form></td></tr>
+{% else %}<tr><td colspan="5" class="py-8 text-center text-mute">{{ t('Nothing waiting.') }}</td></tr>{% endfor %}</tbody></table></div>{% endblock %}
