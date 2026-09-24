@@ -1,0 +1,10 @@
+.git
+.env
+instance/
+backups/
+*.db
+node_modules/
+tools/jsdom/node_modules/
+__pycache__/
+*.pyc
+.venv/
