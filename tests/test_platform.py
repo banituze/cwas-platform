@@ -638,3 +638,312 @@ class Platform(unittest.TestCase):
         for part in ('class="c128"', "rc-stamp", "rc-amount", "WINEBALD", found.group(2)):
             self.assertIn(part, page)
         self.assertIn("Tongasoa eto amin\\u0027ny CWAS/Welcome to CWAS/Bienvenue sur CWAS", c.get("/").get_data(as_text=True))  # the phones show the real welcome
+
+    # ── legal, consent, account deletion ──
+    def test_60_legal_pages_exist_and_registration_needs_consent(self):
+        c = A.app.test_client()
+        for p, needle in (("/terms", "Booking water"), ("/privacy", "Your choices and rights"), ("/refunds", "Automatic refunds")):
+            self.assertIn(needle, c.get(p).get_data(as_text=True))
+        data = {"name": "No Consent", "phone": "0340007600", "password": "Str0ng Pass #2026", "family_size": "3"}
+        r = post(c, "/register", data)
+        self.assertEqual(r.status_code, 200)
+        with self.app.app_context():
+            self.assertIsNone(User.query.filter_by(phone="+261340007600").first())
+
+    def test_61_delete_account_erases_personal_data_and_flags_refund(self):
+        c = A.app.test_client()
+        r = post(c, "/register", {"name": "Erase Me", "phone": "0340007601", "email": "erase@example.com", "password": "Str0ng Pass #2026", "family_size": "3", "village": "Ampotaka", "distance": "350", "pin": "2580", "recovery": "258025", "accept": "1"})
+        self.assertEqual(r.status_code, 302)
+        post(c, "/app/wallet", {"provider": "orange", "amount": "2000"})
+        export = c.get("/account/export.json").get_json()
+        self.assertEqual(export["account"]["name"], "Erase Me")
+        self.assertEqual(export["household"]["balance_mga"], 2000)
+        post(c, "/api/assistant/message", {"message": "hello"})
+        r = post(c, "/account/delete", {"password": "wrong", "confirm": "DELETE", "refund": "1"})
+        self.assertEqual(r.status_code, 200)
+        r = post(c, "/account/delete", {"password": "Str0ng Pass #2026", "confirm": "DELETE"})
+        self.assertEqual(r.status_code, 200)  # balance needs the refund acknowledgement
+        r = post(c, "/account/delete", {"password": "Str0ng Pass #2026", "confirm": "DELETE", "refund": "1"})
+        self.assertEqual(r.status_code, 302)
+        with self.app.app_context():
+            self.assertIsNone(User.query.filter_by(phone="+261340007601").first())
+            u = User.query.filter_by(name=f"Deleted user {export.get('id', 0)}").first() or User.query.filter(User.name.like("Deleted user %"), User.is_active_flag.is_(False)).order_by(User.id.desc()).first()
+            self.assertIsNotNone(u)
+            self.assertIsNone(u.email)
+            self.assertEqual(u.household.balance, 0)
+            self.assertEqual(u.household.name, "Deleted household")
+            self.assertTrue(S.reconcile_wallet(u.household))
+            self.assertEqual(WalletTxn.query.filter_by(household_id=u.household.id, kind="adjustment").count(), 1)
+            from models import ChatThread, Notification
+            self.assertEqual(ChatThread.query.filter_by(user_id=u.id).count(), 0)
+            self.assertEqual(Notification.query.filter_by(user_id=u.id).count(), 0)
+            coord = User.query.filter_by(email="coordinator@cwas.demo").first()
+            self.assertTrue(any("is owed" in S.render_notification(n, "en") for n in Notification.query.filter_by(user_id=coord.id)))
+        r = post(c, "/login", {"identifier": "erase@example.com", "password": "Str0ng Pass #2026"})
+        self.assertEqual(r.status_code, 200)
+
+    # ── assistant: saved chats, every kind of file, deletion ──
+    def test_70_assistant_chats_files_and_deletion(self):
+        import io
+        import zipfile
+        c = login("+261340000102", DEMO_PW)
+        hdr = {"X-CSRFToken": token(c)}
+        r = c.post("/api/assistant/message", data={"message": "balance"}, headers=hdr)
+        self.assertEqual(r.status_code, 200)
+        d = r.get_json()
+        tid = d["thread"]["id"]
+        self.assertIn("MGA", d["assistant"]["body"])
+        png = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + (7).to_bytes(4, "big") + (5).to_bytes(4, "big") + b"\x08\x06\x00\x00\x00" + b"\x00" * 20
+        zbuf = io.BytesIO()
+        with zipfile.ZipFile(zbuf, "w") as z:
+            z.writestr("a.txt", "hello")
+            z.writestr("b.txt", "world")
+        files = [("files", (io.BytesIO(png), "pic.png")), ("files", (io.BytesIO(b"%PDF-1.4\n/Type /Page\n/Type /Page\n"), "doc.pdf")),
+                 ("files", (io.BytesIO(b"name,amount\nRasoa,1000\nRakoto,2500\n"), "sheet.csv")), ("files", (io.BytesIO(zbuf.getvalue()), "bundle.zip")),
+                 ("files", (io.BytesIO(b"MZ\x90\x00binary"), "setup.exe"))]
+        r = c.post("/api/assistant/message", data={"message": "my payment receipt", "thread_id": str(tid), "files": [f[1] for f in files]}, headers=hdr, content_type="multipart/form-data")
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True)[:300])
+        d = r.get_json()
+        reply = d["assistant"]["body"]
+        for expect in ("I received 5 file(s)", "7 x 5 pixels", "about 2 pages", "2 rows and 2 columns", "total 3,500", "Archive with 2 items", "never opened or run", "transaction reference"):
+            self.assertIn(expect, reply)
+        self.assertEqual(len(d["user"]["files"]), 5)
+        img, exe = d["user"]["files"][0], d["user"]["files"][4]
+        r = c.get(img["url"])
+        self.assertEqual((r.status_code, r.mimetype), (200, "image/png"))
+        self.assertIn("sandbox", r.headers["Content-Security-Policy"])
+        r = c.get(exe["url"])
+        self.assertEqual(r.mimetype, "application/octet-stream")
+        self.assertIn("attachment", r.headers["Content-Disposition"])
+        r = c.post("/api/assistant/message", data={"message": "", "thread_id": str(tid), "files": [(io.BytesIO(b"x" * (10 * 1024 * 1024 + 1)), "big.bin")]}, headers=hdr, content_type="multipart/form-data")
+        self.assertEqual(r.status_code, 413)
+        other = login("+261340000101", DEMO_PW)
+        self.assertEqual(other.get(img["url"]).status_code, 404)
+        self.assertEqual(other.get(f"/api/assistant/threads/{tid}").status_code, 404)
+        self.assertEqual(other.post(f"/api/assistant/threads/{tid}/delete", headers={"X-CSRFToken": token(other)}).status_code, 404)
+        self.assertEqual(c.post(f"/api/assistant/threads/{tid}/rename", json={"title": "My chat"}, headers=hdr).get_json()["title"], "My chat")
+        self.assertIn("balance", c.get(f"/app/assistant/{tid}/export.txt").get_data(as_text=True))
+        self.assertIn("My chat", c.get("/app/assistant").get_data(as_text=True))
+        self.assertEqual(len(c.get(f"/api/assistant/threads/{tid}").get_json()["messages"]), 4)
+        self.assertEqual(c.post(f"/api/assistant/threads/{tid}/delete", headers=hdr).status_code, 200)
+        self.assertEqual(c.get(img["url"]).status_code, 404)
+        self.assertEqual(c.get(f"/api/assistant/threads/{tid}").status_code, 404)
+        c.post("/api/assistant/message", data={"message": "one"}, headers=hdr)
+        c.post("/api/assistant/message", data={"message": "two", "thread_id": ""}, headers=hdr)
+        self.assertEqual(c.post("/api/assistant/threads/delete-all", headers=hdr).status_code, 200)
+        self.assertNotIn("data-thread=", c.get("/app/assistant").get_data(as_text=True))
+
+    # ── receipts, live notifications ──
+    def test_75_receipt_preview_and_notification_poll(self):
+        c = login("+261340000106", DEMO_PW)
+        found = re.search(r'data-receipt="(/app/bookings/(CW-[0-9A-F]{8})/receipt)"', c.get("/app/bookings").get_data(as_text=True))
+        self.assertIsNotNone(found)
+        frag = c.get(f"{found.group(1)}?partial=1").get_data(as_text=True)
+        self.assertIn("data-printer", frag)
+        self.assertNotIn("<html", frag)
+        d = c.get("/api/notifications/poll?after=0").get_json()
+        self.assertIn("items", d)
+        for _ in range(20):  # the poll answers in batches: read up to the newest first
+            more = c.get(f"/api/notifications/poll?after={d['last']}").get_json()
+            if not more["items"]:
+                break
+            d = more
+        self.assertEqual(c.get(f"/api/notifications/poll?after={d['last']}").get_json()["items"], [])
+        with self.app.app_context():
+            S.event(User.query.filter_by(phone="+261340000106").first(), "Water collected for booking {ref}. Thank you!", "booking", ref="CW-TESTTEST")
+            db.session.commit()
+        new = c.get(f"/api/notifications/poll?after={d['last']}").get_json()
+        self.assertEqual(len(new["items"]), 1)
+        self.assertIn("CW-TESTTEST", new["items"][0]["text"])
+
+    # ── media: each asset once, loading at once, nothing unrelated shipped ──
+    def test_80_every_media_asset_has_one_home_and_loads_at_once(self):
+        c = A.app.test_client()
+        root = os.path.dirname(os.path.abspath(A.__file__))
+        seen, foot, pages = [], set(), {}
+        for p in ("/", "/platform", "/access", "/water-points", "/about", "/terms", "/privacy", "/refunds", "/simulator", "/login"):
+            html = pages[p] = c.get(p).get_data(as_text=True)
+            main, _, tail = html.partition("<footer")
+            self.assertNotIn('loading="lazy"', main)
+            found = re.findall(r'<(?:video|img)[^>]* (?:data-)?src="(/static/(?:media|img/photos)/[^"?]+)(?:\?v=[0-9a-f]+)?"', main)  # a film further down names its file in data-src
+            if p == "/login":  # the sign-up and log-in pages show the homepage's live-water pond on purpose
+                self.assertIn("/static/media/hero/hero-base-land.webp", found)
+                found = [f for f in found if "hero-base" not in f]
+            seen += found
+            foot.update(re.findall(r'<img[^>]* src="(/static/img/photos/[^"?]+)(?:\?v=[0-9a-f]+)?"', tail))
+        self.assertEqual(len(seen), len(set(seen)), seen)
+        self.assertGreaterEqual(len(seen), 10)
+        self.assertEqual(foot, {"/static/img/photos/spiny-baobabs-960.webp"})
+        for src in set(seen) | foot:
+            self.assertTrue(os.path.exists(os.path.join(root, src.lstrip("/"))), src)
+        # every shipped photograph is registered and used; the unrelated ones are gone
+        from pathlib import Path
+        media = (Path(root) / "templates" / "partials" / "media.html").read_text()
+        for f in (Path(root) / "static" / "img" / "photos").glob("*.webp"):
+            self.assertIn("'" + f.stem.rsplit("-", 1)[0] + "'", media, f.name)
+        templates = "".join(t.read_text() for t in (Path(root) / "templates").rglob("*.html"))
+        for gone in ("water-road", "baobab-path", "spiny-forest", "zebu-carts", "hero-source", "hero-pay", "forward-land", "data-hero-state"):
+            self.assertNotIn(gone, templates, gone)
+        self.assertEqual(sorted(p.name for p in (Path(root) / "static" / "media" / "hero").iterdir()), ["hero-base-land.avif", "hero-base-land.webp", "hero-base-port.avif", "hero-base-port.webp"])
+        home = pages["/"]
+        self.assertEqual(home.count('class="dk-card"'), 12)
+        for hook in ("data-typeline", "data-orbit", "data-tunnel", "data-hero-media", "tel:*384*9411%23", "js/hero.js", "data-hero-liquid", "data-phones",
+                     "data-gallery-tunnel", "js/home.js", "Winebald Max 9 Pro", "WINEBALD", "Book your slot. Skip the queue.", "borehole-windmill", "pilot/follow", "foot-big"):
+            self.assertIn(hook, home)
+        for gone in ("field research", "flagfield", "pexels", "Follow the water", "Pilot 2026"):
+            self.assertNotIn(gone, home)
+        # the hot-linked films always carry a local poster, so a page is never blank if Pexels is unreachable
+        for p in ("/about",):  # /platform shows real product screens instead of a film
+            v = re.search(r'<video[^>]*src="https://videos\.pexels\.com[^"]+"[^>]*>', pages[p]) or re.search(r'<video[^>]*poster="/static/[^"]+"[^>]*src="https://videos\.pexels\.com', pages[p])
+            self.assertTrue(v, p)
+            self.assertIn('poster="/static/img/photos/', pages[p])
+        self.assertIn("data-phones", pages["/access"])
+        self.assertNotIn("<img", pages["/water-points"].partition("<footer")[0].partition("<main")[2])
+
+    # ── themes: logo, favicon and app icons follow the theme ──
+    def test_81_theme_brand_files(self):
+        root = os.path.dirname(os.path.abspath(A.__file__))
+        self.assertIn('data-theme="saina"', A.app.test_client().get("/").get_data(as_text=True))  # a first visit gets the Default theme
+        for th, colour in (("saina", "#FFFFFF"), ("fotsy", "#FFFFFF"), ("maitso", "#007E3A"), ("mena", "#D42A20")):
+            c = A.app.test_client()
+            c.set_cookie("cwas_visit_theme", th)
+            html = c.get("/").get_data(as_text=True)
+            self.assertIn(f"img/brand/favicon-{th}.svg", html)
+            self.assertIn(f'name="theme-color" content="{colour}"', html)
+            m = c.get("/manifest.webmanifest").get_json()
+            self.assertEqual(m["theme_color"], colour)
+            for icon in m["icons"]:
+                self.assertTrue(os.path.exists(os.path.join(root, icon["src"].lstrip("/"))), icon["src"])
+            for f in ("favicon-32", "apple-touch-icon"):
+                self.assertTrue(os.path.exists(os.path.join(root, "static", "icons", th, f + ".png")))
+
+    # ── household needs: the same questions on the web and by USSD; the subsidy waits for a coordinator ──
+    def test_82_needs_on_web_wait_for_a_coordinator(self):
+        c = A.app.test_client()
+        base = {"name": "Needs Web", "phone": "0340007801", "password": "Str0ng Pass #2026", "family_size": "5", "village": "Ampotaka", "accept": "1", "pin": "2468", "recovery": "246824"}
+        r = post(c, "/register", dict(base, vuln=["elderly", "disability", "nonsense"], distance="1500"))
+        self.assertEqual(r.status_code, 302)
+        with self.app.app_context():
+            h = User.query.filter_by(phone="+261340007801").first().household
+            self.assertEqual((h.vuln_flags, h.distance_m, h.priority_level, h.needs_review), ("elderly,disability", 1500, "standard", True))
+            score, parts = S.priority_breakdown(h)
+            self.assertEqual(parts[0], ("Vulnerability level (self-reported, awaiting check)", 45))
+            src = WaterSource.query.first()
+            self.assertEqual(S.price_quote(h, src, 100)[1], 0)  # no subsidy before the check
+            hid = h.id
+        coord = login("coordinator@cwas.demo", DEMO_PW)
+        post(coord, f"/coord/households/{hid}", {"section": "priority", "priority": "high", "distance": "1500", "vuln": ["elderly", "disability"]})
+        with self.app.app_context():
+            h = db.session.get(Household, hid)
+            self.assertEqual((h.priority_level, h.needs_review), ("high", False))
+            self.assertGreater(S.price_quote(h, WaterSource.query.first(), 100)[1], 0)
+        # a household without a distance or a PIN is asked for them
+        c2 = A.app.test_client()
+        r = post(c2, "/register", dict(base, phone="0340007802", pin="", distance=""))
+        self.assertEqual(r.status_code, 200)
+        page = r.get_data(as_text=True)
+        self.assertIn("Choose how far your household is from water.", page)
+        self.assertIn("Create a 4-digit PIN.", page)
+
+    def test_83_needs_by_ussd_match_the_web(self):
+        phone = "+261340007803"
+        out = self.play(phone, "2", "1", "Lala Ussd", "Ampotaka", "6")
+        self.assertIn("1. Aged 60+", out)
+        self.assertIn("Invalid choice", self.play(phone, "2", "1", "Lala Ussd", "Ampotaka", "6", "77"))
+        out = self.play(phone, "2", "1", "Lala Ussd", "Ampotaka", "6", "31", "4", "2", "1357", "1357", "112244", "112244")
+        self.assertNotIn("I agree to the Terms of Service", out)  # no consent screen on USSD: the account opens at once
+        self.assertTrue(out.startswith("END Welcome Lala!"), out)
+        with self.app.app_context():
+            h = User.query.filter_by(phone=phone).first().household
+            second = S.operational_sources()[1].id
+            self.assertEqual((h.vuln_flags, h.distance_m, h.home_source_id, h.needs_review), ("elderly,infant", 1500, second, True))
+        for lang in ("1", "3"):
+            self.assertLessEqual(len(self.play("+261340007804", lang, "1", "Test Mg", "Ampotaka", "3")) - 4, 182)
+
+    def test_83b_welcome_layout_and_other_water_point(self):
+        out = self.ussd("+261340007901", "", sid="layout-1")
+        self.assertEqual(out, "CON Tongasoa eto amin'ny CWAS/Welcome to CWAS/Bienvenue sur CWAS\n\nSafidio ny fiteny/Choose language/Choisissez votre langue:\n\n1. Malagasy\n2. English\n3. Francais\n\n99. Exit")
+        with self.app.app_context():
+            n = len(S.operational_sources())
+        menu = self.play("+261340007901", "2", "1", "Voahangy Other", "Ampotaka", "3", "0", "2")
+        self.assertIn(f"{n + 1}. Other", menu)
+        self.assertIn(f"{n + 2}. Not sure", menu)
+        out = self.play("+261340007901", "2", "1", "Voahangy Other", "Ampotaka", "3", "0", "2", str(n + 1), "Puits Nord", "1357", "1357", "112255", "112255")
+        self.assertTrue(out.startswith("END Welcome Voahangy!"), out)
+        c = A.app.test_client()
+        r = post(c, "/register", {"name": "Web Other", "phone": "0340007902", "password": "Str0ng Pass #2026", "family_size": "3", "village": "Ampotaka", "accept": "1",
+                                  "pin": "2468", "recovery": "246824", "distance": "350", "home_source": "other", "home_other": "Puits Nord"})
+        self.assertEqual(r.status_code, 302)
+        with self.app.app_context():
+            for phone in ("+261340007901", "+261340007902"):
+                h = User.query.filter_by(phone=phone).first().household
+                self.assertEqual((h.home_source_id, h.home_source_note), (None, "Puits Nord"))
+            # a new water point appears in the registration list at once
+            db.session.add(WaterSource(name="Forage Nouveau", village="Ampotaka"))
+            db.session.commit()
+        self.assertIn("Forage Nouveau", A.app.test_client().get("/register").get_data(as_text=True))
+        self.assertIn("Forage Nouveau", self.play("+261340007903", "2", "1", "New Point", "Ampotaka", "3", "0", "2"))
+        with self.app.app_context():
+            WaterSource.query.filter_by(name="Forage Nouveau").delete()
+            db.session.commit()
+
+    def test_84_pilot_news(self):
+        c = A.app.test_client()
+        r = post(c, "/pilot/follow", {"email": "news@example.org", "next": "/about"})
+        self.assertEqual(r.headers["Location"], "/about")
+        post(c, "/pilot/follow", {"email": "news@example.org", "next": "//evil.example"})
+        self.assertEqual(post(c, "/pilot/follow", {"email": "bad", "next": "/"}).status_code, 302)
+        with self.app.app_context():
+            from models import PilotFollower
+            rows = PilotFollower.query.filter_by(email="news@example.org").all()
+            self.assertEqual(len(rows), 1)
+            tok = rows[0].token
+        self.assertEqual(A.app.test_client().get("/admin/pilot-followers.csv").status_code, 302)
+        c.get(f"/pilot/leave/{tok}")
+        with self.app.app_context():
+            from models import PilotFollower
+            self.assertIsNone(PilotFollower.query.filter_by(email="news@example.org").first())
+
+    # ── the website's demo phones show exactly what the engine answers ──
+    def test_85_demo_phones_match_the_engine(self):
+        import ussd as U
+        with A.app.test_request_context("/"):
+            d = U.demo_script("en")
+            with self.app.app_context():
+                u = User.query.filter_by(phone="+261340000108").first()
+                first = S.first_name(u.name)
+        screens = [a for op, a in d["nova"] if op in ("screen", "end")]
+        live = self.play("+261340000108", "2")
+        self.assertEqual(live[4:], screens[1].replace("Rasoa", first))
+        self.assertEqual(self.ussd("+261340000108", "", sid="demo-welcome")[4:], screens[0])
+        live = self.play("+261340000108", "2", "2")
+        self.assertEqual(live[4:], screens[2])
+        book = next(a for op, a in d["max"] if op == "type" and a.startswith("BOOK"))
+        with self.app.app_context():
+            reply = U.handle_sms("+261340000108", book)
+            db.session.commit()
+        expect = next(a for op, a in d["max"] if op == "in" and a.startswith("Booked"))
+        self.assertRegex(reply, r"^Booked CW-[0-9A-F]{8}: ")
+        same = lambda m: m.split(": ", 1)[1].rsplit(", ", 1)[0]  # noqa: E731  water point, date, time and litres; the price follows the household
+        self.assertEqual(same(reply), same(expect))
+        self.assertTrue(reply.endswith("Status: pending approval."), reply)
+        # the homepage phones are the device lab's own devices (sim.js) fed with this script
+        home = A.app.test_client().get("/").get_data(as_text=True)
+        self.assertIn('id="phones-init"', home)
+        self.assertIn("js/sim.js", home)
+        for key in ("lite", "nova", "max"):
+            self.assertIn(f'data-dev="{key}"', home)
+        self.assertIn("Enter your 4-digit PIN to confirm", home)
+
+    # ── the committed stylesheet is really built from its source ──
+    def test_86_stylesheet_builds_from_source(self):
+        root = os.path.dirname(os.path.abspath(A.__file__))
+        src = open(os.path.join(root, "static", "css", "input.css"), encoding="utf-8").read()
+        depth = 0
+        for n, line in enumerate(src.splitlines(), 1):
+            depth += line.count("{") - line.count("}")
+            self.assertGreaterEqual(depth, 0, f"input.css line {n}: a stray closing brace")
+        self.assertEqual(depth, 0, "input.css: a brace is never closed")
+        built = open(os.path.join(root, "static", "css", "app.css"), encoding="utf-8").read()
+        for marker in (".auth-side", ".os.in-app", ".dial-row", ".pd-rig", ".foot-big", ".logo-tile", "--brand:17 17 17", ".can.can-lg", "--paper:#007E3A", ".need", ".foot-seals", ".role-tabs", ".rg.is-live"):
+            self.assertTrue(marker.lower() in built.lower(), f"app.css is older than input.css (missing {marker}); run npm run build:css")
