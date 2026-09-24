@@ -1,7 +1,9 @@
 {% from "partials/macros.html" import icon, flag, logo, logo_tile with context %}
 {% set in_app = current_user.is_authenticated and request.path.startswith(('/app','/coord','/admin','/account')) %}
 <header class="hdr">
-<div class="hdr-bar glass-pill">
+{# pages that open on a hero film (home and about) draw the header light-on-dark from the first paint, so it never flashes
+   dark before static/js/app.js takes over; scrolling past the film hands it back to the theme #}
+<div class="hdr-bar glass-pill{{ ' on-dark' if request.endpoint in ('index', 'about') }}">
   <a href="{{ url_for('index') }}" class="flex items-center gap-2.5 no-underline" aria-label="CWAS">{{ logo_tile(36) }}<span class="brand-word font-display text-lg font-extrabold tracking-tight">CWAS</span></a>
   {% if not in_app %}
   <nav class="ml-3 hidden items-center gap-0.5 lg:flex" aria-label="{{ t('Main') }}">
