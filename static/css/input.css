@@ -1202,3 +1202,15 @@ html,body{overscroll-behavior-y:none}
   html.is-ios .install-card [data-install-text],html.is-ios .install-card .ic-go{display:none}
   html.is-ios .install-card [data-install-ios]{display:-webkit-box;font-size:.8rem;line-height:1.3;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 }
+
+/* ── polish 15: smooth scrolling on phones. A fixed page background repaints on every scroll frame on Android and is
+   stretched over the whole page on iPhone, and layers sized to the viewport jump whenever the address bar slides away.
+   On touch screens the ambient light scrolls with the page, the Default flag field is sized to the largest viewport on its
+   own layer, the pinned film sections use the small viewport, and the fixed glass (header, install card) blurs less, so
+   nothing repaints, resizes or jumps while the page moves */
+@media (hover:none),(pointer:coarse){
+  body{background-attachment:scroll}
+  [data-theme=saina] body::before{bottom:auto;height:100vh;height:100lvh;transform:translateZ(0)}
+  .tn-stick,.dk-stick{height:100vh;height:100svh}
+  .hdr-bar,.install-card{-webkit-backdrop-filter:blur(16px) saturate(1.5);backdrop-filter:blur(16px) saturate(1.5)}
+}
