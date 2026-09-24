@@ -228,3 +228,31 @@ class PasswordReset(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
 
 
+class ChatThread(db.Model):
+    __tablename__ = "chat_threads"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    title = db.Column(db.String(80), nullable=False, default="New chat")
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=utcnow, index=True)
+    messages = db.relationship("ChatMessage", backref="thread", cascade="all, delete-orphan", order_by="ChatMessage.id")
+
+
+class ChatMessage(db.Model):
+    __tablename__ = "chat_messages"
+    id = db.Column(db.Integer, primary_key=True)
+    thread_id = db.Column(db.Integer, db.ForeignKey("chat_threads.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = db.Column(db.String(9), nullable=False)  # user|assistant
+    body = db.Column(db.Text, nullable=False, default="")
+    files = db.Column(db.Text, nullable=False, default="[]")  # JSON: [{fid, name, mime, kind, size}]
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+
+class PilotFollower(db.Model):
+    """An email address that asked for a short note when the pilot reaches a milestone. Nothing else is stored."""
+    __tablename__ = "pilot_followers"
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(190), unique=True, nullable=False)
+    language = db.Column(db.String(2), nullable=False, default="en")
+    token = db.Column(db.String(40), unique=True, nullable=False)  # one-click leave link
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
