@@ -1,0 +1,20 @@
+{% extends "auth/_shell.html" %}{% from "partials/macros.html" import field with context %}
+{% block title %}{{ t('Forgot PIN?') }}{% endblock %}
+{% block heading %}{{ t('Forgot PIN?') }}{% endblock %}
+{% block form %}
+<p class="text-sm text-mute">{{ t('Enter your phone number, your 6-digit recovery code and a new PIN.') }}</p>
+<form method="post" class="mt-4 space-y-4"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {{ field('phone', 'Phone number', type='tel', required=True, autocomplete='tel', attrs='inputmode=tel') }}
+  {{ field('code', 'Recovery code (6 digits)', type='password', required=True, attrs='inputmode=numeric maxlength=6 pattern=[0-9]{6}') }}
+  {{ field('pin', 'New PIN', type='password', required=True, attrs='inputmode=numeric maxlength=4 pattern=[0-9]{4}', autocomplete='new-password') }}
+  {{ field('pin2', 'Repeat new PIN', type='password', required=True, attrs='inputmode=numeric maxlength=4 pattern=[0-9]{4}', autocomplete='new-password') }}
+  <button class="btn btn-primary w-full">{{ t('Set new PIN') }}</button></form>
+<div class="mt-6 border-t border-ink/10 pt-5">
+  <h3 class="font-bold">{{ t('No recovery code?') }}</h3>
+  <p class="mt-1 text-sm text-mute">{{ t('Text PIN HELP to {sms} from your phone, or ask for a call here. A coordinator checks your details and resets your PIN.', sms=SMS_CODE) }}</p>
+  <form method="post" class="mt-3 flex gap-2"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="help">
+    <input class="field" name="phone" type="tel" inputmode="tel" required autocomplete="tel" placeholder="{{ t('Phone number') }}" aria-label="{{ t('Phone number') }}">
+    <button class="btn btn-ghost shrink-0">{{ t('Ask for a call') }}</button></form>
+</div>
+<p class="mt-5 text-sm"><a href="{{ url_for('login') }}">{{ t('Log in') }}</a></p>
+{% endblock %}
