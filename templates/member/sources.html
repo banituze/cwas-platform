@@ -1,0 +1,7 @@
+{% extends "app_base.html" %}{% from "partials/macros.html" import status, icon with context %}
+{% block title %}{{ t('Water points') }}{% endblock %}
+{% block app %}<h1 class="text-3xl font-extrabold">{{ t('Water points') }}</h1>
+<div class="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+{% for s in sources %}{% set p = h and s.tariff_per_100l %}<article class="glass-strong p-6"><div class="flex items-start justify-between gap-3"><div><h2 class="text-lg font-bold">{{ s.name }}</h2><p class="text-sm text-mute">{{ t(s.kind) }}, {{ s.village }}</p></div>{{ status(s.status) }}</div>
+<dl class="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt class="text-mute">{{ t('Hours') }}</dt><dd class="font-semibold">{{ fmt_min(s.open_min) }}-{{ fmt_min(s.close_min) }}</dd></div><div><dt class="text-mute">{{ t('Tariff') }}</dt><dd class="font-semibold">{{ fmt_ar(s.tariff_per_100l) }} / 100 L</dd></div></dl>
+{% if s.status == 'operational' %}<a class="btn btn-primary btn-sm mt-4" href="{{ url_for('book', source=s.id) }}">{{ t('Book a slot') }}</a>{% endif %}</article>{% endfor %}</div>{% endblock %}

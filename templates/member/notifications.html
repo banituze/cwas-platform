@@ -1,0 +1,5 @@
+{% extends "app_base.html" %}{% from "partials/macros.html" import pager with context %}
+{% block title %}{{ t('Notifications') }}{% endblock %}
+{% block app %}<div class="flex items-center justify-between"><h1 class="text-3xl font-extrabold">{{ t('Notifications') }}</h1><form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">{{ t('Mark all as read') }}</button></form></div>
+<div class="mt-6 space-y-3">{% for n in page.items %}<a href="{{ url_for('notification', nid=n.id) }}" class="glass flex items-start gap-3 p-4 no-underline">{% if not n.is_read %}<span class="dot mt-2 text-hot"></span>{% else %}<span class="dot mt-2 opacity-20"></span>{% endif %}<div><p class="{{ 'font-semibold' if not n.is_read }}">{{ render_notification(n, lang) }}</p><p class="mt-1 text-xs text-mute">{{ (n.created_at|local).strftime('%d/%m %H:%M') }}</p></div></a>{% else %}<p class="glass p-6 text-mute">{{ t('No notifications.') }}</p>{% endfor %}</div>
+{{ pager(page, 'notifications') }}{% endblock %}

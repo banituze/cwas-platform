@@ -1,0 +1,48 @@
+{% extends "app_base.html" %}{% from "partials/macros.html" import field, flag, icon with context %}
+{% block title %}{{ t('Profile') }}{% endblock %}
+{% block app %}<h1 class="text-3xl font-extrabold">{{ t('Profile') }}</h1>
+<div class="mt-6 grid gap-5 lg:grid-cols-2">
+  <form method="post" class="glass-strong space-y-4 p-6"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="section" value="profile"><h2 class="text-xl font-bold">{{ t('Household') }}</h2>
+    {{ field('name','Full name', current_user.name, required=True) }}
+    <div class="grid gap-4 sm:grid-cols-2"><div><label class="label">{{ t('Phone number') }}</label><input class="field" value="{{ current_user.phone or '' }}" disabled></div>{{ field('email','Email (optional)', current_user.email or '', type='email') }}</div>
+    {% if h %}<div class="grid gap-4 sm:grid-cols-2">{{ field('village','Village', h.village) }}{{ field('family_size','People in the household', h.family_size, type='number', attrs='min=1 max=40') }}</div>
+    {{ field('address','Address', h.address) }}
+    {% set mine = (h.vuln_flags or '').split(',') %}
+    <fieldset><legend class="label">{{ t('Household needs') }}</legend><div class="grid gap-2 sm:grid-cols-2">{% for code, label, _ in VULN %}<label class="need"><input type="checkbox" name="vuln" value="{{ code }}" {{ 'checked' if code in mine }}>{{ t(label) }}</label>{% endfor %}</div>
+      <p class="hint">{{ t('A coordinator will check your answers before any discount applies.') }}</p></fieldset>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div><label class="label" for="f-distance">{{ t('Distance to water') }}</label><select class="field" id="f-distance" name="distance">{% for m, label in DISTANCE %}<option value="{{ m }}" {{ 'selected' if distance_label(h.distance_m) == label }}>{{ t(label) }}</option>{% endfor %}</select></div>
+      <div><label class="label" for="f-home">{{ t('Water point you use most') }}</label><select class="field" id="f-home" name="home_source">{% for s in all_sources %}<option value="{{ s.id }}" {{ 'selected' if h.home_source_id == s.id }}>{{ s.name }}</option>{% endfor %}<option value="other" {{ 'selected' if h.home_source_note }}>{{ t('Other') }}</option><option value="" {{ 'selected' if not h.home_source_id and not h.home_source_note }}>{{ t('Not sure') }}</option></select></div></div>
+    <div class="other-src"><label class="label" for="f-home-other">{{ t('Name of the water point') }}</label><input class="field" id="f-home-other" name="home_other" maxlength="80" value="{{ h.home_source_note }}"></div>
+    {{ field('access_needs','Access needs (elderly, disability, infant...)', h.access_needs, hint='Your coordinator reads this to set your priority.') }}{% endif %}
+    <button class="btn btn-primary">{{ t('Save') }}</button></form>
+  <div class="space-y-5">
+    <form method="post" class="glass-strong p-6"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="section" value="language"><h2 class="text-xl font-bold">{{ t('Language') }}</h2><p class="text-sm text-mute">{{ t('Also used for SMS and USSD.') }}</p>
+      <div class="mt-4 flex flex-wrap gap-2">{% for code, l in LANGS.items() %}<label><input class="sr-only" type="radio" name="language" value="{{ code }}" {{ 'checked' if code == current_user.language }} data-autosubmit><span class="pick">{{ flag(code) }}{{ l.name }}</span></label>{% endfor %}</div></form>
+    <form method="post" class="glass-strong space-y-4 p-6"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="section" value="pin"><h2 class="text-xl font-bold">USSD PIN</h2>
+      {{ field('pin','New PIN (4 digits)','', attrs='inputmode=numeric maxlength=4 pattern=[0-9]{4}', required=True) }}
+      {% if current_user.pin_hash %}{{ field('password','Current password','', type='password', required=True) }}{% endif %}<button class="btn btn-primary">{{ t('Save PIN') }}</button></form>
+    <section class="glass-strong p-6"><h2 class="text-xl font-bold">{{ t('Your data') }}</h2><p class="text-sm text-mute">{{ t('Download a copy, or close your account.') }}</p><div class="mt-4 flex flex-wrap gap-2"><a class="btn btn-ghost btn-sm" href="{{ url_for('export_data') }}">{{ icon('download') }}{{ t('Download my data') }}</a><a class="btn btn-ghost btn-sm !text-hot" href="{{ url_for('delete_account') }}">{{ icon('trash') }}{{ t('Delete my account') }}</a></div></section>
+    {% if h %}<section class="glass-strong p-6" id="priority"><h2 class="text-xl font-bold">{{ t('Your priority') }}: {{ t(h.priority_level) }}</h2><p class="text-sm text-mute">{{ t('Every point has a reason.') }}</p>
+      <ul class="mt-4 space-y-2">{% for label, pts in parts %}<li class="flex justify-between text-sm"><span>{{ t(label) }}</span><b>{{ '+' if pts > 0 }}{{ pts }}</b></li>{% endfor %}</ul><p class="mt-3 text-right font-display text-2xl font-bold">{{ score }} / 100</p></section>{% endif %}
+  </div>
+</div>{% from "partials/macros.html" import field as pfield with context %}
+{% if current_user.password_hash %}<section class="glass-strong mt-5 p-6 md:p-8" id="pin">
+  <h2 class="text-xl font-bold">{{ t('PIN and recovery code') }}</h2>
+  <p class="mt-1 text-sm text-mute">{{ t('Your PIN confirms USSD and SMS actions. Your recovery code resets the PIN if you forget it.') }} {{ t('Recovery code: {state}', state=t('saved') if current_user.recovery_hash else t('not set')) }}</p>
+  <div class="mt-5 grid gap-8 lg:grid-cols-2">
+    <form method="post" class="space-y-3"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="section" value="pin">
+      <h3 class="font-semibold">{{ t('Change PIN') }}</h3>
+      {{ pfield('current', 'Current password', type='password', required=True, autocomplete='current-password') }}
+      {{ pfield('pin', 'New PIN', type='password', required=True, attrs='inputmode=numeric maxlength=4 pattern=[0-9]{4}', autocomplete='new-password') }}
+      {{ pfield('pin2', 'Repeat new PIN', type='password', required=True, attrs='inputmode=numeric maxlength=4 pattern=[0-9]{4}', autocomplete='new-password') }}
+      <button class="btn btn-primary">{{ t('Change PIN') }}</button></form>
+    <form method="post" class="space-y-3"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="section" value="recovery">
+      <h3 class="font-semibold">{{ t('Recovery code') }}</h3>
+      {{ pfield('current', 'Current password', type='password', required=True, autocomplete='current-password') }}
+      {{ pfield('code', 'New recovery code', type='password', required=True, attrs='inputmode=numeric maxlength=6 pattern=[0-9]{6}', autocomplete='off') }}
+      {{ pfield('code2', 'Repeat recovery code', type='password', required=True, attrs='inputmode=numeric maxlength=6 pattern=[0-9]{6}', autocomplete='off') }}
+      <button class="btn btn-primary">{{ t('Save recovery code') }}</button></form>
+  </div>
+</section>{% endif %}
+{% endblock %}
