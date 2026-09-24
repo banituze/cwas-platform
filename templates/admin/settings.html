@@ -1,0 +1,16 @@
+{% extends "app_base.html" %}{% from "partials/macros.html" import field, icon with context %}
+{% block title %}{{ t('Settings') }}{% endblock %}
+{% block app %}<h1 class="text-3xl font-extrabold">{{ t('Settings') }}</h1>
+<form method="post" class="glass-strong mt-6 grid gap-4 p-6 md:grid-cols-2"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{{ field('discount_elevated','Subsidy for elevated priority (%)', v.discount_elevated, type='number', attrs='min=0 max=100') }}{{ field('discount_high','Subsidy for high priority (%)', v.discount_high, type='number', attrs='min=0 max=100') }}
+{{ field('min_deposit','Minimum deposit (MGA)', v.min_deposit, type='number', attrs='min=0') }}{{ field('max_deposit','Maximum deposit (MGA)', v.max_deposit, type='number', attrs='min=0') }}
+{{ field('no_show_grace_min','No-show grace after the slot ends (minutes)', v.no_show_grace_min, type='number', attrs='min=0') }}<div></div>
+{{ field('enroll_coord','Coordinator enrollment code (USSD)', v.enroll_coord, hint='Shared only with coordinators. At least 8 characters.') }}{{ field('enroll_admin','Administrator enrollment code (USSD)', v.enroll_admin, hint='Shared only with administrators. At least 8 characters.') }}
+{{ field('coord_access','Coordinator access code (web)', v.coord_access, hint='Asked on the web sign-up form. An administrator still approves every coordinator.') }}<div></div>
+<label class="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" name="auto_approve" value="1" {{ 'checked' if v.auto_approve == '1' }} class="h-4 w-4"> {{ t('Approve low-risk bookings automatically') }}</label>
+<label class="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" name="cash_enabled" value="1" {{ 'checked' if v.cash_enabled == '1' }} class="h-4 w-4"> {{ t('Allow cash deposits from the wallet page') }}</label>
+<div class="md:col-span-2"><button class="btn btn-primary">{{ t('Save settings') }}</button></div></form>
+<section class="glass-strong mt-5 p-6"><h2 class="text-xl font-bold">{{ t('Integrations (set as environment variables)') }}</h2><ul class="mt-4 space-y-2 text-sm">
+<li class="flex gap-3">{{ icon('check' if sms else 'alert', 'text-ok' if sms else 'text-mute') }}{{ t('SMS delivery through Africa\'s Talking') }}: {{ t('live') if sms else t('simulated (SMS_ENABLED=0)') }}</li>
+<li class="flex gap-3">{{ icon('check' if live == 'live' else 'alert', 'text-ok' if live == 'live' else 'text-mute') }}{{ t('Mobile money') }}: {{ live }}</li>
+<li class="flex gap-3">{{ icon('check' if token else 'alert', 'text-ok' if token else 'text-hot') }}{{ t('Telco webhook token') }}: {{ t('set') if token else t('not set: set AT_WEBHOOK_TOKEN before going live') }}</li></ul></section>{% endblock %}
