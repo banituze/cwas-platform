@@ -607,3 +607,91 @@ html[data-theme="saina"]{
   @media (min-width:768px){.mosaic{grid-template-columns:repeat(3,1fr);grid-auto-rows:230px}}
   @media (prefers-reduced-motion:reduce){.hm-still{transition:none}}
 }
+
+/* ── polish 3: liquid glass everywhere, themed printer and receipt, hero water, gallery tunnel, three phones ── */
+body{background-image:radial-gradient(70vw 60vh at 8% 0%,var(--amb1),transparent 70%),radial-gradient(60vw 60vh at 100% 100%,var(--amb2),transparent 70%);background-attachment:fixed}
+.theme-swap *,.theme-swap *::before,.theme-swap *::after{transition:none!important}
+@layer components{
+  /* liquid glass: frosted, saturated, a light-catching rim, a soft top sheen and a deep soft shadow */
+  .glass,.glass-strong{-webkit-backdrop-filter:blur(28px) saturate(1.8);backdrop-filter:blur(28px) saturate(1.8);
+    box-shadow:inset 0 1px 0 var(--rim-hi),inset 0 -1px 0 rgba(255,255,255,.06),0 22px 60px -32px var(--shade)}
+  .glass-strong{background-color:var(--glass-strong);background-image:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,0) 44%)}
+  .nav-panel,.sheet{background-color:var(--menu-bg)!important}
+  .brand-word{color:var(--logo-ring)}
+
+  /* thermal printer: the case takes the theme colour, the name stays WINEBALD */
+  .p-body{background:repeating-linear-gradient(90deg,rgba(255,255,255,.06) 0 1px,rgba(0,0,0,.03) 1px 2px),linear-gradient(180deg,var(--pc1) 0%,var(--pc2) 16%,var(--pc3) 54%,var(--pc4) 100%);
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.85),inset 0 -4px 8px rgba(0,0,0,.2),inset 3px 0 6px rgba(255,255,255,.28),inset -3px 0 6px rgba(0,0,0,.12),0 3px 0 var(--pc-edge),0 26px 46px -16px rgba(0,0,0,.42),0 8px 14px rgba(0,0,0,.12)}
+  .p-brand{color:var(--pc-ink);text-shadow:none}
+  .p-lcd{color:var(--lcd);text-shadow:0 0 6px var(--lcd)}
+  .printer[data-state=printing] .p-led{background:var(--led);box-shadow:0 0 12px var(--led),inset 0 -1px 2px rgba(0,0,0,.4)}
+  .p-keys i{background:radial-gradient(circle at 35% 28%,var(--pc1),var(--pc3) 52%,var(--pc4))}
+  .p-foot{background:linear-gradient(180deg,var(--pc4),var(--pc-edge))}
+
+  /* branded receipt */
+  .paper{background:#FFFFFF;color:#141414;font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;line-height:1.6;padding:22px 22px 24px;
+    --logo-ring:var(--rc);--logo-drop:var(--rc);--logo-arc:var(--rc-arc)}
+  .paper::after{background:#FFFFFF}
+  .rc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+  .rc-brand{display:inline-flex;align-items:center;gap:7px;font:800 22px/1 "Bricolage Grotesque Variable",system-ui,sans-serif;letter-spacing:-.02em;color:var(--rc)}
+  .rc-brand svg{width:30px;height:30px;flex:none}
+  .rc-kind{text-align:right;font-size:10px;line-height:1.55;letter-spacing:.22em;text-transform:uppercase;color:#1f1f1f}
+  .rc-amount{margin-top:16px;font:800 34px/1 "Bricolage Grotesque Variable",system-ui,sans-serif;letter-spacing:-.035em;color:#111}
+  .rc-sub{margin-top:7px;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#6d6d6d}
+  .paper hr{border:0;border-top:1px dashed #c4c4bc;margin:14px 0}
+  .paper .row{display:flex;align-items:baseline;justify-content:space-between;gap:14px}
+  .paper .row>span:first-child{color:#737373}
+  .paper .row>span:last-child{text-align:right;color:#141414;font-weight:600}
+  .paper .tot{margin-top:2px;font-size:15px;font-weight:800}
+  .paper .tot>span:first-child{color:#141414}
+  .rc-stamp{display:inline-flex;align-items:center;gap:6px;margin-top:14px;padding:5px 13px 5px 10px;border:1.6px solid var(--rc);border-radius:999px;color:var(--rc);
+    font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;transform:rotate(-3.5deg)}
+  .rc-stamp .icon{width:13px;height:13px}
+  .rc-bars{margin-top:16px;color:#111}
+  .rc-bars .c128{display:block;width:100%;height:56px;fill:currentColor}
+  .rc-art{width:58%;margin:16px auto 0;color:var(--bc)}
+  .rc-art .bc-art{display:block;width:100%;height:auto}
+  .rc-foot{margin-top:8px;text-align:center;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:#6d6d6d}
+
+  /* hero: the base photograph becomes live water (WebGL ripples), films play the other scenes */
+  .hm-liquid{position:absolute;inset:0;width:100%;height:100%;opacity:0;pointer-events:none}
+  .hm-liquid.is-on{opacity:1}
+  .hero-scrim{position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(180deg,rgb(var(--tint)/.3) 0%,rgb(var(--tint)/.08) 30%,rgb(var(--tint)/.6) 100%),linear-gradient(90deg,rgb(var(--tint)/.42) 0%,rgb(var(--tint)/0) 64%)}
+  @media (max-width:639px){.hero-body{padding-top:14.5rem!important}}
+
+  /* gallery tunnel: a corridor of Madagascar photographs that travels toward you as you scroll */
+  .gt-section{position:relative;height:260vh;margin-top:7rem}
+  .gt-sticky{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;display:grid;place-items:center}
+  .gt{position:absolute;inset:0;perspective:900px;perspective-origin:50% 50%}
+  .gt-world{position:absolute;left:50%;top:50%;width:0;height:0;transform-style:preserve-3d}
+  .gt-tile{position:absolute;left:0;top:0;display:grid;place-items:center;overflow:hidden;border-radius:18px;backface-visibility:hidden;will-change:transform,opacity;
+    font:700 clamp(14px,1.5vw,22px)/1 "JetBrains Mono",ui-monospace,monospace;box-shadow:0 12px 34px -14px rgba(0,0,0,.4)}
+  .gt-tile img{width:100%;height:100%;object-fit:cover}
+  .gt-a{background:var(--gt-a);color:var(--gt-ink)}.gt-b{background:var(--gt-b);color:var(--gt-ink)}.gt-c{background:var(--gt-c);color:var(--gt-ink)}
+  .gt-copy{position:relative;z-index:2;max-width:44rem;margin:0 1rem;padding:clamp(24px,4vw,44px);text-align:center;pointer-events:none}
+  .gt-fallback{display:none;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:24px}
+  .gt-fallback img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:18px}
+  .gt-canvas{position:absolute;inset:0;display:block;width:100%;height:100%}
+  @media (max-width:639px){.gt-fallback{grid-template-columns:repeat(2,1fr)}}
+  .gt-section.is-static{height:auto}
+  .gt-section.is-static .gt-sticky{position:relative;height:auto;padding:40px 0}
+  .gt-section.is-static .gt{display:none}
+  .gt-section.is-static .gt-fallback{display:grid}
+
+  /* three phones that demo the service on their own (static/js/home.js) */
+  .pd-row{display:flex;align-items:flex-end;justify-content:center;gap:1.8em;padding:.5em 0;font-size:clamp(8.5px,.9vw,12.5px)}
+  /* sim.js adds .is-swipe when the phones cannot sit side by side at a readable size (see size() there) */
+  .pd{flex:none}
+  .pd-row.is-swipe{justify-content:flex-start;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scroll-padding-inline:1rem;margin-inline:-1rem;padding:.5em 1rem 1.2em}
+  .pd-row.is-swipe .pd{scroll-snap-align:center}
+  @media (max-width:1023px){.pd-row{font-size:11px}}
+  .pd{margin:0;display:flex;flex-direction:column;align-items:center;gap:1.1em;cursor:pointer;outline-offset:6px;-webkit-tap-highlight-color:transparent}
+  .pd figcaption{text-align:center;font-size:1.1em;line-height:1.3}
+  .pd figcaption b{display:block;font-weight:700}
+  .pd figcaption span{font-size:.9em;color:rgb(var(--mute))}
+  .pd.is-paused .pd-rig{filter:saturate(.6) brightness(.92)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+}
+@layer components{
+}
