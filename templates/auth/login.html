@@ -1,9 +1,9 @@
-{% extends "auth/_shell.html" %}{% from "partials/macros.html" import field with context %}
+{% extends "auth/_shell.html" %}{% from "partials/macros.html" import field with context %}{% from "partials/phone.html" import phone_input with context %}
 {% block title %}{{ t('Log in') }}{% endblock %}
 {% block heading %}{{ t('Log in') }}{% endblock %}
 {% block form %}
 <form method="post" class="space-y-4" novalidate><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ nxt }}">
-{{ field('identifier','Email or phone','', autocomplete='username', required=True) }}
+{{ phone_input('identifier', 'Email or phone', '', request.form.get('cc', 'MG'), either=True) }}
 {{ field('password','Password','', type='password', autocomplete='current-password', required=True) }}
 <button class="btn btn-primary w-full !py-3">{{ t('Log in') }}</button></form>
 <p class="mt-4 text-xs text-mute">{{ t('Registered by USSD or SMS? Use Forgot password to set a web password.') }}</p>

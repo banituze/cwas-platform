@@ -10,6 +10,7 @@ Werkzeug==3.0.4
 python-dotenv==1.0.1
 waitress==3.0.0
 segno==1.6.1
-Pillow==12.1.1  # re-encodes photos uploaded to the assistant at the same visual quality
+Pillow==12.1.1
+phonenumbers==9.0.40  # checks a phone number against the country picked beside it  # re-encodes photos uploaded to the assistant at the same visual quality
 psycopg2-binary==2.9.10
 tzdata==2024.2  # zone data for zoneinfo on slim images and Windows; used without an import

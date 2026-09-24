@@ -181,6 +181,8 @@ def register_routes(app):
         return render_template("offline.html")
 
     # ── auth ────────────────────────────────────────────────────────────────
+    app.jinja_env.globals["cc_data"] = S.phone_countries  # the country picker's list (templates/partials/phone.html)
+
     def finish_login(user, nxt=None):
         session.clear()
         login_user(user)
@@ -198,7 +200,7 @@ def register_routes(app):
         if request.method == "POST":
             ident = S.clean_text(request.form.get("identifier"), 190).lower()
             pw = request.form.get("password", "")
-            phone = S.norm_phone(ident)
+            phone = S.parse_phone(ident, request.form.get("cc", "MG")) if "@" not in ident else ""
             user = User.query.filter(or_(User.email == ident, User.phone == phone if phone else False)).first()
             now = utcnow()
             if user and user.locked_until and user.locked_until > now:
@@ -258,7 +260,7 @@ def register_routes(app):
         f, errors = request.form, []
         if request.method == "POST":
             name, village = S.clean_text(f.get("name"), 120), S.clean_text(f.get("village"), 120)
-            phone, email = S.norm_phone(f.get("phone")), S.clean_text(f.get("email"), 190).lower()
+            phone, email = S.parse_phone(f.get("phone"), f.get("cc", "MG")), S.clean_text(f.get("email"), 190).lower()
             pw, pin = f.get("password", ""), f.get("pin", "").strip()
             recovery = f.get("recovery", "").strip()
             want_coord = f.get("role") == "coordinator"

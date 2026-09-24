@@ -109,6 +109,44 @@ def password_error(pw):
     return None
 
 
+_CC = None
+
+
+def parse_phone(raw, region="MG"):
+    """A number typed with a country picked beside it, checked against that country's numbering plan (libphonenumber) and
+    returned in E.164 (+261341234567); "" when it is not a valid number there."""
+    raw, region = (raw or "").strip(), (region or "MG").upper()[:2]
+    if not raw:
+        return ""
+    try:
+        import phonenumbers
+        num = phonenumbers.parse(raw, region)
+        return phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.E164) if phonenumbers.is_valid_number(num) else ""
+    except ImportError:
+        return norm_phone(raw) if region == "MG" else ""
+    except Exception:  # noqa: BLE001 - libphonenumber could not read it as a number
+        return ""
+
+
+def phone_countries():
+    """[region, calling code, example mobile number, possible national lengths] for every country with a flag in static/flags,
+    Madagascar first: the list behind the phone field's country picker (templates/partials/phone.html)."""
+    global _CC
+    if _CC is None:
+        import phonenumbers
+        from phonenumbers import PhoneMetadata, PhoneNumberFormat, PhoneNumberType
+        flags, rows = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "flags"), []
+        for r in sorted(phonenumbers.SUPPORTED_REGIONS):
+            meta = PhoneMetadata.metadata_for_region(r)
+            if not meta or not os.path.exists(os.path.join(flags, r.lower() + ".svg")):
+                continue
+            ex = phonenumbers.example_number_for_type(r, PhoneNumberType.MOBILE) or phonenumbers.example_number(r)
+            lens = sorted({x for d in (meta.general_desc, meta.mobile, meta.fixed_line) if d for x in (d.possible_length or ()) if x > 0})
+            rows.append([r, meta.country_code, phonenumbers.format_number(ex, PhoneNumberFormat.NATIONAL) if ex else "", lens])
+        _CC = sorted(rows, key=lambda x: x[0] != "MG")
+    return _CC
+
+
 def norm_phone(raw):
     """+261 34 12 345 67, 034 12 345 67 and 26134... all normalise to +261341234567."""
     s = re.sub(r"[^\d+]", "", raw or "")
