@@ -1,0 +1,24 @@
+{% extends "base.html" %}{% from "partials/macros.html" import icon with context %}
+{% set NAV = {
+ 'member': [('dashboard','Home','home'),('book','Book a slot','calendar'),('bookings','My bookings','list'),('wallet','Wallet','wallet'),('sources_list','Water points','pin'),('assistant','Assistant','spark'),('notifications','Notifications','bell'),('profile','Profile','user')],
+ 'coordinator': [('coord_home','Overview','home'),('coord_queue','Approval queue','check'),('coord_bookings','Bookings','calendar'),('coord_sources','Water points','pin'),('coord_maintenance','Maintenance','wrench'),('coord_households','Households','users'),('coord_deposits','Deposits','wallet'),('coord_reports','Reports','chart'),('coord_insights','AI insights','spark'),('coord_announce','Announcements','megaphone'),('simulator','Simulator','phone')],
+ 'admin': [('admin_home','Admin overview','shield'),('admin_users','Users','users'),('admin_settings','Settings','gear'),('admin_audit','Audit log','file'),('admin_database','Database','database'),('admin_channels','USSD and SMS','phone'),('coord_deposits','Deposits','wallet'),('coord_home','Coordinator console','check')]} %}
+{% set items = NAV[current_user.role] %}
+{% set TAB = {'book': 'Book', 'bookings': 'Bookings', 'coord_home': 'Overview', 'coord_queue': 'Queue', 'coord_bookings': 'Bookings', 'admin_home': 'Overview'} %}
+{% block content %}
+<div class="shell">
+  <aside class="side glass-strong" aria-label="{{ t('Main') }}"><nav class="flex flex-col gap-1">
+    {% for ep, label, ico in items %}<a href="{{ url_for(ep) }}" {% if request.endpoint == ep %}aria-current="page"{% endif %}>{{ icon(ico) }}<span>{{ t(label) }}</span>{% if ep == 'notifications' and unread() %}<span class="ml-auto rounded-full bg-hot px-1.5 text-[10px] font-bold text-white">{{ unread() }}</span>{% endif %}</a>{% endfor %}
+    {% if current_user.role == 'admin' %}<div class="my-2 border-t border-ink/10"></div><a href="{{ url_for('coord_queue') }}">{{ icon('check') }}<span>{{ t('Approval queue') }}</span></a><a href="{{ url_for('coord_reports') }}">{{ icon('chart') }}<span>{{ t('Reports') }}</span></a>{% endif %}
+  </nav></aside>
+  <div class="min-w-0">{% block app %}{% endblock %}</div>
+</div>
+{# phones: four tabs, and "More" opens every page of the role, so no page is ever out of reach #}
+<nav class="bottomnav glass-pill" aria-label="{{ t('Main') }}">
+  {% for ep, label, ico in items[:4] %}<a href="{{ url_for(ep) }}" {% if request.endpoint == ep %}aria-current="page"{% endif %}>{{ icon(ico) }}<span class="max-w-full truncate">{{ t(TAB.get(ep, label)) }}</span></a>{% endfor %}
+  {% set rest = items[4:] + ([('coord_queue','Approval queue','check'),('coord_reports','Reports','chart')] if current_user.role == 'admin' else []) %}
+  <details class="more"><summary {% if request.endpoint in rest|map(attribute=0)|list %}aria-current="page"{% endif %}>{{ icon('menu') }}<span>{{ t('More') }}</span></summary>
+    <div class="more-sheet glass-strong">{% for ep, label, ico in rest %}<a href="{{ url_for(ep) }}" {% if request.endpoint == ep %}aria-current="page"{% endif %}>{{ icon(ico) }}<span>{{ t(label) }}</span>{% if ep == 'notifications' and unread() %}<span class="ml-auto rounded-full bg-hot px-1.5 text-[10px] font-bold text-onbrand">{{ unread() }}</span>{% endif %}</a>{% endfor %}</div></details>
+</nav>
+{% endblock %}
+{% block footer %}{% endblock %}

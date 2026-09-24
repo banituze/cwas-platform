@@ -453,3 +453,209 @@ def register_routes(app):
             qr = segno.make(S.totp_uri(secret, current_user.email or current_user.phone or "user")).svg_inline(scale=5, dark="#0E2A1B", light="#FFFFFF", border=2)
         return render_template("auth/security.html", secret=secret, qr=qr)
 
+    # ── member app ──────────────────────────────────────────────────────────
+    def my_household():
+        h = current_user.household
+        if not h:
+            abort(403)
+        return h
+
+    @app.get("/app")
+    @member_required
+    def dashboard():
+        h = my_household()
+        upcoming = Booking.query.filter(Booking.household_id == h.id, Booking.date >= S.today_local(), Booking.status.in_(("pending", "approved"))).order_by(Booking.date, Booking.start_min).limit(3).all()
+        recent = WalletTxn.query.filter_by(household_id=h.id).order_by(WalletTxn.id.desc()).limit(5).all()
+        notes = Notification.query.filter_by(user_id=current_user.id).order_by(Notification.id.desc()).limit(4).all()
+        score, parts = S.priority_breakdown(h)
+        return render_template("member/dashboard.html", h=h, upcoming=upcoming, recent=recent, notes=notes, score=score, sources=S.operational_sources())
+
+    @app.route("/app/book", methods=["GET", "POST"])
+    @member_required
+    def book():
+        h = my_household()
+        sources = S.operational_sources()
+        alts = []
+        if request.method == "POST":
+            try:
+                day = date.fromisoformat(request.form.get("date", ""))
+                b = S.create_booking(h, int_arg("source", 0, 0, 10 ** 9), day, int_arg("slot", -1, -1, 1440), int_arg("litres", 0, 0, 500), "web", current_user)
+                db.session.commit()
+                say("Booking {ref} sent for approval. {amount} reserved.", ref=b.ref, amount=S.fmt_ar(b.amount))
+                return redirect(url_for("booking_detail", ref=b.ref))
+            except ValueError:
+                db.session.rollback()
+                say("Choose a day within the next 7 days.", "err")
+            except S.ServiceError as e:
+                db.session.rollback()
+                say_error(e)
+                alts = e.params.get("alts", [])
+        want = request.values.get("source") or str(h.home_source_id or "")
+        src = next((s for s in sources if str(s.id) == want), sources[0] if sources else None)
+        day = parse_date(request.values.get("date"), S.today_local())
+        if not (S.today_local() <= day < S.today_local() + timedelta(days=S.HORIZON_DAYS)):
+            day = S.today_local()
+        slots = S.slot_list(src, day) if src else []
+        quotes = {l: S.price_quote(h, src, l)[0] for l in S.litre_options(src)} if src else {}
+        return render_template("member/book.html", h=h, sources=sources, src=src, day=day, days=S.booking_days(), slots=slots, quotes=quotes,
+                               pct=S.price_quote(h, src, 100)[1] if src else 0, alts=alts)
+
+    @app.get("/api/slots")
+    @member_required
+    def api_slots():
+        src = db.session.get(WaterSource, int_arg("source", 0, 0, 10 ** 9, request.args))
+        day = parse_date(request.args.get("date"), S.today_local())
+        return jsonify(slots=S.slot_list(src, day) if src else [])
+
+    @app.get("/app/bookings")
+    @member_required
+    def bookings():
+        h = my_household()
+        status = request.args.get("status", "")
+        q = Booking.query.filter_by(household_id=h.id)
+        if status in ("pending", "approved", "denied", "cancelled", "collected", "no_show"):
+            q = q.filter_by(status=status)
+        page = q.order_by(Booking.date.desc(), Booking.start_min.desc()).paginate(page=int_arg("page", 1, 1, 9999, request.args), per_page=12, error_out=False)
+        ids = [b.id for b in page.items]
+        paid = {x.booking_id for x in WalletTxn.query.filter(WalletTxn.booking_id.in_(ids), WalletTxn.kind == "booking_debit", WalletTxn.status == "posted")} if ids else set()
+        return render_template("member/bookings.html", page=page, flt=status, paid=paid)
+
+    def own_booking(ref):
+        b = Booking.query.filter_by(ref=ref).first_or_404()
+        if current_user.role == "member" and b.household_id != current_user.household.id:
+            abort(404)
+        return b
+
+    @app.get("/app/bookings/<ref>")
+    @login_required
+    def booking_detail(ref):
+        b = own_booking(ref)
+        debit = WalletTxn.query.filter_by(booking_id=b.id, kind="booking_debit", status="posted").first()
+        refund = WalletTxn.query.filter_by(booking_id=b.id, kind="booking_refund", status="posted").first()
+        start = datetime.combine(b.date, datetime.min.time()) + timedelta(minutes=b.start_min)
+        return render_template("member/booking.html", b=b, debit=debit, refund=refund, can_cancel=b.status in ("pending", "approved") and start > S.now_local())
+
+    @app.post("/app/bookings/<ref>/cancel")
+    @member_required
+    def booking_cancel(ref):
+        b = own_booking(ref)
+        try:
+            S.cancel_booking(b, current_user)
+            db.session.commit()
+            say("Booking cancelled. Your money is back in the wallet.")
+        except S.ServiceError as e:
+            db.session.rollback()
+            say_error(e)
+        return redirect(url_for("booking_detail", ref=ref))
+
+    @app.get("/app/bookings/<ref>/receipt")
+    @login_required
+    def receipt(ref):
+        b = own_booking(ref)
+        debit = WalletTxn.query.filter_by(booking_id=b.id, kind="booking_debit", status="posted").first_or_404()
+        if request.args.get("partial"):
+            return render_template("member/_receipt.html", b=b, debit=debit, modal=True)
+        return render_template("member/receipt.html", b=b, debit=debit, modal=False)
+
+    @app.route("/app/wallet", methods=["GET", "POST"])
+    @member_required
+    def wallet():
+        h = my_household()
+        if request.method == "POST":
+            amount = request.form.get("amount_custom", "").strip() or request.form.get("amount", "")
+            try:
+                txn = S.deposit(h, int(amount), request.form.get("provider", ""), current_user, "web")
+                db.session.commit()
+                say("Deposit {ref} posted. New balance {balance}." if txn.status == "posted" else "Deposit {ref} recorded and waiting for confirmation.",
+                    ref=txn.reference, balance=S.fmt_ar(h.balance))
+                return redirect(url_for("wallet"))
+            except (ValueError, TypeError):
+                say("Enter a valid amount.", "err")
+            except S.ServiceError as e:
+                db.session.rollback()
+                say_error(e)
+        rows = WalletTxn.query.filter_by(household_id=h.id).order_by(WalletTxn.id.desc()).limit(40).all()
+        return render_template("member/wallet.html", h=h, rows=rows, cash=S.get_setting("cash_enabled") == "1",
+                               live=S.payment_mode() == "live")
+
+    @app.get("/app/water-points")
+    @member_required
+    def sources_list():
+        return render_template("member/sources.html", sources=WaterSource.query.order_by(WaterSource.name).all(), h=my_household())
+
+    @app.route("/app/notifications", methods=["GET", "POST"])
+    @login_required
+    def notifications():
+        if request.method == "POST":
+            Notification.query.filter_by(user_id=current_user.id, is_read=False).update({"is_read": True})
+            db.session.commit()
+            return redirect(url_for("notifications"))
+        page = Notification.query.filter_by(user_id=current_user.id).order_by(Notification.id.desc()).paginate(page=int_arg("page", 1, 1, 9999, request.args), per_page=15, error_out=False)
+        return render_template("member/notifications.html", page=page)
+
+    @app.get("/app/notifications/<int:nid>")
+    @login_required
+    def notification(nid):
+        n = Notification.query.filter_by(id=nid, user_id=current_user.id).first_or_404()
+        if not n.is_read:
+            n.is_read = True
+            db.session.commit()
+        return render_template("member/notification.html", n=n)
+
+    @app.route("/app/profile", methods=["GET", "POST"])
+    @login_required
+    def profile():
+        h = current_user.household
+        if request.method == "POST":
+            f, section = request.form, request.form.get("section")
+            if section == "profile":
+                name = S.clean_text(f.get("name"), 120)
+                email = S.clean_text(f.get("email"), 190).lower()
+                if len(name) < 2 or (email and not S.valid_email(email)):
+                    say("Check the name and email address.", "err")
+                elif email and User.query.filter(User.email == email, User.id != current_user.id).first():
+                    say("An account with this phone or email already exists.", "err")
+                else:
+                    current_user.name, current_user.email = name, email or None
+                    if h:
+                        h.name, h.village, h.address = name, S.clean_text(f.get("village"), 120), S.clean_text(f.get("address"), 255)
+                        h.family_size, h.access_needs = int_arg("family_size", h.family_size, 1, 40), S.clean_text(f.get("access_needs"), 255)
+                        band = int_arg("distance", h.distance_m, 0, 20000)
+                        S.set_needs(h, f.getlist("vuln"), band if band in [d for d, _ in S.DISTANCE] else h.distance_m, home_choice(f))
+                    S.audit("user.profile", "user", current_user.id, "web")
+                    db.session.commit()
+                    say("Profile saved.")
+            elif section in ("pin", "recovery"):
+                pin_form = section == "pin"
+                new, again = (f.get("pin", ""), f.get("pin2", "")) if pin_form else (f.get("code", ""), f.get("code2", ""))
+                if not check_password_hash(current_user.password_hash or DUMMY_HASH, f.get("current", "")):
+                    say("Current password is wrong.", "err")
+                elif new != again or not (U.PIN_RE if pin_form else S.RECOVERY_RE).match(new):
+                    say("Enter the same 4-digit PIN twice." if pin_form else "Enter the same 6-digit recovery code twice.", "err")
+                else:
+                    (S.set_pin if pin_form else S.set_recovery)(current_user, new, channel="web")
+                    db.session.commit()
+                    say("PIN changed." if pin_form else "Recovery code saved. Keep it private.")
+            elif section == "language" and f.get("language") in LANGS:
+                current_user.language = f["language"]
+                db.session.commit()
+                say("Language saved. It now applies on web and SMS too.")
+                resp = redirect(url_for("profile"))
+                resp.set_cookie("cwas_lang", f["language"], max_age=31536000, samesite="Lax")
+                return resp
+            elif section == "pin":
+                pin = f.get("pin", "").strip()
+                if not U.PIN_RE.match(pin):
+                    say("PIN must be 4 digits", "err")
+                elif current_user.pin_hash and not check_password_hash(current_user.password_hash or DUMMY_HASH, f.get("password", "")):
+                    say("Current password is wrong.", "err")
+                else:
+                    current_user.pin_hash, current_user.pin_failed, current_user.pin_locked_until = generate_password_hash(pin), 0, None
+                    S.audit("user.pin_set", "user", current_user.id, "web")
+                    db.session.commit()
+                    say("PIN saved. Use it on *384*9411#.")
+            return redirect(url_for("profile"))
+        score, parts = S.priority_breakdown(h) if h else (0, [])
+        return render_template("member/profile.html", h=h, score=score, parts=parts, all_sources=S.operational_sources())
+
+
