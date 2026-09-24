@@ -154,3 +154,43 @@ def totp_uri(secret, email):
     return f"otpauth://totp/CWAS:{urllib.parse.quote(email)}?secret={secret}&issuer=CWAS&digits=6&period=30"
 
 
+# ── audit trail (FR7.4, NFR7) ───────────────────────────────────────────────
+def _actor_bits(actor):
+    if actor is None and has_request_context():
+        from flask_login import current_user
+        actor = current_user if getattr(current_user, "is_authenticated", False) else None
+    if actor is None:
+        return None, "system"
+    return actor.id, (actor.email or actor.phone or actor.name)
+
+
+def audit(action, entity="", entity_id="", detail="", actor=None, channel=None):
+    actor_id, label = _actor_bits(actor)
+    ip = ""
+    if has_request_context():
+        ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "").split(",")[0].strip()[:64]
+    last = AuditLog.query.order_by(AuditLog.id.desc()).first()
+    at = utcnow()
+    row = AuditLog(at=at, actor_id=actor_id, actor_label=label[:190], channel=channel or "web", action=action,
+                   entity=entity, entity_id=str(entity_id), detail=clean_text(detail, 500), ip=ip,
+                   prev_hash=last.hash if last else "GENESIS")
+    row.hash = _chain_hash(row)
+    db.session.add(row)
+    db.session.flush()
+
+
+def _chain_hash(r):
+    raw = "|".join([r.prev_hash, r.at.isoformat(), str(r.actor_id or ""), r.action, r.entity, r.entity_id,
+                    r.detail, r.channel])
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def verify_audit_chain():
+    prev, count = "GENESIS", 0
+    for r in AuditLog.query.order_by(AuditLog.id):
+        if r.prev_hash != prev or _chain_hash(r) != r.hash:
+            return False, r.id, count
+        prev, count = r.hash, count + 1
+    return True, None, count
+
+
