@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% from "partials/macros.html" import icon with context %}
+{% block title %}{{ code }}{% endblock %}
+{% block content %}
+<section class="mx-auto flex min-h-[80vh] max-w-xl items-center px-4 pt-28"><div class="glass-strong w-full p-10 text-center">
+<p class="font-display text-7xl font-extrabold">{{ code }}</p>
+<h1 class="mt-3 text-2xl font-bold">{% if csrf %}{{ t('Your session expired. Reload the page and try again.') }}{% elif code == 404 %}{{ t('We could not find that page.') }}{% elif code == 403 %}{{ t('You do not have access to this page.') }}{% elif code == 429 %}{{ t('Too many requests. Wait a minute and try again.') }}{% else %}{{ t('Something went wrong on our side.') }}{% endif %}</h1>
+<div class="mt-6 flex justify-center gap-2"><a class="btn btn-primary" href="{{ url_for('index') }}">{{ t('Back to the home page') }}</a></div>
+</div></section>
+{% endblock %}
