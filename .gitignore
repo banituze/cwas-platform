@@ -1,0 +1,9 @@
+node_modules/
+__pycache__/
+*.pyc
+instance/
+backups/
+.env
+*.db
+.venv/
+tools/jsdom/node_modules/
