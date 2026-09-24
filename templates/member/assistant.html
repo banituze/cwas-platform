@@ -1,0 +1,32 @@
+{% extends "app_base.html" %}{% from "partials/macros.html" import icon with context %}
+{% block title %}{{ t('Assistant') }}{% endblock %}
+{% block app %}
+{% set L = {'copy': t('Copy'), 'read': t('Read aloud'), 'del': t('Delete chat'), 'delAll': t('Delete all chats?'), 'delOne': t('Delete this chat?'), 'rename': t('Rename chat'), 'newChat': t('New chat'), 'you': t('You'), 'cwas': 'CWAS', 'big': t('That file is too large (10 MB maximum).'), 'noMic': t('Voice input is not supported in this browser.'), 'listening': t('Listening...'), 'attach': t('Attach files'), 'err': t('Something went wrong on our side.'), 'copied': t('Copied.')} %}
+<div class="flex flex-wrap items-center justify-between gap-3"><div><h1 class="text-3xl font-extrabold">{{ t('Assistant') }}</h1><p class="mt-1 text-mute">{{ t('Ask in Malagasy, French or English. Chats are saved for you.') }}</p></div>
+  <div class="glass-pill flex flex-wrap items-center gap-x-5 gap-y-2 px-5 py-2.5">
+    <label class="switch"><input type="checkbox" data-tts><i></i>{{ icon('speaker') }}{{ t('Read replies') }}</label>
+    <label class="switch"><input type="checkbox" data-voice><i></i>{{ icon('mic') }}{{ t('Voice input') }}</label></div></div>
+<div class="chat-shell mt-5" data-chat data-lang="{{ lang }}" data-active="{{ active }}">
+  <aside class="chat-list glass-strong" aria-label="{{ t('Chats') }}">
+    <button type="button" class="btn btn-primary mb-2 w-full" data-new>{{ icon('plus') }}{{ t('New chat') }}</button>
+    <div class="space-y-1" data-threads>{% for th in threads %}<div class="chat-item" role="button" tabindex="0" data-thread="{{ th.id }}" aria-current="{{ 'true' if th.id == active else 'false' }}">{{ icon('message') }}<span>{{ th.title }}</span><button type="button" class="x" data-del="{{ th.id }}" aria-label="{{ t('Delete chat') }}">{{ icon('x') }}</button></div>{% endfor %}</div>
+    <button type="button" class="btn btn-ghost btn-sm mt-3 w-full {{ 'hidden' if not threads }}" data-del-all>{{ icon('trash') }}{{ t('Delete all chats') }}</button>
+  </aside>
+  <section class="glass-strong flex min-h-0 flex-col overflow-hidden">
+    <div class="flex items-center justify-between gap-2 border-b border-ink/10 px-5 py-3"><h2 class="truncate font-display text-lg font-bold" data-title>{{ t('New chat') }}</h2>
+      <div class="flex gap-1.5"><button type="button" class="btn-icon !h-9 !w-9" data-rename data-tip="{{ t('Rename chat') }}" aria-label="{{ t('Rename chat') }}">{{ icon('edit') }}</button><a class="btn-icon !h-9 !w-9" data-export href="#" data-tip="{{ t('Export chat') }}" aria-label="{{ t('Export chat') }}">{{ icon('download') }}</a></div></div>
+    <div class="chat-log" data-log aria-live="polite"></div>
+    <div class="flex flex-wrap gap-2 px-4 pb-1" data-chips>{% for q in ('balance','my booking','price','water points') %}<button type="button" class="pick !py-1.5 !text-xs" data-suggest="{{ q }}">{{ t(q) }}</button>{% endfor %}</div>
+    <div class="att px-4" data-pending></div>
+    <form class="composer" data-form>
+      <input type="file" multiple hidden data-file>
+      <button type="button" class="btn-icon" data-attach data-tip="{{ t('Attach files') }}" aria-label="{{ t('Attach files') }}">{{ icon('paperclip') }}</button>
+      <button type="button" class="btn-icon" data-mic data-tip="{{ t('Voice input') }}" aria-label="{{ t('Voice input') }}" hidden>{{ icon('mic') }}</button>
+      <textarea class="field" rows="1" name="message" maxlength="1000" placeholder="{{ t('Your message') }}" aria-label="{{ t('Your message') }}"></textarea>
+      <button class="btn btn-primary" aria-label="{{ t('Send') }}">{{ icon('send') }}</button>
+    </form>
+  </section>
+</div>
+<script type="application/json" id="chat-init">{{ {'threads': threads, 'active': active, 'messages': messages, 'labels': L}|tojson }}</script>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/assistant.js') }}" defer></script>{% endblock %}

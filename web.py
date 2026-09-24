@@ -659,3 +659,133 @@ def register_routes(app):
         return render_template("member/profile.html", h=h, score=score, parts=parts, all_sources=S.operational_sources())
 
 
+    # ── assistant: saved chats, files, voice-friendly replies ───────────────
+    def instance_root():
+        return current_app.config["INSTANCE_DIR"]
+
+    def msg_json(m):
+        files = []
+        for i, f in enumerate(json.loads(m.files or "[]")):
+            files.append({"name": f["name"], "kind": f["kind"], "size": UP.human(f["size"]), "url": url_for("chat_file", mid=m.id, idx=i), "image": f["kind"] == "image"})
+        return {"id": m.id, "role": m.role, "body": m.body, "files": files, "at": (m.created_at + timedelta(hours=3)).strftime("%d/%m %H:%M")}
+
+    def my_thread(tid):
+        t = db.session.get(ChatThread, tid)
+        if not t or t.user_id != current_user.id:
+            abort(404)
+        return t
+
+    @app.get("/app/assistant")
+    @member_required
+    def assistant():
+        threads = ChatThread.query.filter_by(user_id=current_user.id).order_by(ChatThread.updated_at.desc()).all()
+        active = next((t for t in threads if str(t.id) == request.args.get("t")), threads[0] if threads else None)
+        return render_template("member/assistant.html", threads=[{"id": t.id, "title": t.title} for t in threads],
+                               active=active.id if active else 0, messages=[msg_json(m) for m in active.messages] if active else [])
+
+    @app.get("/api/assistant/threads/<int:tid>")
+    @member_required
+    def api_thread(tid):
+        t = my_thread(tid)
+        return jsonify(id=t.id, title=t.title, messages=[msg_json(m) for m in t.messages])
+
+    @app.post("/api/assistant/message")
+    @member_required
+    @limiter.limit("40 per minute")
+    def api_message():
+        text = S.clean_text(request.form.get("message"), 1000)
+        raw = [f for f in request.files.getlist("files") if f and f.filename][:UP.MAX_FILES]
+        blobs = []
+        for f in raw:
+            data = f.read(UP.MAX_BYTES + 1)
+            if len(data) > UP.MAX_BYTES:
+                return jsonify(error="too_big"), 413
+            name = secure_name(f.filename)
+            blobs.append((name, UP.optimize(name, data)))
+        if not text and not blobs:
+            return jsonify(error="empty"), 400
+        tid = request.form.get("thread_id", type=int)
+        t = my_thread(tid) if tid else ChatThread(user_id=current_user.id, title=(text or blobs[0][0])[:40])
+        if not tid:
+            db.session.add(t)
+            db.session.flush()
+        meta = []
+        for name, data in blobs:
+            kind, mime = UP.detect(name, data)
+            meta.append({"fid": UP.save(instance_root(), current_user.id, data), "name": name, "mime": mime, "kind": kind, "size": len(data)})
+        um = ChatMessage(thread_id=t.id, role="user", body=text, files=json.dumps(meta))
+        reply = UP.reply_for(text, blobs, g.lang) if blobs else ""
+        if text and (not blobs or len(text.split()) > 1):
+            extra = S.assistant_reply(current_user, text, g.lang)
+            reply = (reply + "\n\n" + extra) if reply else extra
+        am = ChatMessage(thread_id=t.id, role="assistant", body=reply)
+        db.session.add_all([um, am])
+        t.updated_at = utcnow()
+        db.session.commit()
+        return jsonify(thread={"id": t.id, "title": t.title}, user=msg_json(um), assistant=msg_json(am))
+
+    @app.post("/api/assistant/threads/<int:tid>/rename")
+    @member_required
+    def api_rename(tid):
+        t = my_thread(tid)
+        t.title = S.clean_text((request.get_json(silent=True) or {}).get("title"), 60) or t.title
+        db.session.commit()
+        return jsonify(id=t.id, title=t.title)
+
+    def erase_chats(threads):
+        for t in threads:
+            for m in t.messages:
+                for f in json.loads(m.files or "[]"):
+                    p = UP.path_of(instance_root(), t.user_id, f["fid"])
+                    if p:
+                        p.unlink(missing_ok=True)
+            db.session.delete(t)
+
+    @app.post("/api/assistant/threads/<int:tid>/delete")
+    @member_required
+    def api_delete_thread(tid):
+        erase_chats([my_thread(tid)])
+        db.session.commit()
+        return jsonify(ok=True)
+
+    @app.post("/api/assistant/threads/delete-all")
+    @member_required
+    def api_delete_all():
+        erase_chats(ChatThread.query.filter_by(user_id=current_user.id).all())
+        db.session.commit()
+        return jsonify(ok=True)
+
+    @app.get("/app/assistant/<int:tid>/export.txt")
+    @member_required
+    def chat_export(tid):
+        t = my_thread(tid)
+        lines = [f"CWAS assistant: {t.title}", ""]
+        for m in t.messages:
+            lines.append(f"[{(m.created_at + timedelta(hours=3)):%Y-%m-%d %H:%M}] {'You' if m.role == 'user' else 'CWAS'}: {m.body}")
+            for f in json.loads(m.files or "[]"):
+                lines.append(f"    (file: {f['name']}, {UP.human(f['size'])})")
+        r = make_response("\n".join(lines))
+        r.headers["Content-Type"] = "text/plain; charset=utf-8"
+        r.headers["Content-Disposition"] = f"attachment; filename=cwas-chat-{t.id}.txt"
+        return r
+
+    @app.get("/app/assistant/files/<int:mid>/<int:idx>")
+    @member_required
+    def chat_file(mid, idx):
+        m = db.session.get(ChatMessage, mid) or abort(404)
+        if m.thread.user_id != current_user.id:
+            abort(404)
+        files = json.loads(m.files or "[]")
+        if idx >= len(files):
+            abort(404)
+        f = files[idx]
+        p = UP.path_of(instance_root(), current_user.id, f["fid"]) or abort(404)
+        inline = f["kind"] in ("image", "pdf")
+        r = send_file(p, mimetype=f["mime"] if inline else "application/octet-stream", as_attachment=not inline, download_name=f["name"])
+        r.headers["Content-Security-Policy"] = "sandbox; default-src 'none'; img-src 'self'; style-src 'unsafe-inline'"
+        return r
+
+    def secure_name(name):
+        base = re.sub(r"[^\w.\- ]+", "_", os.path.basename(name or "file")).strip(" .") or "file"
+        return base[:80]
+
