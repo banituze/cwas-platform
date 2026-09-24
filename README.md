@@ -6,12 +6,52 @@ One Flask app serves the website, the household and coordinator apps, the admini
 
 ## Run it
 
+These steps take a fresh computer to a running CWAS. Type each command in a terminal: Terminal on macOS and Linux, PowerShell on Windows.
+
+**1. Install the tools.** Python 3.12 (3.10 or newer works) and Git. Check them with `python3 --version` (on Windows `py --version`) and `git --version`. Node.js is not needed to run CWAS; it is only used to rebuild the stylesheet after a style change (see [Change the styles](#change-the-styles)).
+
+**2. Get the code.**
+
+```bash
+git clone https://github.com/banituze/cwas-platform.git
+cd cwas-platform
+```
+
+**3. Create a virtual environment**, so CWAS's packages stay apart from the rest of the computer.
+
+macOS and Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Windows (PowerShell):
+
+```powershell
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+The prompt now starts with `(.venv)`. Activate it again in every new terminal. If PowerShell refuses to run the script, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once and try again.
+
+**4. Install the packages.**
+
 ```bash
 pip install -r requirements.txt
+```
+
+**5. Start the server.**
+
+```bash
 python3 app.py
 ```
 
-Open http://localhost:5000. SQLite is created in `instance/cwas.db`, a super administrator is seeded, and demo data is loaded so every screen has something to show.
+On Windows use `python app.py`. Keep this terminal open; the server runs until you press Ctrl+C.
+
+**6. Open http://localhost:5000.** On the first start CWAS creates the SQLite database in `instance/cwas.db`, seeds a super administrator and loads demo data, so every screen has something to show. No settings are needed for a local run.
+
+**7. Sign in** with one of these accounts:
 
 | Who | Sign in | Notes |
 |---|---|---|
