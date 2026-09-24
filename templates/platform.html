@@ -1,0 +1,46 @@
+{% extends "base.html" %}{% from "partials/macros.html" import icon with context %}{% from "partials/media.html" import shot with context %}
+{% block title %}{{ t('Platform') }}{% endblock %}
+{% block desc %}{{ t('Booking, payment, approval, maintenance, reports and audit, built around how Ampotaka actually collects water.') }}{% endblock %}
+{% block content %}
+<header class="mx-auto max-w-page px-4 pt-36"><h1 class="max-w-3xl text-5xl font-extrabold md:text-7xl">{{ t('Everything a shared water point needs, in one place.') }}</h1>
+  <p class="mt-5 max-w-xl text-lg text-mute">{{ t('Booking, payment, approval, maintenance, reports and audit, built around how Ampotaka actually collects water.') }}</p></header>
+{# Gallery Depth: real screens of CWAS (demo data) travel in from deep perspective and settle flat and sharp once, as they come into view, (static/js/fx.js). Without a script, or with reduced motion, they simply sit in place. #}
+<section class="gd mx-auto mt-14 max-w-page px-4" data-gallery-depth>{% for key, cap, kind, pos in (('coord-queue', 'Approval queue', 'desk', 'a'), ('app-book', 'Book a slot', 'phone', 'b'), ('app-wallet', 'Wallet', 'phone', 'c'), ('coord-insights', 'Demand forecast', 'desk', 'd')) %}
+  <figure class="gd-item gd-{{ kind }} gd-{{ pos }}"><div class="gd-move"><div class="gd-frame">{% if kind == 'desk' %}<div class="gd-bar" aria-hidden="true"><i></i><i></i><i></i></div>{% endif %}{{ shot(key, t(cap)) }}</div>
+    <figcaption>{{ t(cap) }}</figcaption></div></figure>{% endfor %}
+</section>
+
+<div class="mx-auto max-w-page space-y-28 px-4 pt-20">
+  <section id="booking" class="grid items-start gap-10 lg:grid-cols-[1fr_1.1fr]">
+    <div><h2 class="text-4xl font-extrabold">{{ t('Book and pay') }}</h2><p class="mt-4 text-lg leading-relaxed text-mute">{{ t('Slots come from each water point\'s opening hours, slot length, per-slot capacity and daily capacity. The final confirmation rechecks everything, keeps one active booking per household per day, works out the tariff and subsidy, and takes the money from the wallet in the same step.') }}</p></div>
+    <div class="grid gap-3 sm:grid-cols-2">
+      {% for ico, h, p in (('calendar','Visual calendar','Open, full and blocked slots for the next seven days.'),('wallet','Wallet','Deposits by Orange Money or Airtel Money, and a full ledger.'),('receipt','Receipts','One receipt per payment, printed on screen and readable by SMS.'),('refresh','Refunds','Cancel a future booking and the money returns once.')) %}
+      <div class="glass-strong p-5"><span class="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-onbrand">{{ icon(ico) }}</span><h3 class="mt-3 font-bold">{{ t(h) }}</h3><p class="mt-1 text-sm text-mute">{{ t(p) }}</p></div>{% endfor %}
+    </div>
+  </section>
+
+  <section id="approvals" class="grid items-start gap-10 lg:grid-cols-[1.1fr_1fr]">
+    <div class="order-2 grid gap-3 sm:grid-cols-2 lg:order-1">
+      {% for ico, h, p in (('check','Approval queue','Balance, priority, slot load and an AI suggestion beside every request.'),('gear','Water points','Add, edit or close sources, set hours, capacity and price per 100 L.'),('wrench','Maintenance','Blocked slots, automatic refunds and free alternatives sent to households.'),('megaphone','Announcements','Notice to every household by app and SMS.')) %}
+      <div class="glass-strong p-5"><span class="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-onbrand">{{ icon(ico) }}</span><h3 class="mt-3 font-bold">{{ t(h) }}</h3><p class="mt-1 text-sm text-mute">{{ t(p) }}</p></div>{% endfor %}
+    </div>
+    <div class="order-1 lg:order-2"><h2 class="text-4xl font-extrabold">{{ t('Approvals and sources') }}</h2><p class="mt-4 text-lg leading-relaxed text-mute">{{ t('Coordinators stop keeping paper lists. They see who is asking, whether the wallet covers it and how full the slot is, then approve or deny with a reason. The household is told either way.') }}</p></div>
+  </section>
+
+  <section id="ai" class="glass-strong p-8 md:p-12">
+    <h2 class="text-4xl font-extrabold">{{ t('Explainable AI') }}</h2>
+    <p class="mt-4 max-w-3xl text-lg leading-relaxed text-mute">{{ t('The pilot engine is rules-based on purpose, so a coordinator can always say why. Models trained on pilot data come later; the checks below already run today.') }}</p>
+    <div class="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {% for h, p in (('Demand forecast','Expected bookings per day and the busiest time, from the same weekday in recent weeks.'),('Intelligent priority','Need-based points with a reason for each point, reviewed for bias across groups.'),('Assistant','Answers in Malagasy, French and English using the household\'s own data.'),('Anomaly detection','Flags repeated cancellations, no-shows, deposit bursts and unusual volumes for review.'),('Conflict resolution','When a slot is full or blocked, the nearest free slots are offered.')) %}
+      <div class="rounded-3xl bg-ink/[.06] p-5"><h3 class="font-bold">{{ t(h) }}</h3><p class="mt-2 text-sm text-mute">{{ t(p) }}</p></div>{% endfor %}
+    </div>
+  </section>
+
+  <section class="grid items-start gap-10 lg:grid-cols-2">
+    <div><h2 class="text-4xl font-extrabold">{{ t('Built to be trusted') }}</h2><p class="mt-4 text-lg leading-relaxed text-mute">{{ t('Roles limit each person to their own functions. Every important action is written to an audit trail where each line depends on the one before it, so edits show up. Wallet changes run in single transactions.') }}</p></div>
+    <ul class="grid gap-3 sm:grid-cols-2">
+      {% for h in ('Role-based access control','Tamper-evident audit trail','Two-step sign-in (TOTP)','PIN lockout on USSD','Hashed passwords and PINs','Backup, integrity check and restore') %}<li class="glass flex items-center gap-3 !rounded-pill px-5 py-3 text-sm font-semibold">{{ icon('shield', 'text-ok') }}{{ t(h) }}</li>{% endfor %}
+    </ul>
+  </section>
+</div>
+{% endblock %}

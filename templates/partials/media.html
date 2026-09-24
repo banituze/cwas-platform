@@ -28,3 +28,11 @@
    nears the view (static/js/app.js), choosing the HD file only on wide screens and never when the visitor saves data. #}
 {% macro video(key, eager=False) %}{% set m = VIDEOS[key] %}{% set src = m[0] if m[0].startswith('http') else url_for('static', filename=m[0]) %}<video class="vid" autoplay muted loop playsinline preload="{{ 'auto' if eager else 'none' }}" poster="{{ url_for('static', filename=m[2]) }}" {{ 'src' if eager else 'data-src' }}="{{ src }}"{% if m[1] %} data-hd="{{ url_for('static', filename=m[1]) }}"{% endif %} aria-label="{{ t(m[3]) }}"></video>{% endmacro %}
 
+{# Screens of CWAS itself, captured from the running app with its demo data once per theme (static/img/shots/<theme>/).
+   The page ships the current theme's set; every other theme's set rides along in data-shot-<theme>, and static/js/app.js
+   swaps to it the moment the theme changes. Each screen ships as AVIF with a WebP fallback, both from the original capture. #}
+{% set SHOTS = {'coord-queue': (1800, 1125, [960, 1800]), 'coord-insights': (1800, 1125, [960, 1800]),
+                'app-book': (1170, 2532, [600, 1170]), 'app-wallet': (1170, 2532, [600, 1170])} %}
+{% set SHOT_THEMES = ('saina', 'fotsy', 'maitso', 'mena') %}
+{% macro shot_set(key, th, ext='webp') %}{% for w in SHOTS[key][2] %}{{ url_for('static', filename='img/shots/' ~ th ~ '/' ~ key ~ '-' ~ w ~ '.' ~ ext) }} {{ w }}w{{ ', ' if not loop.last }}{% endfor %}{% endmacro %}
+{% macro shot(key, alt) %}{% set m = SHOTS[key] %}{% set th = theme if theme in SHOT_THEMES else 'saina' %}<div class="gd-screen"><picture><source type="image/avif" data-shot srcset="{{ shot_set(key, th, 'avif') }}"{% for x in SHOT_THEMES %} data-shot-{{ x }}="{{ shot_set(key, x, 'avif') }}"{% endfor %} sizes="{{ '(min-width: 1100px) 62vw, 92vw' if m[0] > m[1] else '(min-width: 1100px) 300px, 280px' }}"><img data-shot src="{{ url_for('static', filename='img/shots/' ~ th ~ '/' ~ key ~ '-' ~ m[2][0] ~ '.webp') }}" srcset="{{ shot_set(key, th) }}"{% for x in SHOT_THEMES %} data-shot-{{ x }}="{{ shot_set(key, x) }}"{% endfor %} sizes="{{ '(min-width: 1100px) 62vw, 92vw' if m[0] > m[1] else '(min-width: 1100px) 300px, 280px' }}" width="{{ m[0] }}" height="{{ m[1] }}" alt="{{ alt }}" decoding="async"></picture></div>{% endmacro %}
