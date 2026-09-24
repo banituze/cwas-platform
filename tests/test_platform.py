@@ -520,7 +520,7 @@ class Platform(unittest.TestCase):
         c.post("/api/sms/inbound", data={"from": member, "to": "7380", "text": "PIN HELP"})
         self.assertIn("Request sent", self.sms_to(member)[-1])
         c.post("/api/sms/inbound", data={"from": "+261349999998", "to": "7380", "text": "forgot pin"})
-        self.assertIn("no account", self.sms_to("+261349999998")[-1])
+        self.assertIn("No account", self.sms_to("+261349999998")[-1])
         staff_menu = self.play("+261340000001", "2", "98")
         self.assertIn("12. Reset household PIN", staff_menu)
         self.assertIn("Check with the caller", self.play("+261340000001", "2", "98", "12", "0340000105"))

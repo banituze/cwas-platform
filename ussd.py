@@ -385,7 +385,7 @@ def pin_help_flow(ctx, user, missing=False):
 def register_flow(ctx):
     i = yield from menu(ctx, ctx.L("Register as:"), [ctx.L("Household member"), ctx.L("Community coordinator"), ctx.L("Help")])
     if i == 2:
-        yield from info(ctx, ctx.L("CWAS: book water, pay by mobile money, no queue."), ctx.L("Register to start. SMS help: {sms}", sms=SHORTCODE))
+        yield from info(ctx, ctx.L("Book water, pay by mobile money, no queue."), ctx.L("Register to start. SMS help: {sms}", sms=SHORTCODE))
         return END(ctx, ctx.L("Thank you for using CWAS."))
     role = "member"
     if i == 1:
@@ -1133,7 +1133,7 @@ def handle_sms(phone, text):
     try:
         if pin_help:
             if user is None:
-                reply = f"CWAS: no account uses this number. Dial {DIAL} to register."
+                reply = f"No account uses this number. Dial {DIAL} to register."
             else:
                 contacts = S.staff_contacts(user, 1)
                 reply = (L("Request sent. A coordinator will call you to check your details and reset your PIN.") if S.request_pin_help(user, "sms")
@@ -1150,7 +1150,7 @@ def handle_sms(phone, text):
                 elif u is None:
                     reply = "Format: REGISTER MEMBER Name|Village|FamilySize|LANG|PIN|RecoveryCode"
             else:
-                reply = f"CWAS: dial {DIAL} to register, or text REGISTER MEMBER Name|Village|FamilySize|LANG|PIN|RecoveryCode to {SHORTCODE}."
+                reply = f"Dial {DIAL} to register, or text REGISTER MEMBER Name|Village|FamilySize|LANG|PIN|RecoveryCode to {SHORTCODE}."
         elif cmd == "HELP":
             reply = (L("BAL, SOURCES, BOOKINGS, BOOKING <ref>, CANCEL <ref>, DEPOSIT <amount>, BOOK <n> <day> <HH:MM> <litres>, RECEIPT <ref>, NOTICES, PROFILE, PIN HELP, LANG MG/FR/EN. Menu: dial {dial}.", dial=DIAL)
                      if not staff else L("PENDING, APPROVE <ref>, DENY <ref>, COLLECT <ref>, REG MEMBER Name|Phone|Village|Size|LANG|PIN, SOURCES, LANG MG/FR/EN."))

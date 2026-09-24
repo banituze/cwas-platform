@@ -477,7 +477,7 @@ def reset_pin_by_staff(target, actor, channel="web"):
     target.pin_hash, target.pin_failed, target.pin_locked_until = generate_password_hash(pin), 0, None
     audit("user.pin_reset", "user", target.id, f"by {actor.role} #{actor.id}", actor=actor, channel=channel)
     notify(target, "Your PIN was reset by a coordinator. Change the temporary PIN in My profile.", "system")
-    msg = "CWAS: your coordinator reset your PIN. Temporary PIN: {pin}. Dial {dial} and change it in My profile."
+    msg = "Your coordinator reset your PIN. Temporary PIN: {pin}. Dial {dial} and change it in My profile."
     send_sms(target.phone, tt(msg, target.language, pin=pin, dial=DIAL), target, log_body=tt(msg, target.language, pin="****", dial=DIAL))
     return True
 
