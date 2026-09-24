@@ -87,3 +87,53 @@ class Platform(unittest.TestCase):
             u = User.query.filter_by(phone="+261340000108").first()
             u.locked_until, u.failed_logins = None, 0
             db.session.commit()
+
+    # ── member journey ──
+    def test_10_member_book_pay_cancel(self):
+        c = login("+261340000106", DEMO_PW)
+        for p in ("/app", "/app/book", "/app/bookings", "/app/wallet", "/app/water-points", "/app/notifications", "/app/profile", "/app/assistant"):
+            self.assertEqual(c.get(p).status_code, 200, p)
+        with self.app.app_context():
+            h = User.query.filter_by(phone="+261340000106").first().household
+            src = S.operational_sources()[0]
+            day = next(d for d in reversed(S.booking_days()) if not Booking.query.filter_by(household_id=h.id, date=d).filter(Booking.status.in_(Booking.ACTIVE)).first())
+            slot = S.slot_list(src, day, only_open=True)[3]
+            bal0 = h.balance
+        r = post(c, "/app/book", {"source": src.id, "date": day.isoformat(), "slot": slot["start_min"], "litres": 40})
+        self.assertEqual(r.status_code, 302, r.get_data(as_text=True)[:300])
+        ref = r.headers["Location"].rsplit("/", 1)[1]
+        self.assertEqual(c.get(f"/app/bookings/{ref}").status_code, 200)
+        self.assertEqual(c.get(f"/app/bookings/{ref}/receipt").status_code, 200)
+        r = post(c, "/app/book", {"source": src.id, "date": day.isoformat(), "slot": slot["start_min"], "litres": 40})
+        self.assertEqual(r.status_code, 200)  # second booking the same day is refused
+        with self.app.app_context():
+            h = db.session.get(Household, h.id)
+            self.assertLess(h.balance, bal0)
+            self.assertTrue(S.reconcile_wallet(h))
+        post(c, f"/app/bookings/{ref}/cancel")
+        with self.app.app_context():
+            h = db.session.get(Household, h.id)
+            self.assertEqual(h.balance, bal0)
+            self.assertTrue(S.reconcile_wallet(h))
+            self.assertEqual(WalletTxn.query.filter_by(household_id=h.id, kind="booking_refund").filter(WalletTxn.booking.has(ref=ref)).count(), 1)
+        post(c, f"/app/bookings/{ref}/cancel")  # a second cancel must not refund twice
+        with self.app.app_context():
+            self.assertEqual(db.session.get(Household, h.id).balance, bal0)
+
+    def test_11_member_cannot_reach_staff_or_others(self):
+        c = login("+261340000107", DEMO_PW)
+        for p in ("/coord", "/admin", "/coord/queue", "/admin/users"):
+            self.assertEqual(c.get(p).status_code, 403, p)
+        with self.app.app_context():
+            other = Booking.query.join(Household).join(User).filter(User.phone != "+261340000107").first().ref
+        self.assertEqual(c.get(f"/app/bookings/{other}").status_code, 404)
+
+    def test_12_wallet_deposit(self):
+        c = login("+261340000105", DEMO_PW)
+        r = post(c, "/app/wallet", {"provider": "orange", "amount": "2000"})
+        self.assertEqual(r.status_code, 302)
+        r = post(c, "/app/wallet", {"provider": "orange", "amount": "5"})
+        self.assertEqual(r.status_code, 200)
+        with self.app.app_context():
+            self.assertTrue(S.reconcile_wallet(User.query.filter_by(phone="+261340000105").first().household))
+            self.assertEqual(S.fmt_ar(1500), "1,500 MGA")
