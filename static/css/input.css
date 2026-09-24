@@ -1175,4 +1175,13 @@ html,body{overscroll-behavior-y:none}
      (tools/flag_sprite.py draws it: 16 cells of 44 x 32 to a row, shown here at half size). The page asks for it at once,
      so the whole list is on screen the moment the picker opens; the field sets --flags to the sprite's versioned address */
   .cc-flag{display:inline-block;flex:none;width:22px;height:16px;border-radius:3px;background-image:var(--flags);background-repeat:no-repeat;background-size:352px 256px;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+  /* ── polish 13: the header's sounds, language and theme controls (and notifications, account) never take a colour.
+     Hovered, pressed, open or focused, the round buttons keep their resting glass in every theme, exactly as on the log in
+     and sign up screens, and lift with a small neutral shadow. The texts that drop down from them, the tooltips and the
+     language and theme menus, are clear glass with no background fill in every theme, over the hero film too */
+  .hdr-bar .btn-icon:hover,.hdr-bar .btn-icon:active,.hdr-bar .btn-icon[aria-expanded=true],.hdr-bar .btn-icon:focus-visible{background:var(--glass);box-shadow:inset 0 1px 0 var(--rim-hi),0 6px 16px -8px rgba(0,0,0,.45)}
+  .hdr-bar .btn-icon:focus-visible{outline:2px solid rgb(var(--ink)/.45);outline-offset:2px;border-radius:999px}
+  .hdr-bar [data-tip]::after{color:rgb(var(--ink));background:transparent;border-color:var(--glass-line);box-shadow:0 8px 22px -14px rgba(0,0,0,.45)}
+  .hdr-bar .menu>form.nav-panel,.hdr-bar .menu>.nav-panel:has([data-theme-set]){--ink:inherit;--mute:inherit;--brand:inherit;color:rgb(var(--ink));background-color:transparent!important;border-color:var(--glass-line)!important}
+  .hdr-bar .menu>form.nav-panel button:hover,.hdr-bar .menu>.nav-panel:has([data-theme-set]) button:hover{background:transparent}
 }
