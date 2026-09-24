@@ -1,0 +1,12 @@
+{
+  "name": "cwas-assets",
+  "private": true,
+  "description": "Build-time only: compiles static/css/app.css. The running app needs no Node.",
+  "scripts": {
+    "build:css": "tailwindcss -c tailwind.config.js -i static/css/input.css -o static/css/app.css --minify",
+    "watch:css": "tailwindcss -c tailwind.config.js -i static/css/input.css -o static/css/app.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}
