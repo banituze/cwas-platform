@@ -1,0 +1,29 @@
+{% extends "base.html" %}{% from "partials/macros.html" import icon with context %}{% from "partials/media.html" import photo, video with context %}
+{% block title %}{{ t('Our story') }}{% endblock %}
+{% block desc %}{{ t('CWAS gives every household in Ampotaka a fair, recorded time to collect water, on a smartphone, a basic phone or through a coordinator.') }}{% endblock %}
+{% block content %}
+<section data-hero class="media-dark relative isolate overflow-hidden pt-36 text-white">
+  {{ video('well', eager=True) }}<div class="scrim"></div>
+  <div class="relative mx-auto max-w-page px-5 pb-24 pt-10"><h1 class="max-w-3xl text-5xl font-extrabold md:text-7xl">{{ t('Fifty thousand people, about twenty working water points.') }}</h1></div>
+</section>
+<div class="mx-auto max-w-page space-y-20 px-4 pt-20">
+  <section class="grid gap-10 lg:grid-cols-2"><div class="prose-cwas text-lg text-mute">
+    <p>{{ t('Ampotaka, in southern Madagascar, has around 15 to 20 working water points for more than 50,000 people. WHO guidance says one point should serve at most 500. Here each one serves 2,500 to 3,300.') }}</p>
+    <p>{{ t('Women and children queue before dawn. Arguments start daily. Informal collection means most fees are never paid, so pumps wait for a catastrophic failure before anyone repairs them.') }}</p>
+    <p>{{ t('CWAS replaces the queue with a booked time, replaces cash with mobile money and replaces the paper list with a record everybody can trust.') }}</p></div>
+    <div class="glass-strong p-7"><h2 class="text-2xl font-bold">{{ t('The five problems we solve') }}</h2>
+      <ul class="mt-4 space-y-3">{% for h, p in (('Scheduling conflict','Everyone arrives at the same peak hour.'),('Inequitable access','Elderly, disabled and single-parent households lose out.'),('Financial collapse','Most informal fees are never collected.'),('Zero transparency','No records, so no way to audit.'),('Reactive maintenance','Repairs cost three to five times more after a failure.')) %}<li class="flex gap-3">{{ icon('drop', 'mt-1 text-brand') }}<div><b>{{ t(h) }}</b><p class="text-sm text-mute">{{ t(p) }}</p></div></li>{% endfor %}</ul></div></section>
+  <section class="glass-strong p-8 md:p-12"><h2 class="text-3xl font-bold">{{ t('Pilot scope') }}</h2>
+    <p class="mt-3 max-w-3xl text-mute">{{ t('Phase one covers Ampotaka commune: 25 water points and about 12,500 households over the first six months. Release 1.0 does not control pumps or valves, connect to national utility billing or deploy sensors.') }}</p></section>
+</div>
+{# Gallery Rise: the stage holds while the photographs rise from below into an editorial field (static/js/fx.js).
+   Without a script, or with reduced motion, it stays the plain mosaic. #}
+<section class="rg mt-24" data-gallery-rise aria-labelledby="rg-title">
+  <div class="rg-stick"><div class="rg-field mx-auto w-full max-w-page px-4">
+    <h2 id="rg-title" class="text-3xl font-extrabold md:text-4xl">{{ t('Ampotaka and the south, in pictures') }}</h2>
+    <div class="mosaic rg-grid mt-8">{% for k, cls in (('porteuses', ''), ('lamba-portrait', 'tall'), ('pump-repair', 'tall'), ('zebu-pond', ''), ('catchment-full', 'wide'), ('borehole-tower', '')) %}
+    <figure class="mosaic-item rg-item {{ cls }}">{{ photo(k, 'h-full w-full object-cover', '(max-width: 768px) 50vw, 33vw') }}</figure>{% endfor %}
+    </div>
+  </div></div>
+</section>
+{% endblock %}
