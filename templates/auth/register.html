@@ -12,7 +12,8 @@
   <label><input type="radio" name="role" value="member" {{ 'checked' if not coord }}><span>{{ t('Household member') }}</span></label>
   <label><input type="radio" name="role" value="coordinator" {{ 'checked' if coord }}><span>{{ t('Community coordinator') }}</span></label></fieldset>
 {{ field('name','Full name', f.get('name',''), required=True, autocomplete='name', attrs='placeholder="' ~ t('e.g. Rasoa Rakoto') ~ '"') }}
-<div class="grid gap-4 sm:grid-cols-2">{{ phone_input('phone', 'Phone number', f.get('phone',''), f.get('cc','MG'), hint='Used for USSD, SMS and sign-in.') }}{{ field('email','Email (optional)', f.get('email',''), type='email', autocomplete='email', attrs='placeholder="' ~ t('you@example.com') ~ '"') }}</div>
+{{ phone_input('phone', 'Phone number', f.get('phone',''), f.get('cc','MG'), hint='Used for USSD, SMS and sign-in.') }}
+{{ field('email','Email (optional)', f.get('email',''), type='email', autocomplete='email', attrs='placeholder="' ~ t('you@example.com') ~ '"') }}
 <div class="coord-only">{{ field('access_code', 'Access code', '', type='password', autocomplete='off', hint='Given to you by the CWAS administrator. An administrator still approves your account before it opens.') }}</div>
 <div class="hh-only space-y-4">
 <div class="grid gap-4 sm:grid-cols-2">{{ field('village','Village', f.get('village','')) }}{{ field('family_size','People in the household', f.get('family_size','4'), type='number', attrs='min=1 max=40') }}</div>
