@@ -194,3 +194,127 @@ def verify_audit_chain():
     return True, None, count
 
 
+# ── people: names and phone numbers as households read them ─────────────────
+log = logging.getLogger("cwas.services")
+def ussd_code(raw):
+    """The USSD code exactly as a caller dials it. It always ends with #: a .env line AT_USSD_CODE=*384*9411# read by a
+    parser that starts a comment at # arrives as *384*9411, which phones reject as an invalid MMI code. Quotes and spaces
+    around the value are dropped too."""
+    code = (raw or "").strip().strip("'\"").replace(" ", "") or "*384*9411#"
+    return code if code.endswith("#") else code + "#"
+
+
+DIAL = ussd_code(os.environ.get("AT_USSD_CODE"))
+RECOVERY_RE = re.compile(r"^\d{6}$")  # recovery code: six digits, distinct from the four-digit PIN
+
+
+def first_name(name, limit=20):
+    """First word of a name, for greetings: "Winebald Banituze" becomes "Winebald", never a name cut mid-word."""
+    parts = (name or "").strip().split()
+    return parts[0][:limit] if parts else ""
+
+
+def local_phone(phone):
+    """+261340000001 written the Malagasy way, 034 00 000 01. Other numbers are returned unchanged."""
+    p = phone or ""
+    if p.startswith("+261") and len(p) == 13 and p[1:].isdigit():
+        d = "0" + p[4:]
+        return f"{d[:3]} {d[3:5]} {d[5:8]} {d[8:]}"
+    return p
+
+
+# ── notifications and SMS ───────────────────────────────────────────────────
+def notify(user, template, kind="system", body="", **params):
+    if not user:
+        return None
+    n = Notification(user_id=user.id, kind=kind, key=template, params=json.dumps(params, default=str), body=body)
+    db.session.add(n)
+    return n
+
+
+def render_notification(n, lang):
+    if n.body and not n.key:
+        return n.body
+    try:
+        params = json.loads(n.params or "{}")
+    except ValueError:
+        params = {}
+    return tt(n.key, lang, **params)
+
+
+OK_SMS = {"Success", "Sent", "Queued", "Processed"}
+
+
+def _at_post(data, sandbox):
+    """One call to the Africa's Talking messaging API. Returns the recipient status ("Success", "InvalidSenderId", ...)."""
+    url = ("https://api.sandbox.africastalking.com" if sandbox else "https://api.africastalking.com") + "/version1/messaging"
+    req = urllib.request.Request(url, urllib.parse.urlencode(data).encode(), {
+        "apiKey": os.environ["AT_API_KEY"], "Accept": "application/json", "Content-Type": "application/x-www-form-urlencoded"})
+    try:
+        with urllib.request.urlopen(req, timeout=6) as resp:  # noqa: S310 - fixed https endpoint
+            raw = resp.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:  # some rejections come back as 4xx with the reason in the body
+        raw = e.read().decode("utf-8", "replace")
+    except Exception:  # noqa: BLE001 - network trouble: the message stays recorded as failed
+        return "failed"
+    if "InvalidSenderId" in raw:
+        return "InvalidSenderId"
+    try:
+        rec = (json.loads(raw).get("SMSMessageData") or {}).get("Recipients") or []
+        return str(rec[0].get("status") or "failed") if rec else "failed"
+    except (ValueError, AttributeError, IndexError, TypeError):
+        return "failed"
+
+
+def send_sms(phone, body, user=None, live=True, log_body=None):
+    """Sends through Africa's Talking when SMS_ENABLED=1 and a key is set; otherwise records a simulated send.
+
+    The sender is AT_SENDER_ID (for example CWAS), or AT_SHORTCODE. It is sent in the sandbox as well: Africa's Talking
+    only shows its default AFRICASTKNG when no sender is given. If the sender is not registered on the account yet
+    (InvalidSenderId), the message is sent again without it, so it still arrives. log_body replaces the stored text of a
+    live send that carries a secret (a temporary PIN); in simulation the log is the delivery, so it keeps the real text."""
+    if not phone:
+        return None
+    body = body[:640]
+    row = SmsLog(direction="out", phone=phone, body=body, status="simulated")
+    db.session.add(row)
+    if live and os.environ.get("SMS_ENABLED", "0") == "1" and os.environ.get("AT_API_KEY"):
+        username = os.environ.get("AT_USERNAME", "sandbox")
+        sandbox = username == "sandbox"
+        data = {"username": username, "to": phone, "message": body}
+        sender = (os.environ.get("AT_SENDER_ID", "CWAS") or os.environ.get("AT_SHORTCODE") or "").strip()
+        if sender:
+            data["from"] = sender
+        status = _at_post(data, sandbox)
+        if status == "InvalidSenderId" and "from" in data:
+            log.warning("Sender %r is not registered on this Africa's Talking app; sent with the default sender.", sender)
+            del data["from"]
+            status = _at_post(data, sandbox)
+        row.status = "sent" if status in OK_SMS else "failed"
+        if log_body:
+            row.body = log_body[:640]
+    return row
+
+
+def sms_user(user, template, **params):
+    if user and user.phone:
+        send_sms(user.phone, tt(template, user.language, **params), user)
+
+
+def event(user, template, kind="system", sms=False, **params):
+    """One completed action: always an in-app notification, in the person's language. An SMS as well only when it
+    matters (sms=True): an account created, a payment confirmed or refused, a booking approved or denied, a booking
+    cancelled for maintenance, a coordinator message or a security alert. Routine changes stay in the app."""
+    n = notify(user, template, kind, **params)
+    if sms:
+        sms_user(user, template, **params)
+    return n
+
+
+def payment_mode():
+    """live keeps deposits pending until the provider confirms; simulation posts at once. Production defaults to live so
+    nobody can mint money by accident."""
+    prod = bool(os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("CWAS_ENV") == "production")
+    return os.environ.get("PAYMENT_MODE") or ("live" if prod else "simulation")
+
+
