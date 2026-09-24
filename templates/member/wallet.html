@@ -1,0 +1,19 @@
+{% extends "app_base.html" %}{% from "partials/macros.html" import status, icon with context %}
+{% block title %}{{ t('Wallet') }}{% endblock %}
+{% block app %}
+<h1 class="text-3xl font-extrabold">{{ t('Wallet') }}</h1>
+<div class="mt-6 grid gap-5 lg:grid-cols-[.9fr_1.1fr]">
+  <section class="glass-strong p-6"><p class="text-sm text-mute">{{ t('Wallet balance') }}</p><p class="font-display text-5xl font-extrabold">{{ fmt_ar(h.balance) }}</p>
+    <form method="post" class="mt-6 space-y-5"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <fieldset><legend class="label">{{ t('Pay with') }}</legend><div class="flex flex-wrap gap-2">
+        <label><input class="sr-only" type="radio" name="provider" value="orange" checked><span class="pick"><img src="{{ url_for('static', filename='img/providers/orange-money.webp') }}" alt="" width="24" height="24" class="rounded-full">Orange Money</span></label>
+        <label><input class="sr-only" type="radio" name="provider" value="airtel"><span class="pick"><img src="{{ url_for('static', filename='img/providers/airtel-money.webp') }}" alt="" width="24" height="24" class="rounded-full">Airtel Money</span></label>
+        {% if cash %}<label><input class="sr-only" type="radio" name="provider" value="cash"><span class="pick">{{ icon('wallet') }}{{ t('Cash at the coordinator') }}</span></label>{% endif %}</div></fieldset>
+      <fieldset><legend class="label">{{ t('Amount') }}</legend><div class="flex flex-wrap gap-2">{% for a in (500, 1000, 2000, 5000, 10000) %}<label><input class="sr-only" type="radio" name="amount" value="{{ a }}" {{ 'checked' if a == 1000 }}><span class="pick">{{ fmt_ar(a) }}</span></label>{% endfor %}</div>
+        <div class="mt-3"><input class="field" name="amount_custom" inputmode="numeric" placeholder="{{ t('Other amount in MGA') }}" aria-label="{{ t('Other amount in MGA') }}"></div></fieldset>
+      <button class="btn btn-primary w-full !py-3">{{ t('Add money') }}</button>
+      <p class="hint">{{ t('Live mode never invents a payment: a deposit stays pending until the provider confirms it.') if live else t('Simulation mode: deposits post immediately for the pilot rehearsal. Cash stays pending until a coordinator confirms it.') }}</p></form></section>
+  <section class="glass-strong p-2"><h2 class="px-4 pt-4 text-xl font-bold">{{ t('Ledger') }}</h2><div class="overflow-x-auto"><table class="tbl"><thead><tr><th>{{ t('Reference') }}</th><th>{{ t('Type') }}</th><th>{{ t('Status') }}</th><th class="text-right">{{ t('Amount') }}</th><th class="text-right">{{ t('Balance') }}</th></tr></thead><tbody>
+    {% for r in rows %}<tr><td class="font-mono text-xs">{{ r.reference }}<br><span class="text-mute">{{ (r.created_at|local).strftime('%d/%m %H:%M') }}</span></td><td>{{ t(r.kind.replace('_',' ')) }}</td><td>{{ status(r.status) }}</td><td class="text-right font-semibold {{ 'text-ok' if r.amount > 0 }}">{{ '+' if r.amount > 0 }}{{ fmt_ar(r.amount) }}</td><td class="text-right">{{ fmt_ar(r.balance_after) if r.balance_after is not none else '-' }}</td></tr>{% else %}<tr><td colspan="5" class="py-8 text-center text-mute">{{ t('No movements yet.') }}</td></tr>{% endfor %}</tbody></table></div></section>
+</div>
+{% endblock %}
