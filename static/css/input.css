@@ -850,3 +850,34 @@ body{background-image:radial-gradient(70vw 60vh at 8% 0%,var(--amb1),transparent
 :root,[data-theme="fotsy"]{--sheet-solid:#FFFFFF}[data-theme="maitso"]{--sheet-solid:#04391C}[data-theme="mena"]{--sheet-solid:#5E0905}
 @layer components{@media (max-width:1023px){.more-sheet{background:var(--sheet-solid)!important;-webkit-backdrop-filter:none;backdrop-filter:none}}}
 @layer components{@media (max-width:1023px){.more-sheet a{flex-direction:row;justify-content:flex-start;font-size:14px}}}
+
+/* ── polish 5: the lab's devices on the homepage, apps hide the dock, white is black and white, sticky live-water auth ── */
+@layer components{
+  /* demo phones: the very devices of the device lab, scaled to fit */
+  .pd-rig{position:relative;flex:none;width:calc(var(--w) * var(--s,.6));height:calc(var(--h) * var(--s,.6))}
+  .pd-rig>.flipper{position:absolute;left:0;top:0;transform:scale(var(--s,.6));transform-origin:0 0;transition:none}
+  .pd-rig *{pointer-events:none}
+  .pd-row{align-items:flex-end;gap:clamp(12px,2vw,26px)}
+  /* inside an app the dock and the home icons step away; they return on the home screen */
+  .os.in-app .dock,.os.in-app .os-home{opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s}
+  .dial-row{position:relative;padding:0 64px}
+  .dial-row .dial-out{padding:6px 0}
+  .dial-del{position:absolute;right:22px;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:0;background:transparent;color:inherit;font-size:20px;cursor:pointer}
+  .pad button.hit,.pad button:active{transform:scale(.92);background:rgba(127,127,127,.34)}
+  .callbtn.hit,.ussd-card button.hit,.compose button.hit{transform:scale(.9)}
+  .k.hit{transform:translateY(2px)}
+  /* the log-in (ghost) button answers the pointer in every theme and over photos */
+  .btn-ghost:hover{background:rgb(var(--ink)/.14);border-color:rgb(var(--ink)/.4);transform:translateY(-1px)}
+  /* footer: the big CWAS in the middle, one hairline above the bar */
+  .foot-big{text-align:center}
+  /* sign up and log in: the live-water pond on the left stays in view while the form scrolls */
+  .auth-side{position:sticky;top:96px;height:calc(100svh - 120px);min-height:520px;border-radius:32px;overflow:hidden;isolation:isolate;color:#fff;display:flex;align-items:center;justify-content:center;text-align:center}
+  .auth-side .hero-media{z-index:-2}
+  .auth-copy{position:relative;padding:44px;max-width:44rem;margin-inline:auto}
+  .auth-copy p{margin-inline:auto}
+}
+/* phone apps are light screens in every theme: their placeholders use the phone's own ink, not the page's */
+@layer components{
+  .os-view input::placeholder,.ussd-card input::placeholder,.os-view textarea::placeholder{color:rgba(0,0,0,.45)}
+  .os-view.dark input::placeholder,.os-view.dark textarea::placeholder{color:rgba(255,255,255,.5)}
+}
