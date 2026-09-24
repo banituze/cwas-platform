@@ -564,3 +564,46 @@ html[data-theme="saina"]{
   @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
     .printer[data-state=printing] .paper{animation:none;transform:none}}
 }
+
+/* ── polish: brand mono, hero films, footer, theme tick, photos, page transitions ───────────── */
+@font-face{font-family:"JetBrains Mono";font-style:normal;font-display:swap;font-weight:100 800;src:url(/static/fonts/jetbrains-mono.woff2) format("woff2")}
+@layer components{
+  .media-bg{position:absolute;inset:0;z-index:-2;width:100%;height:100%;object-fit:cover}
+  [data-theme-set] .tick{opacity:0;transition:opacity .15s}
+  [data-theme-set][aria-pressed=true] .tick{opacity:1}
+  .p-brand{display:inline-flex;align-items:center;gap:5px}
+
+  /* homepage hero: Madagascar stills and transition films (static/js/hero.js) */
+  .hero-media{position:absolute;inset:0;z-index:-2;overflow:hidden;background:#243322}
+  .hm-still{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;pointer-events:none}
+  .hm-still{transition:opacity .35s ease}
+  .hm-still.is-on{opacity:1}
+
+  /* footer: liquid-glass card over a full-bleed photograph */
+  .foot-photo{position:absolute;inset:0;z-index:-2;width:100%;height:100%;object-fit:cover}
+  .foot-scrim{position:absolute;inset:0;z-index:-1;background:rgba(6,14,9,.5)}
+  .foot-code{color:#fff;text-decoration:none;font-family:"JetBrains Mono",ui-monospace,monospace;font-weight:700;letter-spacing:-.03em}
+  .foot-cta{background:#fff;color:#0e1a12;padding:14px 26px;font-size:16px}
+  .foot-cta:hover{background:rgba(255,255,255,.88)}
+  .foot-card{border-radius:36px;background:rgba(14,20,16,.32);-webkit-backdrop-filter:blur(30px) saturate(1.5);backdrop-filter:blur(30px) saturate(1.5);
+    border-color:rgba(255,255,255,.14);box-shadow:inset 0 1px 1px rgba(255,255,255,.16),0 40px 90px -40px rgba(0,0,0,.7)}
+  .foot-h{margin-bottom:16px;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#fff}
+  .foot-links{display:grid;gap:12px;font-size:15px}
+  .site-foot{--foot-ink:rgba(255,255,255,.76)}
+  .foot-links a{color:var(--foot-ink);transition:color .2s}
+  .foot-links a:hover{color:#fff}
+  .foot-bar{margin-top:44px;padding-top:24px;border-top:1px solid rgba(255,255,255,.14);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;
+    font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.68)}
+  .foot-lang{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;font-size:14px;letter-spacing:0;text-transform:none;color:rgba(255,255,255,.8);transition:background-color .2s,color .2s}
+  .foot-lang .flag{width:18px;height:18px}
+  .foot-lang:hover{color:#fff}
+  .foot-lang[aria-pressed=true]{background:rgba(255,255,255,.15);color:#fff;box-shadow:inset 0 1px 1px rgba(255,255,255,.22)}
+
+  /* about: photo mosaic */
+  .mosaic{display:grid;gap:12px;grid-template-columns:repeat(2,1fr);grid-auto-rows:170px;grid-auto-flow:dense}
+  .mosaic-item{overflow:hidden;border-radius:28px;margin:0}
+  .mosaic-item.tall{grid-row:span 2}
+  .mosaic-item.wide{grid-column:span 2}
+  @media (min-width:768px){.mosaic{grid-template-columns:repeat(3,1fr);grid-auto-rows:230px}}
+  @media (prefers-reduced-motion:reduce){.hm-still{transition:none}}
+}
