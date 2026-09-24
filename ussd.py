@@ -642,3 +642,108 @@ def receipts_flow(ctx, user, h):
     return None
 
 
+# ── my profile: read and change the account; the PIN guards every change ─────
+def profile_flow(ctx, user, h=None):
+    """My profile: what the web profile offers, on any phone. Members can also delete their account here."""
+    member = user.role == "member"
+    items = [("View profile", view_profile), ("Change name", change_name)]
+    if member:
+        items += [("Village / area", change_village), ("Household size", change_size)]
+    items += [("Language", language_flow), ("Change PIN", change_pin), ("Recovery code", change_recovery), ("Forgot PIN", profile_forgot)]
+    if member:
+        items.append(("Delete account", delete_flow))
+    i = yield from menu(ctx, ctx.L("My profile"), [ctx.L(n) for n, _ in items])
+    return (yield from items[i][1](ctx, user, h))
+
+
+def view_profile(ctx, user, h=None):
+    lines = [short(user.name, 40), S.local_phone(user.phone)]
+    if h:
+        lines += [f"{short(h.village, 20)}, " + ctx.L("{n} people", n=h.family_size), ctx.L("Priority: {level}", level=ctx.L(h.priority_level))]
+    else:
+        lines.append(ctx.L(user.role))
+    lines += [ctx.L("Language: {code}", code=user.language.upper()),
+              ctx.L("Recovery code: {state}", state=ctx.L("saved") if user.recovery_hash else ctx.L("not set"))]
+    yield from info(ctx, *lines)
+    return None
+
+
+def _save_profile(ctx, user, shown, apply):
+    """Shared end of a profile change: confirm, PIN, save, audit and an in-app note. Ends the session."""
+    ok = yield from confirm(ctx, ctx.L("Save this change?"), shown, yes="Save", no="Cancel")
+    if not ok:
+        return END(ctx, ctx.L("Cancelled."))
+    stop = yield from require_pin(ctx, user)
+    if stop:
+        return stop
+    apply()
+    S.audit("user.profile", "user", user.id, "ussd", actor=user, channel="ussd")
+    S.notify(user, "Your profile was updated.", "system")
+    db.session.commit()
+    return END(ctx, ctx.L("Saved."), shown)
+
+
+def change_name(ctx, user, h=None):
+    name = yield from entry(ctx, ctx.L("Enter full name"), v_text(2, 40))
+
+    def apply():
+        user.name = name
+        if h:
+            h.name = name
+    return (yield from _save_profile(ctx, user, name, apply))
+
+
+def change_village(ctx, user, h):
+    village = yield from entry(ctx, ctx.L("Enter village / area"), v_text(2, 40))
+    return (yield from _save_profile(ctx, user, village, lambda: setattr(h, "village", village)))
+
+
+def change_size(ctx, user, h):
+    size = yield from entry(ctx, ctx.L("Enter household size (number)"), v_int(1, 40))
+    return (yield from _save_profile(ctx, user, ctx.L("{n} people", n=size), lambda: setattr(h, "family_size", size)))
+
+
+def change_pin(ctx, user, h=None):
+    stop = yield from require_pin(ctx, user, forgot=False)  # the current PIN first, so a borrowed phone cannot change it
+    if stop:
+        return stop
+    pin = yield from entry(ctx, ctx.L("Create a new 4-digit PIN"), v_pin, secret=True)
+    yield from _confirm_pin(ctx, pin)
+    S.set_pin(user, pin, channel="ussd")
+    db.session.commit()
+    return END(ctx, ctx.L("PIN changed."))
+
+
+def change_recovery(ctx, user, h=None):
+    stop = yield from require_pin(ctx, user, forgot=False)
+    if stop:
+        return stop
+    code = yield from _new_recovery(ctx)
+    S.set_recovery(user, code, channel="ussd")
+    db.session.commit()
+    return END(ctx, ctx.L("Recovery code saved. Keep it private."))
+
+
+def profile_forgot(ctx, user, h=None):
+    return (yield from forgot_pin_flow(ctx, user))
+
+
+def delete_flow(ctx, user, h):
+    """Delete my account: the same erasure as the web. Open bookings are cancelled and refunded, personal data is
+    removed, and any balance is recorded as a cash refund the coordinator owes."""
+    bal = h.balance if h else 0
+    ok = yield from confirm(ctx, ctx.L("Delete your account?"), ctx.L("Your personal data is removed."),
+                            ctx.L("Your coordinator refunds {amount} in cash.", amount=M(bal)) if bal > 0 else "",
+                            yes="Delete my account", no="Keep")
+    if not ok:
+        return END(ctx, ctx.L("Kept."))
+    stop = yield from require_pin(ctx, user)
+    if stop:
+        return stop
+    S.send_sms(user.phone, ctx.L("Your CWAS account and personal data were deleted."), user)  # sent before the number is erased
+    current_app.extensions["cwas.erase_account"](user, "ussd")
+    db.session.commit()
+    ctx.erased = True
+    return END(ctx, ctx.L("Your account and personal data were deleted."))
+
+
