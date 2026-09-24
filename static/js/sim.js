@@ -487,7 +487,7 @@
 
   /* ── device shells ── */
   const DEVICES = { lite: { name: "Winebald Lite 2", w: 260, h: 580 }, nova: { name: "Winebald Nova 6", w: 296, h: 612 }, max: { name: "Winebald Max 9 Pro", w: 326, h: 684 } };
-  let phone = null, ui = null, model = C.store.get("cwas_device", "nova"), tourToken = 0;
+  let phone = null, ui = null, model = "nova", tourToken = 0;   // the lab always opens on the Nova 6
   const backFace = key => {
     if (key === "lite") return `<div class="body"></div><div class="lens" style="left:50%;top:34px;width:34px;height:34px;margin-left:-17px"></div><div class="flash-led" style="left:50%;top:44px;width:10px;height:10px;margin-left:34px"></div><div style="position:absolute;left:50%;top:120px;transform:translateX(-50%);display:grid;gap:4px">${"<i style='display:block;width:70px;height:3px;border-radius:3px;background:rgba(0,0,0,.4)'></i>".repeat(5)}</div><div class="wb-mark" style="top:300px">WINEBALD</div>`;
     if (key === "nova") return `<div class="body"></div><div class="plate" style="left:20px;top:20px;width:112px;height:112px;border-radius:30px"></div><div class="lens" style="left:36px;top:34px;width:38px;height:38px"></div><div class="lens" style="left:76px;top:78px;width:38px;height:38px"></div><div class="flash-led" style="left:96px;top:40px;width:14px;height:14px"></div><div class="wb-mark" style="top:300px">WINEBALD</div>`;
@@ -523,7 +523,7 @@
   }
 
   /* ── controls ── */
-  $$("[data-device]").forEach(b => b.addEventListener("click", () => { model = b.dataset.device; C.store.set("cwas_device", model); A.play("tap"); mount(); }));
+  $$("[data-device]").forEach(b => b.addEventListener("click", () => { model = b.dataset.device; A.play("tap"); mount(); }));
   $("[data-flip]").addEventListener("click", () => { const f = $(".flipper", rig); if (f) f.classList.toggle("flipped"); A.play("tap"); });
   $("[data-reset]").addEventListener("click", () => { A.play("poweroff"); if (phone) { phone.destroy(); phone = null; } consoleEl.innerHTML = ""; mount(); });
   phoneIn.addEventListener("change", () => { const v = phoneIn.value.trim(); if (v) { mount(); } });
