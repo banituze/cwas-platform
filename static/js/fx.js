@@ -241,18 +241,24 @@
     });
   }
   function counts() {
-    const els = $$(".kpi b,[data-count]").filter(e => /^[^\d]*\d[\d,.\s]*[^\d]*$/.test(e.textContent.trim()) && !/[a-z]-?\d/i.test(e.textContent.trim()));
+    const els = $$(".kpi b,[data-count]").filter(e => e.hasAttribute("data-count") || (/^[^\d]*\d[\d,.\s]*[^\d]*$/.test(e.textContent.trim()) && !/[a-z]-?\d/i.test(e.textContent.trim())));
     if (reduce) return;
     const o = io(es => es.forEach(en => {
       if (!en.isIntersecting) return; const el = en.target; o.unobserve(el);
-      const m = el.textContent.trim().match(/^(\D*)([\d][\d,.\s]*)(.*)$/); if (!m) return;
-      const raw = m[2].replace(/[,\s]/g, ""), target = parseFloat(raw); if (!isFinite(target) || target === 0) return;
-      const dec = (raw.split(".")[1] || "").length, comma = /,/.test(m[2]), t0 = performance.now();
-      const fmt = v => { const s = v.toFixed(dec); return comma ? Number(s).toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec }) : s; };
-      const tick = now => { const p = clamp((now - t0) / 1100, 0, 1); el.textContent = m[1] + fmt(target * ease(p)) + m[3]; if (p < 1) requestAnimationFrame(tick); else el.textContent = m[1] + m[2] + m[3]; };
+      // every number in the text counts up together (60-70% moves both ends), keeping its decimals and thousands commas
+      const txt = el.dataset.final || el.textContent.trim(), parts = txt.split(/(\d[\d,]*(?:\.\d+)?)/);
+      const nums = parts.map((p, i) => i % 2 ? { v: parseFloat(p.replace(/,/g, "")), dec: (p.split(".")[1] || "").length, comma: /,/.test(p) } : null);
+      if (!nums.some(n => n && n.v)) return;
+      const fmt = (n, v) => { const s = v.toFixed(n.dec); return n.comma ? Number(s).toLocaleString("en-US", { minimumFractionDigits: n.dec, maximumFractionDigits: n.dec }) : s; };
+      const t0 = performance.now(), tick = now => {
+        const p = clamp((now - t0) / 1100, 0, 1), k = ease(p);
+        el.textContent = p < 1 ? parts.map((s, i) => (i % 2 ? fmt(nums[i], nums[i].v * k) : s)).join("") : txt;
+        if (p < 1) requestAnimationFrame(tick);
+      };
       requestAnimationFrame(tick);
     }), { threshold: .4 });
-    els.forEach(e => o.observe(e));
+    // numbers wait at zero until they scroll in, so the final figure never shows before it counts up
+    els.forEach(e => { e.dataset.final = e.textContent.trim(); e.textContent = e.dataset.final.replace(/\d[\d,]*(?:\.\d+)?/g, n => n.replace(/,/g, "").replace(/^\d+/, "0").replace(/\.(\d+)$/, (m, d) => "." + "0".repeat(d.length))); o.observe(e); });
   }
 
   /* every bold page title rises letter by letter: page headings and section titles, on the site and in the dashboards */

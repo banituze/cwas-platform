@@ -33,7 +33,7 @@
 <section class="mx-auto mt-14 max-w-page px-4 md:mt-20" data-reveal>
   <div class="glass-strong grid gap-px overflow-hidden p-2 sm:grid-cols-2 lg:grid-cols-4">
     {% for big, text in (('89%', 'of households have a conflict over water at least once a month'), ('8.5 h', 'per week is what an average household spends waiting in queues'), ('60-70%', 'of informal water payments are never collected, so pumps are not repaired'), ('91%', 'would use a digital system if it is affordable')) %}
-    <div class="p-6"><p class="font-display text-4xl font-extrabold">{{ big }}</p><p class="mt-2 text-sm leading-relaxed text-mute">{{ t(text) }}</p></div>
+    <div class="p-6"><p class="font-display text-4xl font-extrabold tabular-nums" data-count>{{ big }}</p><p class="mt-2 text-sm leading-relaxed text-mute">{{ t(text) }}</p></div>
     {% endfor %}
   </div>
 </section>
