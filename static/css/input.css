@@ -695,3 +695,158 @@ body{background-image:radial-gradient(70vw 60vh at 8% 0%,var(--amb1),transparent
 }
 @layer components{
 }
+
+
+/* ── polish 4 (Sep 2026): theme dominance, one liquid-glass recipe (the footer's), themed logo tiles, links, a real
+   phone look everywhere, glass printer, jerrycans, simulator lock screen, mobile "More" sheet ─────────────────────── */
+@layer components{
+  /* liquid glass: the footer recipe everywhere. A see-through tinted fill, strong blur, a fine light edge, a soft deep shadow */
+  .glass,.glass-strong{background-color:var(--glass);background-image:none;border:1px solid var(--glass-line);-webkit-backdrop-filter:blur(30px) saturate(1.5);backdrop-filter:blur(30px) saturate(1.5);
+    box-shadow:inset 0 1px 1px var(--rim-hi),0 30px 70px -38px var(--shade)}
+  .glass-strong{background-color:var(--glass-strong)}
+  .glass::before,.glass-strong::before{background:linear-gradient(180deg,var(--rim-hi) 0%,var(--rim-lo) 16%,transparent 40%,transparent 70%,var(--rim-lo) 100%)}
+  .media-dark{--glass:rgb(var(--tint)/.34);--glass-strong:rgb(var(--tint)/.5);--glass-line:rgba(255,255,255,.16);--rim-hi:rgba(255,255,255,.2);--rim-lo:rgba(255,255,255,.06);--brand:255 255 255;--onbrand:14 26 20}
+  [data-theme=maitso] .media-dark{--brand:47 210 122;--onbrand:3 40 20}
+  [data-theme=mena] .media-dark{--brand:255 110 98;--onbrand:70 6 3}
+
+  /* buttons are filled with the theme colour; a fine edge keeps them visible on a page of the same colour */
+  .btn-primary,.btn-hot{background:rgb(var(--fill));color:rgb(var(--onfill));border:1px solid var(--fill-line);
+    box-shadow:inset 0 1px 1px rgba(255,255,255,.45),0 10px 26px -12px rgba(0,0,0,.45)}
+  .btn-primary:hover,.btn-hot:hover{filter:none;background:rgb(var(--fill)/.9)}
+  [data-theme=fotsy] .btn-primary:hover,[data-theme=fotsy] .btn-hot:hover{background:#2B2B2B}
+  .btn-ghost{color:rgb(var(--ink));border:1px solid var(--glass-line)}
+  .side a[aria-current=page],.bottomnav a[aria-current=page],input:checked+.slot,input:checked+.pick{background:rgb(var(--fill));color:rgb(var(--onfill));border:1px solid var(--fill-line);box-shadow:0 6px 18px -10px rgba(0,0,0,.5)}
+  [data-theme=fotsy] .side a[aria-current=page],[data-theme=fotsy] .bottomnav a[aria-current=page],[data-theme=fotsy] input:checked+.slot,[data-theme=fotsy] input:checked+.pick{box-shadow:0 0 0 1.5px rgb(var(--brand)),0 8px 20px -12px rgba(0,0,0,.4)}
+  .tframe{background:rgb(var(--fill));color:rgb(var(--onfill));border:1px solid var(--fill-line)}
+  .tframe use{color:inherit}
+  /* links: plain words in the theme's link colour (--link) and a heavier weight, with no line under them. The pointer
+     gets a soft wash, a press a stronger one, and keyboard focus a ring in the same colour */
+  .lnk{color:rgb(var(--link));font-weight:650;text-decoration:none;border-radius:.3em;transition:background-color .15s,box-shadow .15s,color .15s}
+  .lnk:hover{background:rgb(var(--link)/.12);box-shadow:0 0 0 .2em rgb(var(--link)/.12)}
+  .lnk:active{background:rgb(var(--link)/.2);box-shadow:0 0 0 .2em rgb(var(--link)/.2)}
+  .lnk:focus-visible{outline:2px solid rgb(var(--link));outline-offset:3px}
+
+  /* menus: they keep the theme's own text colours even inside the light-on-photo header, so nothing is ever white on white */
+  .nav-panel,.sheet{--ink:var(--t-ink);--mute:var(--t-mute);--brand:var(--t-brand);color:rgb(var(--ink));background-color:var(--menu-bg)!important;border-color:var(--glass-line)!important}
+  .nav-panel .ico{background:rgb(var(--brand)/.14);color:rgb(var(--brand))}
+  [data-theme=maitso] .nav-panel .ico,[data-theme=mena] .nav-panel .ico{background:rgba(255,255,255,.14);color:#fff}
+
+  /* logo tile: the mark on a tile of the theme colour (white, green or red). Used in the header, the auth card and icons. */
+  .logo-tile{display:inline-grid;place-items:center;flex:none;border-radius:28%;background:var(--tile);border:1px solid var(--tile-line);
+    box-shadow:inset 0 1px 1px rgba(255,255,255,.5),0 6px 16px -8px rgba(0,0,0,.45);--logo-ring:var(--tile-ring);--logo-drop:var(--tile-drop);--logo-arc:var(--tile-arc)}
+  .logo-tile svg{width:74%;height:74%}
+  .brand-word{color:rgb(var(--ink))}
+
+  /* hero: one photograph, live water; the card follows the theme */
+  .hero-card{--ink:var(--t-ink);--mute:var(--t-mute);color:rgb(var(--ink));background:var(--menu-bg);border:1px solid var(--glass-line)}
+  [data-theme=fotsy] .hero-card{--brand:17 17 17;--ok:0 118 54;--glass:rgba(17,17,17,.05);--glass-strong:rgba(17,17,17,.09);--glass-line:rgba(17,17,17,.14)}
+  [data-theme=maitso] .hero-card{background:rgba(0,90,43,.62)}
+  [data-theme=mena] .hero-card{background:rgba(150,24,16,.62)}
+  .hero-card .chip-ok{background:rgb(var(--ok)/.16);color:rgb(var(--ok))}
+  @media (max-width:639px){.hero-body{padding-top:9rem!important}}
+
+  /* hover reveals: the layer text always fits inside its card */
+  .hv-in{gap:8px;padding:18px;max-width:100%}
+  .hv-in .icon{width:34px;height:34px}
+  .hv-in b{font-size:clamp(1rem,2.2vw,1.2rem);line-height:1.15;text-wrap:balance}
+  .hv-in span{font-size:.8rem;padding:5px 12px;white-space:nowrap}
+
+  /* thermal printer: liquid glass in the theme colour, no brushed metal */
+  .p-body{background:var(--pb);border:1px solid var(--pb-line);-webkit-backdrop-filter:blur(26px) saturate(1.5);backdrop-filter:blur(26px) saturate(1.5);
+    box-shadow:inset 0 1px 1px rgba(255,255,255,.7),inset 0 -10px 24px -14px rgba(0,0,0,.25),0 30px 60px -28px rgba(0,0,0,.45)}
+  .p-body::before{background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0))}
+  .p-keys i{background:radial-gradient(circle at 35% 28%,rgba(255,255,255,.95),rgba(255,255,255,.35) 60%,rgba(0,0,0,.08));border:1px solid var(--pb-line)}
+  .p-foot{background:var(--pc-edge);opacity:.55}
+  .p-brand{color:var(--pc-ink)}
+  /* receipt: the stamp and the art are filled, so white text and white art stay readable on white paper */
+  .rc-stamp{background:var(--stamp);border-color:var(--stamp);color:#FFFFFF}
+  .rc-art{padding:10px;border-radius:14px;background:var(--bc-panel)}
+
+  /* footer */
+  .foot-top{display:grid;justify-items:center;gap:0}
+  .follow{display:flex;align-items:center;gap:6px;width:min(420px,100%);padding:5px 5px 5px 20px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);
+    -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+  .follow input{flex:1;min-width:0;background:transparent;border:0;outline:none;color:#fff;font-size:15px}
+  .follow input::placeholder{color:rgba(255,255,255,.72)}
+  .follow button{display:grid;place-items:center;width:40px;height:40px;border-radius:999px;background:#fff;color:#0E1A14;cursor:pointer;flex:none}
+  .follow:focus-within{border-color:#fff}
+  .foot-cta{background:rgb(var(--fill));color:rgb(var(--onfill));border:1px solid var(--fill-line)}
+  .foot-cta:hover{background:rgb(var(--fill)/.88)}
+  .foot-big{margin-top:44px;font:800 clamp(72px,21vw,290px)/.8 "Bricolage Grotesque Variable",system-ui,sans-serif;letter-spacing:-.05em;user-select:none;
+    background:linear-gradient(100deg,var(--big) 0%,var(--big) 38%,var(--big2) 50%,var(--big) 62%,var(--big) 100%);background-size:260% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+    animation:bigflow 7s ease-in-out infinite}
+  @keyframes bigflow{0%,100%{background-position:100% 0}50%{background-position:0 0}}
+  .foot-bar{justify-content:space-between}
+
+  /* real phones: the landing demo uses the device lab's body, bezel, buttons and glass */
+
+  /* device lab: the lock screen is its own opaque wallpaper; the home screen appears only after unlocking */
+  .os-wall{background:#0b1a12 url(/static/media/hero/hero-base-port.webp) center/cover}
+  .os-wall i{display:none}
+  .os-wall::after{background:linear-gradient(180deg,rgba(0,0,0,.3),rgba(0,0,0,.08) 40%,rgba(0,0,0,.42))}
+  .os-lock{background:#0b1a12 url(/static/media/hero/hero-base-port.webp) center/cover}
+  .os-lock::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(0,0,0,.32),rgba(0,0,0,.1) 45%,rgba(0,0,0,.5))}
+  .os-lock{isolation:isolate}
+  .os-lock .hint{bottom:34px}
+  .os.locked .os-home,.os.locked .dock,.os.locked .home-bar{opacity:0;visibility:hidden}
+  .os-home,.dock{transition:opacity .35s ease .12s,visibility .35s}
+  [data-theme=fotsy] .dev-nova .wb-mark,[data-theme=fotsy] .dev-max .wb-mark{color:rgba(0,0,0,.28)}
+
+  /* booking: the pour and real 20 L jerrycans that fill with the litres you choose */
+  .cans{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;margin-top:14px}
+  .can{position:relative;width:58px;aspect-ratio:176/247;cursor:pointer;border:0;padding:0;background:transparent;transition:transform .2s}
+  .can:hover{transform:translateY(-3px)}
+  .can img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+  .can .ce{filter:saturate(.2) brightness(1.2) contrast(.85);opacity:.5}
+  .can .cf{filter:saturate(1.3) brightness(.9) contrast(1.06);clip-path:inset(calc(100% - var(--f,0) * 86%) 0 0 0);transition:clip-path 1s cubic-bezier(.2,.9,.2,1)}
+  .can .cw{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(120,190,240,.0),rgba(28,110,190,.3));
+    -webkit-mask:url(/static/img/objects/jerrycan.webp) center/contain no-repeat;mask:url(/static/img/objects/jerrycan.webp) center/contain no-repeat;
+    clip-path:inset(calc(100% - var(--f,0) * 86%) 0 0 0);transition:clip-path 1s cubic-bezier(.2,.9,.2,1)}
+  .can .cl{position:absolute;left:8%;right:8%;height:3px;bottom:calc(var(--f,0) * 86%);border-radius:3px;background:rgba(255,255,255,.85);box-shadow:0 0 8px rgba(160,220,255,.9);
+    opacity:calc(var(--f,0) * (1 - var(--f,0)) * 4 + .001);transition:bottom 1s cubic-bezier(.2,.9,.2,1),opacity .6s;animation:slosh 2.6s ease-in-out infinite}
+  @keyframes slosh{50%{transform:translateY(-1.5px) rotate(-1.2deg)}}
+  .can:focus-visible{outline:2px solid rgb(var(--hot));outline-offset:4px;border-radius:10px}
+
+  /* the register and profile needs pickers: whole-row tick boxes */
+  .need{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;border:1px solid rgb(var(--ink)/.14);background:rgb(var(--ink)/.04);cursor:pointer;font-size:.88rem;font-weight:600}
+  .need input{width:18px;height:18px;flex:none;accent-color:rgb(var(--brand))}
+  .need:has(input:checked){border-color:rgb(var(--brand));background:rgb(var(--brand)/.12)}
+  select.field option{background:#fff;color:#0E1A14}
+
+  /* mobile app navigation: four tabs and a "More" sheet that lists every page */
+  @media (max-width:1023px){
+    .bottomnav{align-items:center}
+    .bottomnav a,.bottomnav summary{flex:1;min-width:0}
+    .bottomnav summary{list-style:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 8px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer}
+    .bottomnav summary::-webkit-details-marker{display:none}
+    .more{position:static;flex:1;display:flex}
+    .more[open] summary{background:rgb(var(--ink)/.12)}
+    .more-sheet{position:fixed;left:12px;right:12px;bottom:84px;z-index:61;display:grid;grid-template-columns:repeat(2,1fr);gap:6px;padding:10px;border-radius:28px;max-height:70vh;overflow:auto}
+    .more-sheet a{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:18px;font-size:14px;font-weight:600;text-decoration:none;color:rgb(var(--ink))}
+    .more-sheet a[aria-current=page]{background:rgb(var(--fill));color:rgb(var(--onfill))}
+    .more:not([open]) .more-sheet{display:none}
+  }
+  @media (min-width:1024px){.more{display:none}}
+
+  /* video banners (hot-linked Pexels clips show a local poster first and whenever the clip cannot load) */
+  .vid-band{position:relative;overflow:hidden;border-radius:28px;min-height:18rem;background:#0b1a12}
+  @media (min-width:768px){.vid-band{min-height:26rem}}
+  @media (prefers-reduced-motion:reduce){.foot-big{animation:none}.can .cl{animation:none}}
+}
+
+@layer components{
+  /* the CWAS sender on every phone: logo tile + name */
+  .sms-logo{width:34px;height:34px;border-radius:30%}
+  .banner .sms-logo{width:30px;height:30px}
+  .sms-head{display:flex;align-items:center;gap:10px;padding:4px 14px 10px;border-bottom:1px solid rgba(127,127,127,.2)}
+  .sms-head b{display:block;font-weight:700;line-height:1.1}
+  .sms-head small{display:block;font-size:11px;opacity:.6}
+  /* demo screens keep every line break and blank line of the real USSD screen */
+}
+@layer components{
+  @media (max-width:1023px){.more-sheet{--ink:var(--t-ink);--brand:var(--t-brand);background-color:var(--menu-bg)!important;box-shadow:0 30px 70px -20px rgba(0,0,0,.55)}}
+}
+/* the phone "More" sheet sits inside the blurred tab bar, where a nested backdrop blur cannot see the page: it is solid */
+:root,[data-theme="fotsy"]{--sheet-solid:#FFFFFF}[data-theme="maitso"]{--sheet-solid:#04391C}[data-theme="mena"]{--sheet-solid:#5E0905}
+@layer components{@media (max-width:1023px){.more-sheet{background:var(--sheet-solid)!important;-webkit-backdrop-filter:none;backdrop-filter:none}}}
+@layer components{@media (max-width:1023px){.more-sheet a{flex-direction:row;justify-content:flex-start;font-size:14px}}}
