@@ -1,0 +1,11 @@
+{# The demo phones: the device lab's own Winebald handsets (static/js/sim.js), with the same bodies, screens, apps and
+   sounds. They play a script the USSD engine itself rendered (ussd.demo_script), so every screen matches a real call.
+   Tap a phone to pause or resume it. #}
+{% import "partials/sim_labels.html" as SL with context %}
+<div class="pd-row" data-phones aria-label="{{ t('CWAS on three phones') }}">
+  {% for key, name, desc in (('lite', 'Winebald Lite 2', 'Keypad phone, 2.8 inch'), ('nova', 'Winebald Nova 6', 'Compact smartphone, 6.1 inch'), ('max', 'Winebald Max 9 Pro', 'Large smartphone, 6.9 inch')) %}
+  <figure class="pd" data-dev="{{ key }}" role="button" tabindex="0" aria-label="{{ name }}"><div class="pd-rig" aria-hidden="true"></div><figcaption><b>{{ name }}</b><span>{{ t(desc) }}</span></figcaption></figure>{% endfor %}
+</div>
+<p class="mt-3 text-center text-xs text-mute">{{ t('Tap a phone to pause or resume it.') }}</p>
+<script type="application/json" id="phones-init">{{ {'labels': SL.LB, 'dial': USSD_CODE, 'demo': [], 'script': phones_script(lang)}|tojson }}</script>
+<script src="{{ url_for('static', filename='js/sim.js') }}" defer></script>

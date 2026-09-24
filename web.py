@@ -1519,3 +1519,95 @@ def register_routes(app):
         db.session.commit()
         return jsonify(ok=True)
 
+    # ── simulator ───────────────────────────────────────────────────────────
+    def demo_households():
+        """The seeded demo households, oldest first. The coordinator has its own button and PIN, so it is not one of them."""
+        return User.query.filter(User.phone.like("+2613400%"), User.role == "member").order_by(User.id).limit(3).all()
+
+    def sim_allowed(phone):
+        if current_app.config["SIMULATOR_PUBLIC"]:
+            return True
+        if not current_user.is_authenticated:
+            return False
+        return current_user.is_staff or S.norm_phone(phone) == current_user.phone
+
+    @app.get("/simulator")
+    def simulator():
+        if not current_app.config["SIMULATOR_PUBLIC"] and not current_user.is_authenticated:
+            return redirect(url_for("login", next=url_for("simulator")))
+        demo = demo_households() if current_app.config["DEMO_DATA"] else []
+        return render_template("simulator.html", own=current_user.phone if current_user.is_authenticated else "", demo=demo, prod=current_app.config["IS_PROD"])
+
+    @app.get("/simulator/api/tour/<kind>")
+    @limiter.limit("30 per minute")
+    def sim_tour(kind):
+        """A guided run for the device lab, planned against the live data so it can finish every time: a household with a
+        free day and the money to book, and the coordinator's approval only when something waits. Only while demo data is on (SEED_DEMO)."""
+        if not current_app.config["SIMULATOR_PUBLIC"] and not current_user.is_authenticated:
+            abort(403)
+        homes = demo_households() if current_app.config["DEMO_DATA"] else []
+        if kind not in ("register", "deposit", "book", "approve") or not homes:
+            abort(404)
+        if kind == "register":
+            phone = next((p for p in ("+2613400009%03d" % (100 + secrets.randbelow(900)) for _ in range(40))
+                          if not User.query.filter_by(phone=p).first()), None)
+            if not phone:
+                abort(503)
+            return jsonify(phone=phone, steps=["2", "1", "Winebald", "Ampotaka", "5", "0", "2", "1", "1234", "1234", "246810", "246810"])
+        if kind == "deposit":
+            return jsonify(phone=homes[0].phone, steps=["2", "1", "1", "3", "1", "1234"])
+        if kind == "approve":
+            coord = User.query.filter(User.phone.like("+2613400%"), User.role == "coordinator").order_by(User.id).first()
+            if not coord:
+                abort(404)
+            waiting = Booking.query.filter_by(status="pending").first()
+            return jsonify(phone=coord.phone, steps=["2", "2", "1", "1", "2468"] if waiting else ["2", "1"])
+        srcs, days = S.operational_sources()[:5], S.booking_days()
+        for d_i in range(1, len(days)):  # from tomorrow: some of today's slots may be over
+            for u in homes:
+                h = u.household
+                if not h or Booking.query.filter(Booking.household_id == h.id, Booking.date == days[d_i], Booking.status.in_(Booking.ACTIVE)).first():
+                    continue
+                for s_i, src in enumerate(srcs):
+                    opts = S.litre_options(src)
+                    if opts and h.balance >= S.price_quote(h, src, opts[0])[0] and S.slot_list(src, days[d_i], only_open=True):
+                        return jsonify(phone=u.phone, steps=["2", "2", str(s_i + 1), str(d_i + 1), "1", "1", "1", "1234"])
+        return jsonify(phone=homes[0].phone, steps=["2", "2", "1", "2", "1", "1", "1", "1234"])
+
+    @app.post("/simulator/api/ussd")
+    @limiter.limit("90 per minute")
+    def sim_ussd():
+        d = request.get_json(silent=True) or {}
+        phone = S.norm_phone(d.get("phone", ""))
+        if not phone or not sim_allowed(phone):
+            return jsonify(error="phone"), 403
+        sid = "SIM-" + hashlib.sha256((str(d.get("session", "")) + phone).encode()).hexdigest()[:24]
+        out = U.handle_ussd(sid, phone, str(d.get("text", ""))[:200], "simulator")
+        return jsonify(response=out, ended=out.startswith("END"), screen=out[4:])
+
+    @app.post("/simulator/api/sms")
+    @limiter.limit("60 per minute")
+    def sim_sms():
+        d = request.get_json(silent=True) or {}
+        phone = S.norm_phone(d.get("phone", ""))
+        if not phone or not sim_allowed(phone):
+            return jsonify(error="phone"), 403
+        before = db.session.query(db.func.coalesce(db.func.max(SmsLog.id), 0)).scalar()
+        reply = U.handle_sms(phone, str(d.get("text", ""))[:200])
+        if reply:
+            S.send_sms(phone, reply, live=False)
+        db.session.commit()
+        rows = SmsLog.query.filter(SmsLog.phone == phone, SmsLog.direction == "out", SmsLog.id > before).order_by(SmsLog.id).all()
+        return jsonify(reply=reply, messages=[{"id": r.id, "body": r.body, "at": (r.created_at + timedelta(hours=3)).strftime("%H:%M")} for r in rows],
+                       last=db.session.query(db.func.coalesce(db.func.max(SmsLog.id), 0)).scalar())
+
+    @app.get("/simulator/api/inbox")
+    @limiter.limit("60 per minute")
+    def sim_inbox():
+        phone = S.norm_phone(request.args.get("phone", ""))
+        if not phone or not sim_allowed(phone):
+            return jsonify(error="phone"), 403
+        after = int_arg("after", 0, 0, 10 ** 12, request.args)
+        rows = SmsLog.query.filter(SmsLog.phone == phone, SmsLog.direction == "out", SmsLog.id > after).order_by(SmsLog.id).limit(30).all()
+        return jsonify(messages=[{"id": r.id, "body": r.body, "at": (r.created_at + timedelta(hours=3)).strftime("%H:%M")} for r in rows],
+                       last=db.session.query(db.func.coalesce(db.func.max(SmsLog.id), 0)).scalar())
