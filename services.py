@@ -477,3 +477,77 @@ def request_pin_help(user, channel="sms"):
     return True
 
 
+# ── slots (FR3.2, FR4.1, FR9.2) ─────────────────────────────────────────────
+def price_quote(h, source, litres):
+    base = round(source.tariff_per_100l * litres / 100)
+    pct = {"standard": 0, "elevated": get_int("discount_elevated"), "high": get_int("discount_high")}.get(h.priority_level, 0)
+    return round(base * (100 - pct) / 100), pct, base
+
+
+def litre_options(source):
+    return [l for l in LITRE_STEPS if l <= source.max_litres] or [source.max_litres]
+
+
+def slot_list(source, day, only_open=False):
+    if source.status != "operational":
+        return []
+    now = now_local()
+    counts = dict(db.session.query(Booking.start_min, func.count(Booking.id)).filter(
+        Booking.source_id == source.id, Booking.date == day, Booking.status.in_(Booking.ACTIVE)
+    ).group_by(Booking.start_min).all())
+    day_total = sum(counts.values())
+    d0 = datetime.combine(day, datetime.min.time())
+    windows = Maintenance.query.filter(Maintenance.source_id == source.id, Maintenance.status == "scheduled",
+                                       Maintenance.starts_at < d0 + timedelta(days=1), Maintenance.ends_at > d0).all()
+    out, m = [], source.open_min
+    step = max(5, source.slot_minutes)
+    while m + step <= source.close_min:
+        s_dt, e_dt = d0 + timedelta(minutes=m), d0 + timedelta(minutes=m + step)
+        used = counts.get(m, 0)
+        if e_dt <= now:
+            m += step
+            continue
+        if any(w.starts_at < e_dt and w.ends_at > s_dt for w in windows):
+            state = "blocked"
+        elif used >= source.slot_capacity or day_total >= source.daily_capacity:
+            state = "full"
+        else:
+            state = "open"
+        if not only_open or state == "open":
+            out.append({"start_min": m, "end_min": m + step, "label": f"{fmt_min(m)}-{fmt_min(m + step)}",
+                        "used": used, "capacity": source.slot_capacity, "free": max(0, source.slot_capacity - used),
+                        "state": state})
+        m += step
+    return out
+
+
+def booking_days():
+    t = today_local()
+    return [t + timedelta(days=i) for i in range(HORIZON_DAYS)]
+
+
+def operational_sources():
+    return WaterSource.query.filter_by(status="operational").order_by(WaterSource.name).all()
+
+
+def alternatives(source, day, litres, limit=3):
+    """FR11.5 conflict resolution: nearest open slots, same source first, then same time elsewhere."""
+    found = []
+    for d in booking_days():
+        if d < day:
+            continue
+        for s in slot_list(source, d, only_open=True):
+            found.append((abs((d - day).days) * 1440 + abs(s["start_min"] - 720), source, d, s))
+    for other in operational_sources():
+        if other.id == source.id:
+            continue
+        for s in slot_list(other, day, only_open=True)[:2]:
+            found.append((2000 + abs(s["start_min"] - 720), other, day, s))
+    found.sort(key=lambda x: x[0])
+    return [{"source": f[1], "date": f[2], "slot": f[3]} for f in found[:limit]]
+
+
+def alt_text(alts, lang):
+    return "; ".join(f"{a['source'].name} {a['date']:%d/%m} {a['slot']['label']}" for a in alts) or tt("no free slot this week", lang)
+
+
