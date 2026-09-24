@@ -4,7 +4,7 @@ from translations import TR
 LANGS = {"mg": {"name": "Malagasy"}, "fr": {"name": "Français"}, "en": {"name": "English"}}
 THEMES = {  # the flag's three fields per theme: the same colours as the CSS custom properties
     "saina": {"label": "Default", "f1": "#FFFFFF", "f2": "#FC3D32", "f3": "#007E3A"},  # default: the flag itself, all three colours
-    "fotsy": {"label": "White", "f1": "#FFFFFF", "f2": "#FFE3E0", "f3": "#DDF0E5"},
+    "fotsy": {"label": "White", "f1": "#FFFFFF", "f2": "#FFE3E0", "f3": "#DDF0E5", "sw": ("#FFFFFF", "#FC3D32", "#111111")},  # swatch: the White logo (white, red arc, black rings)
     "maitso": {"label": "Green", "f1": "#003D1D", "f2": "#007E3A", "f3": "#005A2B"},
     "mena": {"label": "Red", "f1": "#7A0F0A", "f2": "#FC3D32", "f3": "#B8241B"},
 }

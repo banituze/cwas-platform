@@ -41,7 +41,7 @@
     <div class="menu" data-menu>
       <button type="button" class="btn-icon" data-menu-btn data-tip="{{ t('Theme') }}" aria-label="{{ t('Theme') }}" aria-expanded="false">{{ icon('palette') }}</button>
       <div class="nav-panel glass-strong">
-        {% for key, th in THEMES.items() %}<button type="button" data-theme-set="{{ key }}" class="flex w-full items-center gap-3 rounded-2xl p-3 text-left text-sm font-semibold hover:bg-ink/10" aria-pressed="{{ 'true' if key == theme else 'false' }}"><span class="swatch" style="--a:{{ th.f1 }};--b:{{ th.f2 }};--c:{{ th.f3 }}"><i><b style="background:{{ th.f1 }}"></b><b style="background:{{ th.f2 }}"></b><b style="background:{{ th.f3 }}"></b></i></span>{{ t(th.label) }}<span class="tick ml-auto" aria-hidden="true">{{ icon('check') }}</span></button>{% endfor %}
+        {% for key, th in THEMES.items() %}{% set sw = th.sw or (th.f1, th.f2, th.f3) %}<button type="button" data-theme-set="{{ key }}" class="flex w-full items-center gap-3 rounded-2xl p-3 text-left text-sm font-semibold hover:bg-ink/10" aria-pressed="{{ 'true' if key == theme else 'false' }}"><span class="swatch" style="--a:{{ sw[0] }};--b:{{ sw[1] }};--c:{{ sw[2] }}"><i><b style="background:{{ sw[0] }}"></b><b style="background:{{ sw[1] }}"></b><b style="background:{{ sw[2] }}"></b></i></span>{{ t(th.label) }}<span class="tick ml-auto" aria-hidden="true">{{ icon('check') }}</span></button>{% endfor %}
       </div>
     </div>
     {% if current_user.is_authenticated %}
