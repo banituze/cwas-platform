@@ -85,3 +85,64 @@ class WaterSource(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
 
 
+class Booking(db.Model):
+    __tablename__ = "bookings"
+    id = db.Column(db.Integer, primary_key=True)
+    ref = db.Column(db.String(24), unique=True, nullable=False)
+    household_id = db.Column(db.Integer, db.ForeignKey("households.id"), nullable=False, index=True)
+    source_id = db.Column(db.Integer, db.ForeignKey("water_sources.id"), nullable=False, index=True)
+    date = db.Column(db.Date, nullable=False, index=True)
+    start_min = db.Column(db.Integer, nullable=False)
+    end_min = db.Column(db.Integer, nullable=False)
+    litres = db.Column(db.Integer, nullable=False)
+    amount = db.Column(db.Integer, nullable=False, default=0)
+    discount_pct = db.Column(db.Integer, nullable=False, default=0)
+    # pending|approved|denied|cancelled|collected|no_show   (SRS booking lifecycle)
+    status = db.Column(db.String(12), nullable=False, default="pending", index=True)
+    channel = db.Column(db.String(12), nullable=False, default="web")  # web|ussd|system
+    priority_score = db.Column(db.Integer, nullable=False, default=0)
+    ai_note = db.Column(db.String(255), nullable=False, default="")
+    ai_suggestion = db.Column(db.String(8), nullable=False, default="review")  # approve|review|deny
+    decision_note = db.Column(db.String(255), nullable=False, default="")
+    decided_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    decided_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+    household = db.relationship("Household", back_populates="bookings")
+    source = db.relationship("WaterSource")
+
+    __table_args__ = (
+        Index("ux_one_booking_per_household_day", "household_id", "date", unique=True,
+              sqlite_where=text("status IN ('pending','approved','collected')"),
+              postgresql_where=text("status IN ('pending','approved','collected')")),
+        Index("ix_booking_slot", "source_id", "date", "start_min"),
+    )
+
+    ACTIVE = ("pending", "approved", "collected")
+
+
+class WalletTxn(db.Model):
+    """Append-only wallet ledger. `amount` is signed: deposits and refunds are positive, debits negative."""
+    __tablename__ = "wallet_txns"
+    id = db.Column(db.Integer, primary_key=True)
+    household_id = db.Column(db.Integer, db.ForeignKey("households.id"), nullable=False, index=True)
+    kind = db.Column(db.String(16), nullable=False)  # deposit|booking_debit|booking_refund|adjustment
+    amount = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.String(10), nullable=False, default="posted")  # posted|pending|failed
+    provider = db.Column(db.String(16), nullable=False, default="")  # orange|airtel|cash|wallet
+    reference = db.Column(db.String(32), unique=True, nullable=False)
+    booking_id = db.Column(db.Integer, db.ForeignKey("bookings.id"), nullable=True, index=True)
+    balance_after = db.Column(db.Integer, nullable=True)
+    note = db.Column(db.String(255), nullable=False, default="")
+    created_by = db.Column(db.Integer, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+    household = db.relationship("Household")
+    booking = db.relationship("Booking")
+
+    __table_args__ = (
+        # A wallet-funded booking receives at most one linked refund and one debit.
+        Index("ux_one_debit_per_booking", "booking_id", "kind", unique=True,
+              sqlite_where=text("kind IN ('booking_debit','booking_refund') AND status='posted'"),
+              postgresql_where=text("kind IN ('booking_debit','booking_refund') AND status='posted'")),
+    )
+
+
