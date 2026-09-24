@@ -214,6 +214,13 @@ def register_routes(app):
                     return redirect(url_for("login_mfa"))
                 else:
                     return finish_login(user, request.form.get("next"))
+            elif user and user.role == "member" and not user.password_hash and user.pin_hash and check_password_hash(user.pin_hash, pw):
+                # registered by USSD: the PIN opens the web account once, then the person chooses the password for next time
+                if not user.is_active_flag:
+                    say("This account is not active yet. Ask an administrator.", "err")
+                else:
+                    user.must_change_password = True
+                    return finish_login(user, url_for("change_password"))
             else:
                 check_password_hash(DUMMY_HASH, pw)
                 if user:
@@ -423,7 +430,7 @@ def register_routes(app):
     def change_password():
         if request.method == "POST":
             cur, new = request.form.get("current", ""), request.form.get("password", "")
-            if not check_password_hash(current_user.password_hash or DUMMY_HASH, cur):
+            if current_user.password_hash and not check_password_hash(current_user.password_hash, cur):  # a USSD member sets a first one
                 say("Current password is wrong.", "err")
             elif S.password_error(new):
                 say(S.password_error(new), "err")
