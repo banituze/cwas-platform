@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% from "partials/macros.html" import icon with context %}
+{% block title %}{{ t(d.title) }}{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-page px-4 pt-36">
+  <header class="max-w-3xl"><h1 class="text-5xl font-extrabold md:text-6xl">{{ t(d.title) }}</h1>
+    <p class="mt-4 text-sm text-mute">{{ t('Last updated') }}: {{ updated }}</p>
+    <p class="mt-5 text-lg leading-relaxed text-mute">{{ t(d.intro) }}</p></header>
+  <div class="legal mt-12">
+    <nav aria-label="{{ t('Contents') }}" class="glass-strong hidden p-4 md:block"><p class="mb-2 px-2 text-xs font-bold uppercase tracking-wide text-mute">{{ t('Contents') }}</p>
+      <ol class="space-y-0.5 text-sm">{% for h, _ in d.sections %}<li><a class="block rounded-2xl px-3 py-1.5 no-underline hover:bg-ink/10" href="#s{{ loop.index }}">{{ loop.index }}. {{ t(h) }}</a></li>{% endfor %}</ol>
+      <div class="mt-4 border-t border-ink/10 pt-3 text-sm">{% for k, label in (('terms','Terms of Service'),('privacy','Privacy Policy'),('refunds','Refund Policy')) if k != doc %}<a class="-mx-2 mb-0.5 block rounded-lg px-2 py-1 hover:bg-ink/10" href="{{ url_for('legal', doc=k) }}">{{ t(label) }}</a>{% endfor %}</div></nav>
+    <div class="glass-strong p-7 md:p-10">
+      {% for h, paras in d.sections %}<section class="sec {{ 'mt-9' if not loop.first }}"><h2 id="s{{ loop.index }}" class="text-2xl font-bold">{{ loop.index }}. {{ t(h) }}</h2>{% for p in paras %}<p class="text-mute">{{ t(p) }}</p>{% endfor %}</section>{% endfor %}
+      <p class="mt-10 rounded-2xl bg-ink/[.06] p-4 text-sm text-mute">{{ t('This is a working document for the pilot. Ask your coordinator if anything is unclear.') }}</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
