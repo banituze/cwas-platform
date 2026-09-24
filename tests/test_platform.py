@@ -322,8 +322,9 @@ class Platform(unittest.TestCase):
         bodies = " || ".join(self.sms_to(phone))
         for expect in ("Welcome Winebald!", "Deposit WT-", "recorded: +5,000 MGA via Orange Money"):
             self.assertIn(expect, bodies)
-        for quiet in ("Booked CW-", f"Booking {ref} was cancelled", "Language set"):  # routine news stays in the app
-            self.assertNotIn(quiet, bodies)
+        for loud in ("Booked CW-", f"Booking {ref} was cancelled"):  # a booking waiting for approval and a refund are texted
+            self.assertIn(loud, bodies)
+        self.assertNotIn("Language set", bodies)  # a language change stays in the app
 
     def test_43_replay_never_posts_twice(self):
         phone = "+261340000104"

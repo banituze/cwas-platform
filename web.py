@@ -297,6 +297,10 @@ def register_routes(app):
                     S.set_needs(hh, flags, band, home)
                     db.session.add(hh)
                 S.audit("user.register", "user", u.id, u.role, actor=u)
+                if want_coord:  # a welcome by SMS as soon as the account exists
+                    S.event(u, "Welcome {name}! Your coordinator account is waiting for approval.", "system", sms=True, name=S.first_name(name))
+                else:
+                    S.event(u, "Welcome {name}! Account created. Dial {dial} to book a slot.", "system", sms=True, name=S.first_name(name), dial=S.DIAL)
                 for a in User.query.filter_by(role="admin"):
                     if want_coord:
                         S.notify(a, "{name} asked for coordinator access. Approve in Users.", "system", name=name)

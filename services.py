@@ -373,7 +373,7 @@ def deposit(h, amount, provider, actor=None, channel="web"):
         event(h.user, "Deposit {ref} recorded: +{amount} via {provider}. Your balance is {balance}.", "wallet", sms=True, ref=txn.reference,
               amount=fmt_ar(amount), provider=label, balance=fmt_ar(h.balance))
     else:
-        event(h.user, "Deposit {ref} of {amount} via {provider} is waiting for confirmation.", "wallet", ref=txn.reference,
+        event(h.user, "Deposit {ref} of {amount} via {provider} is waiting for confirmation.", "wallet", sms=True, ref=txn.reference,
               amount=fmt_ar(amount), provider=label)
     return txn
 
@@ -743,7 +743,7 @@ def create_booking(h, source_id, day, start_min, litres, channel="web", actor=No
         event(h.user, "Booking {ref} is approved: {source}, {date} {time}.", "booking", sms=True, ref=ref, source=src.name,
               date=f"{day:%d/%m}", time=fmt_min(b.start_min))
     else:
-        event(h.user, "Booked {ref}: {source} {date} {time}, {litres} L, {amount}. Status: pending approval.", "booking",
+        event(h.user, "Booked {ref}: {source} {date} {time}, {litres} L, {amount}. Status: pending approval.", "booking", sms=True,
               ref=ref, source=src.name, date=f"{day:%d/%m}", time=fmt_min(b.start_min), litres=litres, amount=fmt_ar(amount))
     return b
 
@@ -767,7 +767,7 @@ def cancel_booking(b, actor=None, channel="web"):
     b.status = "cancelled"
     amount = _refund(b, f"Refund for cancelled {b.ref}", actor, channel)
     audit("booking.cancel", "booking", b.ref, f"refund {amount}", actor=actor, channel=channel)
-    event(b.household.user, "Booking {ref} was cancelled. {amount} returned to your wallet.", "booking", ref=b.ref, amount=fmt_ar(amount))
+    event(b.household.user, "Booking {ref} was cancelled. {amount} returned to your wallet.", "booking", sms=True, ref=b.ref, amount=fmt_ar(amount))
     return b
 
 
@@ -794,7 +794,7 @@ def mark_collected(b, actor=None, channel="web"):
         raise ServiceError("not_approved")
     b.status = "collected"
     audit("booking.collected", "booking", b.ref, "", actor=actor, channel=channel)
-    event(b.household.user, "Water collected for booking {ref}. Thank you!", "booking", ref=b.ref)
+    event(b.household.user, "Water collected for booking {ref}. Thank you!", "booking", sms=True, ref=b.ref)
     return b
 
 
@@ -803,7 +803,7 @@ def mark_no_show(b, actor=None, channel="web"):
         raise ServiceError("not_approved")
     b.status = "no_show"
     audit("booking.no_show", "booking", b.ref, "", actor=actor, channel=channel)
-    event(b.household.user, "Booking {ref} was marked as not collected.", "booking", ref=b.ref)
+    event(b.household.user, "Booking {ref} was marked as not collected.", "booking", sms=True, ref=b.ref)
     return b
 
 
