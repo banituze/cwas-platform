@@ -1,14 +1,15 @@
-{# The install card (static/js/install.js): hidden until the browser can install CWAS, or on iPhone and iPad; shows the app icon
-   of the theme on screen. #}
+{# The install card (static/js/install.js): a small liquid glass card, fixed to the bottom of the screen, that offers to install
+   CWAS. It is part of the first paint of every page; static/js/boot.js takes it away inside the installed app, and on iPhone
+   and iPad it shows the two taps that add CWAS to the home screen. The Install button joins it as soon as the browser offers
+   its own prompt. The icon is the theme's own logo tile, drawn by CSS, so it changes the instant the theme does. #}
 {% from "partials/macros.html" import icon with context %}
-<aside class="install-card" data-install hidden aria-labelledby="install-title">
-  <span class="ic-sheen" aria-hidden="true"></span>
-  <img class="ic-icon" data-install-icon src="{{ url_for('static', filename='img/brand/favicon-' ~ theme ~ '.svg') }}" alt="" width="56" height="56">
+<aside class="install-card" data-install aria-labelledby="install-title">
+  <span class="logo-tile ic-icon" aria-hidden="true"><svg viewBox="0 0 64 64"><use href="#logo"/></svg></span>
   <div class="ic-copy">
     <p class="ic-title" id="install-title">{{ t('Install CWAS') }}</p>
     <p class="ic-text" data-install-text>{{ t('Add it to your home screen. It opens in one tap, like an app.') }}</p>
     <p class="ic-text" data-install-ios hidden>{{ t('Tap Share, then Add to Home Screen.') }}</p>
   </div>
+  <button type="button" class="btn btn-primary ic-go" data-install-go hidden>{{ t('Install') }}</button>
   <button type="button" class="ic-x" data-install-close aria-label="{{ t('Close') }}">{{ icon('x') }}</button>
-  <div class="ic-actions" data-install-actions><button type="button" class="btn btn-ghost" data-install-later>{{ t('Not now') }}</button><button type="button" class="btn btn-primary" data-install-go>{{ t('Install') }}</button></div>
 </aside>

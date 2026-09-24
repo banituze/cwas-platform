@@ -1298,7 +1298,7 @@ class Platform(unittest.TestCase):
         self.assertTrue(c.get("/manifest.webmanifest?theme=nope").get_json()["icons"][0]["src"].startswith("/static/icons/saina/"))
         self.assertIn('set("manifest", `/manifest.webmanifest?theme=${th}`)', read("static/js/app.js"))
         js = read("static/js/install.js")
-        for s in ("beforeinstallprompt", "appinstalled", "cwas-install-dismissed", "display-mode: standalone", "cwas:theme"):
+        for s in ("beforeinstallprompt", "appinstalled", "display-mode: standalone", "cwas:theme"):
             self.assertIn(s, js)
         css = read("static/css/input.css")
         for s in (".install-card{position:fixed", "@media print{.install-card{display:none!important}}", ".lab{touch-action:manipulation}",
