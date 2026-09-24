@@ -971,3 +971,93 @@ def broadcast(message, actor, channel="web"):
     return n
 
 
+# ── runner ──────────────────────────────────────────────────────────────────
+def _start(ctx, factory):
+    ctx.consumed, ctx.rejected, ctx.flash = 0, False, ""
+    gen = factory(ctx)
+    return gen, next(gen)
+
+
+def _replay(ctx, factory, path):
+    gen, screen = _start(ctx, factory)
+    for p in path:
+        ctx.rejected = False
+        ctx.consumed += 1
+        try:
+            screen = gen.send(p)
+        except StopIteration as stop:
+            return None, stop.value or END(ctx, ctx.L("Done."))
+    return gen, screen
+
+
+def _run(ctx, factory, tokens):
+    gen, screen = _start(ctx, factory)
+    path = []
+    for tok in tokens:
+        if tok == "":
+            continue
+        if tok == "99":
+            ctx.trail.append("99")
+            return END(ctx, ctx.L("Thank you for using CWAS."))
+        if tok in ("00", "97"):
+            ctx.trail.append(tok)
+            if tok == "97":
+                if ctx.home_len and len(path) <= ctx.home_len:
+                    continue  # already at the role's home menu
+                if path:
+                    path.pop()
+            else:
+                path = path[:ctx.home_len] if ctx.home_len else []
+            gen, screen = _replay(ctx, factory, path)
+            if gen is None:
+                return screen
+            continue
+        ctx.trail.append("*" if ctx.secret else tok[:24])
+        ctx.rejected, ctx.flash = False, ""
+        ctx.consumed += 1
+        try:
+            screen = gen.send(tok)
+        except StopIteration as stop:
+            return stop.value or END(ctx, ctx.L("Done."))
+        if not ctx.rejected:
+            path.append(tok)
+    return screen or END(ctx, ctx.L("Done."))
+
+
+def handle_ussd(session_id, phone, text, channel="telco"):
+    """One hop of a USSD session. Returns the CON/END body. A repeated identical hop returns the stored answer."""
+    phone = S.norm_phone(phone)
+    text = (text or "").strip()
+    session_id = (session_id or "none")[:80]
+    key = hashlib.sha256(f"{session_id}|{text}".encode()).hexdigest()[:24]
+    sess = UssdSession.query.filter_by(session_id=session_id).first()
+    if sess and sess.ended and sess.trail.endswith("#" + key):
+        return sess.last_response
+    user = User.query.filter_by(phone=phone, is_active_flag=True).first() if phone else None
+    ctx = Ctx(user.language if user else "mg", user, phone, channel)
+    try:
+        out = "END Invalid phone." if not phone else _run(ctx, session_flow, text.split("*") if text else [])
+    except Exception:  # never leak a traceback to a handset
+        db.session.rollback()
+        log.exception("USSD failure")
+        out = "END Service unavailable. Please retry."
+    _log_session(session_id, phone, channel, ctx, out, key)
+    return out
+
+
+def _log_session(session_id, phone, channel, ctx, out, key):
+    try:
+        sess = UssdSession.query.filter_by(session_id=session_id).first()
+        if not sess:
+            sess = UssdSession(session_id=session_id, phone="deleted" if ctx.erased else (phone or "?"), channel=channel)
+            db.session.add(sess)
+        sess.hops = (sess.hops or 0) + 1
+        sess.updated_at = utcnow()
+        sess.ended = out.startswith("END")
+        sess.trail = (" > ".join(ctx.trail[-12:]))[:330] + "#" + key
+        sess.last_response = out[:200]
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
