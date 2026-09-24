@@ -1309,6 +1309,10 @@ def register_routes(app):
             flash(T("Temporary password for {name}: {pw} (shown once).", name=u.name, pw=temp), "dev")
         elif action == "role" and request.form.get("role") in ("member", "coordinator", "admin"):
             u.role = request.form["role"]
+            if u.role != "member":  # the member welcome (dial to book a slot) no longer applies
+                Notification.query.filter(Notification.user_id == u.id, Notification.key.like("Welcome {name}! Account created.%")).delete(synchronize_session=False)
+            S.notify(u, {"member": "Your account is now a household account.", "coordinator": "Your account is now a coordinator account.",
+                         "admin": "Your account is now an administrator account."}[u.role], "system")
             if u.role == "member" and not u.household:
                 db.session.add(Household(user_id=u.id, name=u.name))
             S.audit("user.role", "user", u.id, u.role)
