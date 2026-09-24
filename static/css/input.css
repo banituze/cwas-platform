@@ -550,10 +550,14 @@ html[data-theme="saina"]{
   .dk-stick{position:sticky;top:0;height:100vh;overflow:hidden}
   .dk-scene{position:absolute;inset:0;perspective:1000px;perspective-origin:50% 46%}
   .dk-grid{position:absolute;left:50%;top:54%;width:0;height:0;transform-style:preserve-3d}
-  .dk-card{position:absolute;left:-98px;top:-70px;width:196px;height:140px;transform-style:preserve-3d;will-change:transform,opacity}
+  /* --dk: cards are laid out this many times larger and kept this many times further from the camera (static/js/fx.js), so the
+     perspective never enlarges them past the size they were drawn at and their text stays sharp to the end of the dive */
+  .dk-card{--dk:3;position:absolute;left:calc(-98px * var(--dk));top:calc(-70px * var(--dk));width:calc(196px * var(--dk));height:calc(140px * var(--dk));transform-style:preserve-3d;will-change:transform,opacity}
+  .dk-card>.orb-face{zoom:var(--dk);-webkit-backdrop-filter:none;backdrop-filter:none}
+  @supports not (zoom:2){.dk-card{--dk:1}}
   .dk-card .orb-face{padding:14px}
   .dk-card .orb-face .ico{height:36px;width:36px}.dk-card .orb-face b{font-size:1.02rem}
-    @media (max-width:560px){.dk-card{left:-56px;top:-46px;width:112px;height:92px}.dk-card .orb-face{padding:8px}.dk-card .orb-face .ico{height:26px;width:26px}.dk-card .orb-face b{font-size:.72rem}.dk-card .orb-face p{display:none}}
+    @media (max-width:560px){.dk-card{left:calc(-56px * var(--dk));top:calc(-46px * var(--dk));width:calc(112px * var(--dk));height:calc(92px * var(--dk))}.dk-card .orb-face{padding:8px}.dk-card .orb-face .ico{height:26px;width:26px}.dk-card .orb-face b{font-size:.72rem}.dk-card .orb-face p{display:none}}
   @media (prefers-reduced-motion:reduce){.deck{height:auto}.dk-stick{position:static;height:auto;padding:20px 0}.dk-scene{position:static;perspective:none}.dk-grid{position:static;display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;width:auto;height:auto;transform:none!important}.dk-card{position:static;width:auto;height:140px;transform:none!important;opacity:1!important}.tn-hud{display:none}.tn-head{position:static;margin-bottom:16px}}
 
 

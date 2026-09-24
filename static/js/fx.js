@@ -157,19 +157,22 @@
   /* ── grid deck: cards are dealt from a rotating stack into a 3D grid, which then dives through the camera ── */
   function griddeck(el) {
     const grid = $(".dk-grid", el), cards = $$(".dk-card", el), bar = $("[data-dk-bar]", el), n = cards.length; if (!n || reduce) return;
+    // K: the cards are laid out K times larger (--dk in CSS) and everything is placed K times further from the camera, which
+    // looks identical on screen but keeps the drawing at full resolution; P is the .dk-scene perspective
+    const K = parseFloat(getComputedStyle(cards[0]).getPropertyValue("--dk")) || 1, P = 1000, cap = K > 1 ? Math.min(.72, 1 - 1 / K) : .72;
     const seed = cards.map((_, i) => ({ r: Math.sin(i * 12.9898) * 9, ox: Math.cos(i * 7.13) * 7 })); let ticking = false;
     const update = () => {
       ticking = false; const r = el.getBoundingClientRect(), total = Math.max(1, el.offsetHeight - innerHeight), p = clamp(-r.top / total, 0, 1), w = innerWidth;
-      const cols = w < 560 ? 3 : 4, rows = Math.ceil(n / cols), cw = w < 560 ? 118 : w < 900 ? 190 : 226, ch = w < 560 ? 98 : w < 900 ? 138 : 164;
-      const deal = clamp(p / .3, 0, 1), dive = clamp((p - .34) / .66, 0, 1) * .72, depth = 1000; // stops mid-dive with the cards still large in view, so the section never ends on an empty stage
+      const cols = w < 560 ? 3 : 4, rows = Math.ceil(n / cols), cw = K * (w < 560 ? 118 : w < 900 ? 190 : 226), ch = K * (w < 560 ? 98 : w < 900 ? 138 : 164);
+      const deal = clamp(p / .3, 0, 1), dive = clamp((p - .34) / .66, 0, 1) * cap, depth = 1000; // stops mid-dive with the cards still large in view, so the section never ends on an empty stage
       cards.forEach((c, i) => {
         const col = i % cols, row = Math.floor(i / cols), s = ease(clamp(deal * 1.9 - i * .075, 0, 1));
-        const x = (col - (cols - 1) / 2) * cw * s + seed[i].ox * (1 - s), y = (row - (rows - 1) / 2) * ch * s - (1 - s) * i * 1.4;
-        const z = -(1 - s) * i * 4 + Math.sin(col * .9 + row * 1.3 + dive * 5) * 46 * dive, zc = dive * depth + z;
+        const x = (col - (cols - 1) / 2) * cw * s + K * seed[i].ox * (1 - s), y = (row - (rows - 1) / 2) * ch * s - K * (1 - s) * i * 1.4;
+        const z = K * (-(1 - s) * i * 4 + Math.sin(col * .9 + row * 1.3 + dive * 5) * 46 * dive);
         c.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,${z.toFixed(1)}px) rotateZ(${(seed[i].r * (1 - s)).toFixed(2)}deg) rotateY(${((1 - s) * 180).toFixed(1)}deg)`;
         c.style.opacity = "1";
       });
-      grid.style.transform = `translateZ(${(dive * depth).toFixed(1)}px) rotateX(${(10 + dive * 16).toFixed(2)}deg) rotateY(${(Math.sin(dive * 3.1) * 26).toFixed(2)}deg) rotateZ(${((1 - deal) * -18).toFixed(2)}deg)`;
+      grid.style.transform = `translate3d(0,${((K - 1) * .08 * innerHeight).toFixed(1)}px,${(P - K * (P - dive * depth)).toFixed(1)}px) rotateX(${(10 + dive * 16).toFixed(2)}deg) rotateY(${(Math.sin(dive * 3.1) * 26).toFixed(2)}deg) rotateZ(${((1 - deal) * -18).toFixed(2)}deg)`;
       if (bar) bar.style.transform = `scaleX(${p.toFixed(4)})`;
     };
     const on = () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } };
