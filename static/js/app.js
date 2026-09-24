@@ -252,9 +252,12 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
     const btn = document.createElement("button"); btn.type = "button"; btn.className = "vid-toggle"; btn.setAttribute("aria-label", "Pause or play video");
     btn.innerHTML = '<svg class="icon" data-i="pause" aria-hidden="true"><use href="#i-pause"/></svg><svg class="icon" data-i="play" aria-hidden="true"><use href="#i-play"/></svg>';
     wrap.appendChild(btn);
-    const set = p => { paused = p; btn.dataset.paused = p ? "true" : "false"; if (p) v.pause(); else if (visible) v.play().catch(() => { btn.dataset.paused = "true"; paused = true; }); };
+    /* only a browser that refuses autoplay (NotAllowedError) leaves the film paused; an AbortError just means the off-screen
+       pause interrupted the start, and the film starts when it scrolls into view */
+    const start = () => v.play().catch(e => { if (e && e.name === "NotAllowedError") { btn.dataset.paused = "true"; paused = true; } });
+    const set = p => { paused = p; btn.dataset.paused = p ? "true" : "false"; if (p) v.pause(); else if (visible) start(); };
     btn.addEventListener("click", () => set(!paused));
-    if (reduce || saveData) { paused = true; btn.dataset.paused = "true"; } else v.play().catch(() => { btn.dataset.paused = "true"; paused = true; });
+    if (reduce || saveData) { paused = true; btn.dataset.paused = "true"; } else start();
     /* a film further down the page gets its file once it nears the view (the HD one only where it shows); until then its
        poster stands in, and pressing play fetches it at once */
     const load = () => { if (v.getAttribute("src")) return; v.autoplay = !paused; v.preload = paused ? "metadata" : "auto"; v.src = v.dataset.hd && !saveData && v.clientWidth > 900 ? v.dataset.hd : v.dataset.src; };
