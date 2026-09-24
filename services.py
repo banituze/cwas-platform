@@ -856,3 +856,70 @@ def schedule_maintenance(source, start, end, reason, actor=None, channel="web"):
     return m, affected
 
 
+# ── reports (FR7) ───────────────────────────────────────────────────────────
+def _bookings_between(d0, d1, source_id=None):
+    q = Booking.query.filter(Booking.date >= d0, Booking.date <= d1)
+    return q.filter(Booking.source_id == source_id) if source_id else q
+
+
+def usage_report(d0, d1, source_id=None):
+    rows = _bookings_between(d0, d1, source_id).all()
+    by_status, by_source, by_day, by_hour = {}, {}, {}, {}
+    litres = 0
+    for b in rows:
+        by_status[b.status] = by_status.get(b.status, 0) + 1
+        if b.status in ("approved", "collected", "no_show"):
+            litres += b.litres
+            by_source.setdefault(b.source.name, {"bookings": 0, "litres": 0})
+            by_source[b.source.name]["bookings"] += 1
+            by_source[b.source.name]["litres"] += b.litres
+            by_day[b.date] = by_day.get(b.date, 0) + 1
+            by_hour[b.start_min // 60] = by_hour.get(b.start_min // 60, 0) + 1
+    return {"total": len(rows), "by_status": by_status, "by_source": by_source, "litres": litres,
+            "by_day": sorted(by_day.items()), "by_hour": sorted(by_hour.items())}
+
+
+def equity_report(d0, d1):
+    out = []
+    for level in ("standard", "elevated", "high"):
+        bs = Booking.query.join(Household).filter(Household.priority_level == level, Booking.date >= d0, Booking.date <= d1,
+                                                  Booking.status.in_(("approved", "collected", "no_show"))).all()
+        hh = Household.query.filter_by(priority_level=level).all()
+        people = sum(x.family_size for x in hh)
+        litres = sum(b.litres for b in bs)
+        days = max(1, (d1 - d0).days + 1)
+        out.append({"level": level, "households": len(hh), "people": people, "bookings": len(bs), "litres": litres,
+                    "lpcd": round(litres / people / days, 1) if people else 0})
+    return out
+
+
+def financial_report(d0, d1):
+    a, b_ = datetime.combine(d0, datetime.min.time()), datetime.combine(d1 + timedelta(days=1), datetime.min.time())
+    txns = WalletTxn.query.filter(WalletTxn.created_at >= a - timedelta(hours=3), WalletTxn.created_at < b_ - timedelta(hours=3)).all()
+    dep, by_provider = 0, {}
+    for x in txns:
+        if x.kind == "deposit" and x.status == "posted":
+            dep += x.amount
+            by_provider[x.provider] = by_provider.get(x.provider, 0) + x.amount
+    pending = sum(x.amount for x in txns if x.kind == "deposit" and x.status == "pending")
+    refunds = sum(x.amount for x in txns if x.kind == "booking_refund" and x.status == "posted")
+    bs = _bookings_between(d0, d1).filter(Booking.status.in_(("approved", "collected", "no_show"))).all()
+    revenue = sum(x.amount for x in bs)
+    by_source = {}
+    for x in bs:
+        by_source[x.source.name] = by_source.get(x.source.name, 0) + x.amount
+    subsidy = sum(round(x.amount * x.discount_pct / max(1, 100 - x.discount_pct)) for x in bs if x.discount_pct)
+    return {"deposits": dep, "pending": pending, "refunds": refunds, "revenue": revenue, "by_provider": by_provider,
+            "by_source": by_source, "subsidy": subsidy, "held": db.session.query(func.coalesce(func.sum(Household.balance), 0)).scalar()}
+
+
+def to_csv(header, rows):
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(header)
+    for r in rows:
+        # Guard against spreadsheet formula injection in exported text.
+        w.writerow([("'" + c) if isinstance(c, str) and c[:1] in "=+-@" else c for c in r])
+    return buf.getvalue()
+
+
