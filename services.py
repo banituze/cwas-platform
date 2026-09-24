@@ -551,3 +551,155 @@ def alt_text(alts, lang):
     return "; ".join(f"{a['source'].name} {a['date']:%d/%m} {a['slot']['label']}" for a in alts) or tt("no free slot this week", lang)
 
 
+# ── AI: explainable priority, risk and forecasting (FR11) ───────────────────
+# ── household needs: the same questions, in the same order, on the web, by USSD and when a coordinator registers ──
+VULN = [("elderly", "Someone aged 60 or over", "Aged 60+"), ("disability", "Someone living with a disability", "Disability"),
+        ("infant", "A child under 5", "Child under 5"), ("pregnant", "Pregnant or breastfeeding", "Pregnant/nursing"),
+        ("single", "Single-parent household", "Single parent"), ("illness", "Long-term illness", "Long illness")]
+VULN_CODES = [c for c, _, _ in VULN]
+DISTANCE = [(100, "Under 200 m"), (350, "200 m to 500 m"), (750, "500 m to 1 km"), (1500, "1 km to 2 km"), (3500, "2 km to 5 km"), (6000, "Over 5 km")]
+LEVEL_POINTS = {"standard": 0, "elevated": 25, "high": 45}
+
+
+def clean_flags(values):
+    """Known codes only, in a fixed order, so the same answers always store the same text."""
+    got = {str(v).strip() for v in values or []}
+    return ",".join(c for c in VULN_CODES if c in got)
+
+
+def reported_level(flags):
+    """What the household told us, as a level: one need is elevated, two or more is high. A coordinator confirms it."""
+    n = len([c for c in (flags or "").split(",") if c in VULN_CODES])
+    return "high" if n >= 2 else "elevated" if n == 1 else "standard"
+
+
+def distance_label(m):
+    return min(DISTANCE, key=lambda d: abs(d[0] - (m or 0)))[1]
+
+
+OTHER_SOURCE = "other:"  # prefix of a water point the household names itself (not in the list yet)
+
+
+def set_needs(h, flags, distance_m=None, source_id=None):
+    """Store the household's own answers. Priority uses them at once; the subsidy waits for a coordinator's check.
+    source_id is a water point id, 0/None for Not sure, or "other:<name>" for a point that is not in the list."""
+    h.vuln_flags = clean_flags(flags.split(",") if isinstance(flags, str) else flags)
+    if distance_m is not None:
+        h.distance_m = distance_m
+    if isinstance(source_id, str) and source_id.startswith(OTHER_SOURCE):
+        h.home_source_id, h.home_source_note = None, clean_text(source_id[len(OTHER_SOURCE):], 80)
+    elif source_id is not None:
+        h.home_source_id, h.home_source_note = (source_id or None), ""
+    h.needs_review = bool(h.vuln_flags) and LEVEL_POINTS[reported_level(h.vuln_flags)] > LEVEL_POINTS.get(h.priority_level, 0)
+
+
+def priority_breakdown(h):
+    """Every point of a priority score has a stated reason (NFR11: explainable, checked for bias)."""
+    lvl = h.priority_level
+    if h.needs_review and LEVEL_POINTS[reported_level(h.vuln_flags)] > LEVEL_POINTS.get(lvl, 0):
+        vuln = ("Vulnerability level (self-reported, awaiting check)", LEVEL_POINTS[reported_level(h.vuln_flags)])
+    else:
+        vuln = ("Vulnerability level", LEVEL_POINTS.get(lvl, 0))
+    parts = [vuln,
+             ("Household size", min(h.family_size, 12) * 3),
+             ("Distance to water", min(h.distance_m // 200, 10))]
+    since = today_local() - timedelta(days=7)
+    recent = Booking.query.filter(Booking.household_id == h.id, Booking.date >= since,
+                                  Booking.status.in_(("approved", "collected", "pending"))).count()
+    parts.append(("Fair-share boost (few recent bookings)", max(0, 10 - recent * 3)))
+    since14 = today_local() - timedelta(days=14)
+    ns = Booking.query.filter(Booking.household_id == h.id, Booking.date >= since14, Booking.status == "no_show").count()
+    parts.append(("Recent no-shows", -min(ns * 5, 15)))
+    total = max(0, min(100, sum(p for _, p in parts)))
+    return total, parts
+
+
+def assess_booking(h, litres, day):
+    """Returns (score, note, suggestion). The suggestion never overrides a coordinator."""
+    score, _ = priority_breakdown(h)
+    need = max(40, h.family_size * 20)
+    notes, suggestion = [], "approve"
+    if litres > need * 1.5:
+        notes.append("Litres above the household's usual need")
+        suggestion = "review"
+    since14 = today_local() - timedelta(days=14)
+    if Booking.query.filter(Booking.household_id == h.id, Booking.date >= since14, Booking.status == "no_show").count() >= 2:
+        notes.append("Repeated no-shows")
+        suggestion = "review"
+    if Booking.query.filter(Booking.household_id == h.id, Booking.status == "cancelled",
+                            Booking.created_at >= utcnow() - timedelta(days=7)).count() >= 3:
+        notes.append("Frequent cancellations")
+        suggestion = "review"
+    return score, "; ".join(notes) or "Within normal pattern", suggestion
+
+
+def forecast(source, weeks=8):
+    """Weekday seasonality from recent history. Falls back to a modest baseline when history is thin."""
+    t = today_local()
+    since = t - timedelta(weeks=weeks * 7)
+    rows = db.session.query(Booking.date, func.count(Booking.id)).filter(
+        Booking.source_id == source.id, Booking.date >= since, Booking.date < t,
+        Booking.status.in_(("approved", "collected", "no_show", "pending"))).group_by(Booking.date).all()
+    by_wd = {i: [] for i in range(7)}
+    for d, c in rows:
+        by_wd[d.weekday()].append(c)
+    all_counts = [c for _, c in rows]
+    fallback = statistics.mean(all_counts) if all_counts else source.daily_capacity * 0.3
+    out = []
+    for i in range(HORIZON_DAYS):
+        d = t + timedelta(days=i)
+        vals = by_wd[d.weekday()]
+        exp = round(statistics.mean(vals) if vals else fallback)
+        ratio = exp / max(1, source.daily_capacity)
+        out.append({"date": d, "expected": exp, "ratio": ratio,
+                    "level": "high" if ratio >= 0.8 else "medium" if ratio >= 0.5 else "low", "samples": len(vals)})
+    hours = db.session.query(Booking.start_min, func.count(Booking.id)).filter(
+        Booking.source_id == source.id, Booking.date >= since, Booking.status.in_(("approved", "collected", "pending", "no_show"))
+    ).group_by(Booking.start_min).order_by(func.count(Booking.id).desc()).first()
+    return out, (fmt_min(hours[0]) if hours else None)
+
+
+def detect_anomalies():
+    """FR11.4 - flags patterns for review. Rules are transparent thresholds, not black-box scores."""
+    flags, t = [], utcnow()
+    week = t - timedelta(days=7)
+    canc = db.session.query(Booking.household_id, func.count(Booking.id)).filter(
+        Booking.status == "cancelled", Booking.created_at >= week).group_by(Booking.household_id).having(func.count(Booking.id) >= 3).all()
+    for hid, c in canc:
+        h = db.session.get(Household, hid)
+        flags.append({"severity": "medium", "who": h.name, "text": "{n} cancellations in 7 days", "params": {"n": c}})
+    ns = db.session.query(Booking.household_id, func.count(Booking.id)).filter(
+        Booking.status == "no_show", Booking.date >= today_local() - timedelta(days=14)).group_by(Booking.household_id).having(func.count(Booking.id) >= 3).all()
+    for hid, c in ns:
+        h = db.session.get(Household, hid)
+        flags.append({"severity": "medium", "who": h.name, "text": "{n} no-shows in 14 days", "params": {"n": c}})
+    dep = db.session.query(WalletTxn.household_id, func.count(WalletTxn.id)).filter(
+        WalletTxn.kind == "deposit", WalletTxn.created_at >= t - timedelta(hours=1)).group_by(WalletTxn.household_id).having(func.count(WalletTxn.id) >= 3).all()
+    for hid, c in dep:
+        h = db.session.get(Household, hid)
+        flags.append({"severity": "high", "who": h.name, "text": "{n} deposits within one hour", "params": {"n": c}})
+    big = WalletTxn.query.filter(WalletTxn.kind == "deposit", WalletTxn.amount >= 50000, WalletTxn.created_at >= week).all()
+    for x in big:
+        flags.append({"severity": "medium", "who": x.household.name, "text": "Large deposit {amount}", "params": {"amount": fmt_ar(x.amount)}})
+    lit = [b.litres for b in Booking.query.filter(Booking.created_at >= t - timedelta(days=30)).all()]
+    if len(lit) >= 10:
+        mu, sd = statistics.mean(lit), statistics.pstdev(lit) or 1
+        for b in Booking.query.filter(Booking.created_at >= week, Booking.litres > mu + 2 * sd).limit(5):
+            flags.append({"severity": "low", "who": b.household.name, "text": "Unusually large request: {l} L", "params": {"l": b.litres}})
+    return flags
+
+
+def fairness_check():
+    """NFR11 - compares approval rates across vulnerability levels so the system does not repeat unfairness."""
+    rows = []
+    for level in ("standard", "elevated", "high"):
+        q = Booking.query.join(Household).filter(Household.priority_level == level, Booking.status.in_(("approved", "collected", "denied", "no_show")))
+        total = q.count()
+        ok = q.filter(Booking.status.in_(("approved", "collected", "no_show"))).count()
+        hh = Household.query.filter_by(priority_level=level).count()
+        rows.append({"level": level, "households": hh, "decided": total, "approval": round(100 * ok / total) if total else None})
+    rates = [r["approval"] for r in rows if r["approval"] is not None]
+    flagged = len(rates) >= 2 and (max(rates) - min(rates)) > 25
+    return rows, flagged
+
+
