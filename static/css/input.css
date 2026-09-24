@@ -449,6 +449,13 @@ html[data-theme="saina"]{
   .tframe{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;width:0;height:.78em;margin:0;border-radius:.4em;background:rgb(var(--cta));overflow:hidden;transition:width .9s cubic-bezier(.7,0,.2,1) .5s,margin .9s .5s}
   html[data-theme="saina"] .tframe{background:#FC3D32}  /* Default: the Madagascar flag red */
   .tframe svg{width:.6em;height:.6em;flex:none;transform:scale(0) rotate(-90deg);transition:transform .8s cubic-bezier(.2,.9,.2,1) 1.2s}
+  /* install card motion: it springs up into place and then floats, while flag-coloured liquid drifts behind the glass */
+  .install-card.is-in{animation:ic-pop .9s cubic-bezier(.2,.9,.25,1.2) both,ic-hover 6s ease-in-out .9s infinite}
+  .install-card::after{content:"";position:absolute;inset:-35%;z-index:-2;pointer-events:none;background:radial-gradient(38% 48% at 22% 32%,rgba(0,126,58,.32),transparent 70%),radial-gradient(34% 44% at 78% 68%,rgba(252,61,50,.28),transparent 70%),radial-gradient(30% 40% at 55% 20%,rgba(255,255,255,.5),transparent 70%);filter:blur(14px);animation:ic-liquid 10s ease-in-out infinite alternate}
+  @keyframes ic-pop{0%{opacity:0;transform:translate(-50%,calc(100% + 24px)) scale(.9)}55%{opacity:1;transform:translate(-50%,-10px) scale(1.02)}78%{transform:translate(-50%,3px) scale(.995)}100%{opacity:1;transform:translate(-50%,0) scale(1)}}
+  @keyframes ic-hover{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-5px)}}
+  @keyframes ic-liquid{0%{transform:translate(-8%,-6%) rotate(0deg) scale(1)}50%{transform:translate(4%,6%) rotate(18deg) scale(1.08)}100%{transform:translate(8%,-2%) rotate(-10deg) scale(.96)}}
+  @media (prefers-reduced-motion:reduce){.install-card.is-in,.install-card::after{animation:none}}
   [data-type].in .tframe{width:1.5em;margin:0 .18em}
   [data-type].in .tframe svg{transform:none}
   /* ── install card (static/js/install.js): dismissable liquid glass with the app icon of the theme on screen. A flag-coloured
