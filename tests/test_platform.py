@@ -793,11 +793,11 @@ class Platform(unittest.TestCase):
             self.assertIn(hook, home)
         for gone in ("field research", "flagfield", "pexels", "Follow the water", "Pilot 2026"):
             self.assertNotIn(gone, home)
-        # the hot-linked films always carry a local poster, so a page is never blank if Pexels is unreachable
+        # the hot-linked film opening About plays at once with no poster, over a dark ground of its own
         for p in ("/about",):  # /platform shows real product screens instead of a film
             v = re.search(r'<video[^>]*src="https://videos\.pexels\.com[^"]+"[^>]*>', pages[p]) or re.search(r'<video[^>]*poster="/static/[^"]+"[^>]*src="https://videos\.pexels\.com', pages[p])
             self.assertTrue(v, p)
-            self.assertIn('poster="/static/img/photos/', pages[p])
+            self.assertNotIn("poster=", v.group(0))
         self.assertIn("data-phones", pages["/access"])
         self.assertNotIn("<img", pages["/water-points"].partition("<footer")[0].partition("<main")[2])
 
@@ -1139,9 +1139,9 @@ class Platform(unittest.TestCase):
         # the four statistics sit in their own section after the hero, not over it
         hero, _, rest = home.partition("</section>")
         self.assertNotIn("89%", hero); self.assertIn("89%", rest.partition("</section>")[0]); self.assertNotIn("-mt-10", rest.partition("</section>")[0])
-        # films: the homepage one waits for the view with its poster showing; the one opening About loads at once
+        # films: the homepage one waits for the view with its poster showing; the one opening About loads and plays at once
         self.assertRegex(home, r'<video class="vid"[^>]* preload="none" poster="/static/media/toliara-poster\.webp[^"]*" data-src="/static/media/toliara-sd\.mp4')
-        self.assertRegex(c.get("/about").get_data(as_text=True), r'<video class="vid"[^>]* preload="auto" poster="[^"]+" src="https://videos\.pexels\.com')
+        self.assertRegex(c.get("/about").get_data(as_text=True), r'<video class="vid"[^>]* preload="auto" src="https://videos\.pexels\.com')
         # static files: versioned copies are kept for a year, text is gzipped, the hero has AVIF first
         self.assertIn('<source type="image/avif" srcset="/static/media/hero/hero-base-land.avif?v=', home)
         css = re.search(r'href="(/static/css/app\.css\?v=[0-9a-f]+)"', home).group(1)

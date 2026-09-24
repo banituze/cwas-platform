@@ -26,7 +26,7 @@
 
 {# A film at the top of a page (eager) loads at once. One further down shows its poster straight away and starts loading as it
    nears the view (static/js/app.js), choosing the HD file only on wide screens and never when the visitor saves data. #}
-{% macro video(key, eager=False) %}{% set m = VIDEOS[key] %}{% set src = m[0] if m[0].startswith('http') else url_for('static', filename=m[0]) %}<video class="vid" autoplay muted loop playsinline preload="{{ 'auto' if eager else 'none' }}" poster="{{ url_for('static', filename=m[2]) }}" {{ 'src' if eager else 'data-src' }}="{{ src }}"{% if m[1] %} data-hd="{{ url_for('static', filename=m[1]) }}"{% endif %} aria-label="{{ t(m[3]) }}"></video>{% endmacro %}
+{% macro video(key, eager=False, poster=True) %}{% set m = VIDEOS[key] %}{% set src = m[0] if m[0].startswith('http') else url_for('static', filename=m[0]) %}<video class="vid" autoplay muted loop playsinline preload="{{ 'auto' if eager else 'none' }}"{% if poster %} poster="{{ url_for('static', filename=m[2]) }}"{% endif %} {{ 'src' if eager else 'data-src' }}="{{ src }}"{% if m[1] %} data-hd="{{ url_for('static', filename=m[1]) }}"{% endif %} aria-label="{{ t(m[3]) }}"></video>{% endmacro %}
 
 {# Screens of CWAS itself, captured from the running app with its demo data once per theme (static/img/shots/<theme>/).
    The page ships the current theme's set; every other theme's set rides along in data-shot-<theme>, and static/js/app.js
