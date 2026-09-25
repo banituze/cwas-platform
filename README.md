@@ -106,7 +106,6 @@ Everything is optional. Copy `.env.example` to `.env` for local use, or set vari
 | `SITE_URL` | Public address, for example `https://cwas.winebald.tech. Used for canonical links, the sitemap and link previews. Without it, the address of each request is used. |
 | `SECURITY_CONTACT` | Email or URL published in `/.well-known/security.txt` for vulnerability reports. Defaults to `ADMIN_EMAIL`. |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | First administrator, used only when none exists. Password change is forced at first sign-in. |
-| `CWAS_ENV=production` | Secure cookies, live payments, random enrollment codes, no demo data, device lab for signed-in users only. Detected automatically on Railway. |
 | `SEED_DEMO`, `SIMULATOR_PUBLIC` | Override the demo-data and device-lab defaults. |
 | `SMS_ENABLED`, `AT_USERNAME`, `AT_API_KEY`, `AT_SENDER_ID`, `AT_USSD_CODE`, `AT_SHORTCODE` | Africa's Talking. With `SMS_ENABLED=0` SMS is recorded as simulated. |
 | `AT_WEBHOOK_TOKEN` | Shared token for the telco callbacks. Set it before going live. |
@@ -160,6 +159,5 @@ Video and photo assets are from Pexels and used under the Pexels licence. Thanks
 Fonts: Bricolage Grotesque and Figtree (SIL Open Font Licence) via Fontsource. Payment logos belong to Orange and Airtel. The motion effects are original code written for this project, inspired by interaction ideas catalogued on HorizonX.
 
 ## Author
-```
-Winebald Banituze 
-```
+
+[Winebald Banituze](https://github.com/banituze)
