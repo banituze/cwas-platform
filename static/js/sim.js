@@ -289,17 +289,17 @@
     constructor(screen, phone) {
       this.screen = screen; this.phone = phone; this.state = "home"; this.sel = 0; this.on = true; this.flash = ""; this.note = "";
       this.f = field(); this.to = field(); this.body = field(); this.focus = "to"; this.mode = "Abc"; this.mt = { k: null, n: 0, t: 0 };
-      this.addr = SHORT; this.back = "msgs"; this.scroll = 0; this.lastDialled = ""; this.ussd = null; this.setting = 0; this.callee = "";
+      this.addr = SHORT; this.back = "msgs"; this.scroll = 0; this.lastDialled = ""; this.ussd = null; this.entry = false; this.setting = 0; this.callee = "";
       this.calc = { cur: "0", acc: null, op: null, fresh: true };
       screen.innerHTML = `<div class="lite-os"><div class="bar"><span data-t></span><span>${sigBars.replace('width="16" height="11"', 'width="12" height="9"')} 4G</span></div><div class="main" data-main></div><div class="foot"><span data-l></span><span data-r></span></div></div>`;
       this.phone.subs.add(this.onPhone = (ev, d) => this.handle(ev, d)); this.tick = setInterval(() => this.render(), 15000); this.render();
     }
     destroy() { this.phone.subs.delete(this.onPhone); clearInterval(this.tick); }
     get buf() { return this.f.text; }   // the guided runs hand over a whole USSD reply at once
-    set buf(v) { this.f = field(v); }
+    set buf(v) { this.f = field(v); this.entry = true; }
     handle(ev, d) {
       if (ev === "sms") { if (!this.on) this.power(); A.play("sms"); this.flash = LB.newMsg; setTimeout(() => { this.flash = ""; this.render(); }, 3500); }
-      if (ev === "ussd") { if (d.gone) this.go("home"); else { this.state = "ussd"; this.ussd = d; this.f = field(); this.scroll = 0; } }
+      if (ev === "ussd") { if (d.gone) this.go("home"); else { this.state = "ussd"; this.ussd = d; this.f = field(); this.scroll = 0; this.entry = false; } }
       if (ev === "threads" && this.state === "thread") this.scroll = "end";   // a new message scrolls into view
       this.render();
     }
@@ -311,7 +311,7 @@
       const th = this.phone.threads || {};
       return [[null, "+ " + LB.newMsg, ""], ...Object.keys(th).filter(a => th[a].length).map(a => { const x = th[a][th[a].length - 1]; return [a, who(a), x.body.slice(0, 48)]; })];
     }
-    go(s) { this.state = s; this.sel = 0; this.scroll = 0; this.note = ""; this.mt.k = null; }
+    go(s) { this.state = s; this.sel = 0; this.scroll = 0; this.note = ""; this.mt.k = null; this.entry = false; }
     openThread(addr) { this.addr = addr; this.go("thread"); this.scroll = "end"; this.phone.unread = 0; }
     newMessage(to = "", back) {
       this.back = back || (this.state === "home" ? "home" : "msgs"); this.go("compose");
@@ -350,7 +350,11 @@
         l = LB.select; r = LB.back;
       }
       else if (S === "dial") { main = `${esc(LB.phone)}\n\n<span class="lt-big">${this.line(this.f)}</span>`; l = LB.call; r = this.f.text ? LB.clear : LB.back; }
-      else if (S === "ussd") { const u = this.ussd; main = esc(u.text) + (u.ended ? "" : `\n> ${this.line(this.f, u.secret)}`); l = u.ended ? LB.ok : LB.send; r = u.ended ? "" : this.f.text ? LB.clear : LB.cancel; }
+      else if (S === "ussd") {  // the menu text alone; the answer is typed on a blank screen of its own
+        const u = this.ussd;
+        if (this.entry && !u.ended) { main = `<span class="lt-big">${this.line(this.f, u.secret)}</span>`; l = LB.send; r = this.f.text ? LB.clear : LB.back; }
+        else { main = esc(u.text); l = u.ended ? LB.ok : LB.reply; r = u.ended ? "" : LB.cancel; }
+      }
       else if (S === "msgs") {
         main = `<div class="lite-title">${esc(LB.messages)}</div>` + this.msgRows().map((x, i) => `<div class="lt-row${i === this.sel ? " sel" : ""}">${esc(x[1])}${x[2] ? `<small>${esc(x[2])}</small>` : ""}</div>`).join("");
         l = LB.select; r = LB.back;
@@ -409,15 +413,20 @@
         else if (k === "sk2" || k === "clear") { if (this.f.text) this.erase(this.f); else this.go("home"); }
         else if ((yes || k === "call") && this.f.text) this.dialNow(this.f.text);
       }
-      else if (S === "ussd") {  // up and down scroll a long screen; the reply is edited at the caret
+      else if (S === "ussd") {  // the menu: up and down scroll it; Reply, or the first digit, opens the blank reply screen
         const u = this.ussd;
-        if (step) this.scroll = Math.max(0, m.scrollTop + 36 * step);
-        else if (u.ended) { if (yes || k === "call" || k === "sk2" || k === "clear") this.go("home"); }
-        else if (digit) this.insert(this.f, k);
-        else if (side) this.move(this.f, side);
-        else if (k === "sk2") { if (this.f.text) this.erase(this.f); else { this.phone.cancel(); this.go("home"); } }
-        else if (k === "clear") this.erase(this.f);
-        else if ((yes || k === "call") && this.f.text) { const v = this.f.text; this.f = field(); this.phone.send(v); }
+        if (u.ended) { if (step) this.scroll = Math.max(0, m.scrollTop + 36 * step); else if (yes || k === "call" || k === "sk2" || k === "clear") this.go("home"); }
+        else if (this.entry) {  // the reply screen: typed at the caret; Back with nothing typed returns to the menu
+          if (digit) this.insert(this.f, k);
+          else if (side) this.move(this.f, side);
+          else if (step) this.f.at = step < 0 ? 0 : this.f.text.length;
+          else if (k === "sk2" || k === "clear") { if (this.f.text) this.erase(this.f); else if (k === "sk2") this.entry = false; }
+          else if ((yes || k === "call") && this.f.text) { const v = this.f.text; this.f = field(); this.entry = false; this.phone.send(v); }
+        }
+        else if (step) this.scroll = Math.max(0, m.scrollTop + 36 * step);
+        else if (digit) { this.entry = true; this.f = field(k); }
+        else if (yes) { this.entry = true; this.f = field(); }
+        else if (k === "sk2") { this.phone.cancel(); this.go("home"); }
       }
       else if (S === "msgs") {
         const rows = this.msgRows(), n = rows.length, row = rows[this.sel];
@@ -503,70 +512,70 @@
     : `<div class="body"></div><div class="bezel"></div><div class="screen" data-screen></div>${key === "nova" ? '<div class="notch"></div>' : '<div class="punch"></div>'}
        <button class="hw l" data-vol="1" style="top:150px;height:52px" aria-label="Volume up" type="button"></button><button class="hw l" data-vol="-1" style="top:212px;height:52px" aria-label="Volume down" type="button"></button><button class="hw r" data-power style="top:190px;height:78px" aria-label="Power" type="button"></button>`;
   if (lab) {
-  function fit() { const d = DEVICES[model], s = Math.min(1.1, (stage.clientHeight - 50) / d.h, (stage.clientWidth - 30) / d.w); rig.style.setProperty("--s", Math.max(.45, s).toFixed(3)); }
-  function mount() {
-    if (ui) ui.destroy(); tourToken++; if (phone && phone.number !== phoneIn.value.trim()) { phone.destroy(); phone = null; }
-    if (!phone) phone = new Phone(phoneIn.value.trim());
-    const d = DEVICES[model]; rig.innerHTML = ""; rig.style.setProperty("--w", d.w + "px"); rig.style.setProperty("--h", d.h + "px");
-    const fl = h("div", "flipper dev-" + model), front = h("div", "face front", frontFace(model)), back = h("div", "face back", backFace(model));
-    fl.append(front, back); rig.appendChild(fl); fl.style.width = d.w + "px"; fl.style.height = d.h + "px";
-    $$("[data-device]").forEach(b => b.setAttribute("aria-pressed", b.dataset.device === model ? "true" : "false"));
-    if (model === "lite") { const ls = $(".lite-screen", front); ui = new LiteOS(ls, phone); front.addEventListener("click", e => { const k = e.target.closest("[data-k]"); if (k) { ui.press(k.dataset.k); k.classList.add("hit"); setTimeout(() => k.classList.remove("hit"), 90); } }); ui.model = "lite"; }
-    else { const sc = $("[data-screen]", front); ui = new SmartOS(sc, phone, d.name); const pw = $("[data-power]", front); pw.addEventListener("click", () => ui.power()); sc.addEventListener("dblclick", () => { if (ui.locked) ui.unlock(); }); }
-    front.addEventListener("click", e => { const v = e.target.closest("[data-vol]"); if (v) { const nv = Math.max(0, Math.min(1, parseFloat(C.store.get("cwas_vol", "0.7")) + .1 * +v.dataset.vol)); C.store.set("cwas_vol", nv.toFixed(1)); A.play("vol"); hud(front, nv); } });
-    fl.addEventListener("dblclick", e => { if (e.target.closest(".face.back") || e.target.classList.contains("body")) fl.classList.toggle("flipped"); });
-    fit();
-  }
-  function hud(front, v) {
-    let el = $(".vhud", front); if (!el) { el = h("div", "vhud"); el.style.cssText = "position:absolute;z-index:90;left:50%;top:52px;transform:translateX(-50%);padding:6px 14px;border-radius:99px;background:rgba(0,0,0,.72);color:#fff;font:700 12px system-ui;letter-spacing:2px;pointer-events:none;transition:opacity .3s"; (model === "lite" ? $(".lite-screen", front) : $("[data-screen]", front)).appendChild(el); }
-    el.textContent = "▮".repeat(Math.round(v * 10)) + "▯".repeat(10 - Math.round(v * 10)); el.style.opacity = "1"; clearTimeout(el._t); el._t = setTimeout(() => { el.style.opacity = "0"; }, 1200);
-  }
-
-  /* ── controls ── */
-  $$("[data-device]").forEach(b => b.addEventListener("click", () => { model = b.dataset.device; A.play("tap"); mount(); }));
-  $("[data-flip]").addEventListener("click", () => { const f = $(".flipper", rig); if (f) f.classList.toggle("flipped"); A.play("tap"); });
-  $("[data-reset]").addEventListener("click", () => { A.play("poweroff"); if (phone) { phone.destroy(); phone = null; } consoleEl.innerHTML = ""; mount(); });
-  phoneIn.addEventListener("change", () => { const v = phoneIn.value.trim(); if (v) { mount(); } });
-  $$("[data-pick]").forEach(b => b.addEventListener("click", () => { let v = b.dataset.pick; if (v === "new") v = "+2613400009" + String(Math.floor(Math.random() * 900) + 100); phoneIn.value = v; A.play("tap"); mount(); }));
-  addEventListener("resize", fit); document.addEventListener("cwas:theme", () => { /* colours follow the theme through CSS variables */ });
-  /* typing on a touch screen: the stage is pinned over the area the keyboard leaves visible and the whole phone is scaled into
-     it, so the conversation and the line being typed stay in view; a spacer holds the page still until the field loses focus */
-  if (matchMedia("(pointer:coarse)").matches) {
-    const vv = window.visualViewport, spacer = document.createElement("div"), typing = () => stage.classList.contains("is-typing");
-    const place = () => { if (vv) { stage.style.setProperty("--vv-top", vv.offsetTop + "px"); stage.style.setProperty("--vv-h", vv.height + "px"); } fit(); };
-    const enter = () => { if (typing()) return; spacer.style.height = stage.offsetHeight + "px"; stage.before(spacer); stage.classList.add("is-typing"); place(); };
-    const leave = () => setTimeout(() => {
-      if (!typing() || stage.contains(document.activeElement)) return;
-      stage.classList.remove("is-typing"); spacer.remove(); stage.style.removeProperty("--vv-top"); stage.style.removeProperty("--vv-h"); fit();
-    }, 80);
-    stage.addEventListener("focusin", e => { if (e.target.matches("input, textarea")) enter(); });
-    stage.addEventListener("focusout", leave);
-    if (vv) { vv.addEventListener("resize", () => { if (typing()) place(); }); vv.addEventListener("scroll", () => { if (typing()) place(); }); }
-  }
-  document.addEventListener("keydown", e => {
-    if (!ui || e.target.matches("input,textarea,select") || e.metaKey || e.ctrlKey) return;
-    if (model === "lite") {
-      const m = { Enter: "ok", Backspace: "clear", ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", Escape: "end" }[e.key];
-      if (m) { e.preventDefault(); ui.press(m); }
-      else if (e.key.length === 1 && ui.typeChar(e.key)) { e.preventDefault(); A.play("key", "x"); }   // letters go straight into a message
-      else if (/^[0-9*#]$/.test(e.key)) ui.press(e.key);
+    function fit() { const d = DEVICES[model], s = Math.min(1.1, (stage.clientHeight - 50) / d.h, (stage.clientWidth - 30) / d.w); rig.style.setProperty("--s", Math.max(.45, s).toFixed(3)); }
+    function mount() {
+      if (ui) ui.destroy(); tourToken++; if (phone && phone.number !== phoneIn.value.trim()) { phone.destroy(); phone = null; }
+      if (!phone) phone = new Phone(phoneIn.value.trim());
+      const d = DEVICES[model]; rig.innerHTML = ""; rig.style.setProperty("--w", d.w + "px"); rig.style.setProperty("--h", d.h + "px");
+      const fl = h("div", "flipper dev-" + model), front = h("div", "face front", frontFace(model)), back = h("div", "face back", backFace(model));
+      fl.append(front, back); rig.appendChild(fl); fl.style.width = d.w + "px"; fl.style.height = d.h + "px";
+      $$("[data-device]").forEach(b => b.setAttribute("aria-pressed", b.dataset.device === model ? "true" : "false"));
+      if (model === "lite") { const ls = $(".lite-screen", front); ui = new LiteOS(ls, phone); front.addEventListener("click", e => { const k = e.target.closest("[data-k]"); if (k) { ui.press(k.dataset.k); k.classList.add("hit"); setTimeout(() => k.classList.remove("hit"), 90); } }); ui.model = "lite"; }
+      else { const sc = $("[data-screen]", front); ui = new SmartOS(sc, phone, d.name); const pw = $("[data-power]", front); pw.addEventListener("click", () => ui.power()); sc.addEventListener("dblclick", () => { if (ui.locked) ui.unlock(); }); }
+      front.addEventListener("click", e => { const v = e.target.closest("[data-vol]"); if (v) { const nv = Math.max(0, Math.min(1, parseFloat(C.store.get("cwas_vol", "0.7")) + .1 * +v.dataset.vol)); C.store.set("cwas_vol", nv.toFixed(1)); A.play("vol"); hud(front, nv); } });
+      fl.addEventListener("dblclick", e => { if (e.target.closest(".face.back") || e.target.classList.contains("body")) fl.classList.toggle("flipped"); });
+      fit();
     }
-  });
+    function hud(front, v) {
+      let el = $(".vhud", front); if (!el) { el = h("div", "vhud"); el.style.cssText = "position:absolute;z-index:90;left:50%;top:52px;transform:translateX(-50%);padding:6px 14px;border-radius:99px;background:rgba(0,0,0,.72);color:#fff;font:700 12px system-ui;letter-spacing:2px;pointer-events:none;transition:opacity .3s"; (model === "lite" ? $(".lite-screen", front) : $("[data-screen]", front)).appendChild(el); }
+      el.textContent = "▮".repeat(Math.round(v * 10)) + "▯".repeat(10 - Math.round(v * 10)); el.style.opacity = "1"; clearTimeout(el._t); el._t = setTimeout(() => { el.style.opacity = "0"; }, 1200);
+    }
 
-  /* ── guided runs: the phone types by itself ── */
-  /* each run is planned by the server against the live data (web.py sim_tour), so it can finish every time */
-  $$("[data-tour]").forEach(b => b.addEventListener("click", async () => {
-    let t; try { t = await fetch(`/simulator/api/tour/${b.dataset.tour}`, { credentials: "same-origin", cache: "no-store" }).then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))); } catch (e) { C.toast(LB.tourFail, "err"); return; }
-    phoneIn.value = t.phone; mount(); const tok = tourToken; await sleep(500);
-    if (model !== "lite") { ui.wake && (ui.on ? 0 : ui.wake()); ui.unlock(); await sleep(500); ui.open("phone"); await sleep(600); const v = ui.stack[ui.stack.length - 1]; for (const ch of DIAL) { if (tok !== tourToken) return; A.play("key", ch); v._set(v._num() + ch); await sleep(160); } await sleep(400); ui.call(DIAL); }
-    else { for (const ch of DIAL) { ui.press(ch); await sleep(140); } ui.press("call"); }
-    for (let w = 0; w < 80 && tok === tourToken && !(phone && phone.active); w++) await sleep(100);  // the call connects first
-    for (const s of t.steps) { await sleep(1300); if (tok !== tourToken || !phone || !phone.active) return;  /* ended early: the phone shows the engine's reason */ if (model === "lite") { A.play("key", "5"); ui.buf = s; ui.render(); await sleep(600); ui.press("sk1"); } else { ui.typeUssd(s); A.play("tap"); await sleep(600); if (tok !== tourToken) return; phone.send(s); } }
-    await sleep(1200); if (tok === tourToken) C.toast(LB.tourDone, "ok");
-  }));
+    /* ── controls ── */
+    $$("[data-device]").forEach(b => b.addEventListener("click", () => { model = b.dataset.device; A.play("tap"); mount(); }));
+    $("[data-flip]").addEventListener("click", () => { const f = $(".flipper", rig); if (f) f.classList.toggle("flipped"); A.play("tap"); });
+    $("[data-reset]").addEventListener("click", () => { A.play("poweroff"); if (phone) { phone.destroy(); phone = null; } consoleEl.innerHTML = ""; mount(); });
+    phoneIn.addEventListener("change", () => { const v = phoneIn.value.trim(); if (v) { mount(); } });
+    $$("[data-pick]").forEach(b => b.addEventListener("click", () => { let v = b.dataset.pick; if (v === "new") v = "+2613400009" + String(Math.floor(Math.random() * 900) + 100); phoneIn.value = v; A.play("tap"); mount(); }));
+    addEventListener("resize", fit); document.addEventListener("cwas:theme", () => { /* colours follow the theme through CSS variables */ });
+    /* typing on a touch screen: the stage is pinned over the area the keyboard leaves visible and the whole phone is scaled into
+       it, so the conversation and the line being typed stay in view; a spacer holds the page still until the field loses focus */
+    if (matchMedia("(pointer:coarse)").matches) {
+      const vv = window.visualViewport, spacer = document.createElement("div"), typing = () => stage.classList.contains("is-typing");
+      const place = () => { if (vv) { stage.style.setProperty("--vv-top", vv.offsetTop + "px"); stage.style.setProperty("--vv-h", vv.height + "px"); } fit(); };
+      const enter = () => { if (typing()) return; spacer.style.height = stage.offsetHeight + "px"; stage.before(spacer); stage.classList.add("is-typing"); place(); };
+      const leave = () => setTimeout(() => {
+        if (!typing() || stage.contains(document.activeElement)) return;
+        stage.classList.remove("is-typing"); spacer.remove(); stage.style.removeProperty("--vv-top"); stage.style.removeProperty("--vv-h"); fit();
+      }, 80);
+      stage.addEventListener("focusin", e => { if (e.target.matches("input, textarea")) enter(); });
+      stage.addEventListener("focusout", leave);
+      if (vv) { vv.addEventListener("resize", () => { if (typing()) place(); }); vv.addEventListener("scroll", () => { if (typing()) place(); }); }
+    }
+    document.addEventListener("keydown", e => {
+      if (!ui || e.target.matches("input,textarea,select") || e.metaKey || e.ctrlKey) return;
+      if (model === "lite") {
+        const m = { Enter: "ok", Backspace: "clear", ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", Escape: "end" }[e.key];
+        if (m) { e.preventDefault(); ui.press(m); }
+        else if (e.key.length === 1 && ui.typeChar(e.key)) { e.preventDefault(); A.play("key", "x"); }   // letters go straight into a message
+        else if (/^[0-9*#]$/.test(e.key)) ui.press(e.key);
+      }
+    });
 
-  mount();
-  if (model !== "lite") setTimeout(() => { if (ui.wake) ui.on = true; }, 0);
+    /* ── guided runs: the phone types by itself ── */
+    /* each run is planned by the server against the live data (web.py sim_tour), so it can finish every time */
+    $$("[data-tour]").forEach(b => b.addEventListener("click", async () => {
+      let t; try { t = await fetch(`/simulator/api/tour/${b.dataset.tour}`, { credentials: "same-origin", cache: "no-store" }).then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))); } catch (e) { C.toast(LB.tourFail, "err"); return; }
+      phoneIn.value = t.phone; mount(); const tok = tourToken; await sleep(500);
+      if (model !== "lite") { ui.wake && (ui.on ? 0 : ui.wake()); ui.unlock(); await sleep(500); ui.open("phone"); await sleep(600); const v = ui.stack[ui.stack.length - 1]; for (const ch of DIAL) { if (tok !== tourToken) return; A.play("key", ch); v._set(v._num() + ch); await sleep(160); } await sleep(400); ui.call(DIAL); }
+      else { for (const ch of DIAL) { ui.press(ch); await sleep(140); } ui.press("call"); }
+      for (let w = 0; w < 80 && tok === tourToken && !(phone && phone.active); w++) await sleep(100);  // the call connects first
+      for (const s of t.steps) { await sleep(1300); if (tok !== tourToken || !phone || !phone.active) return;  /* ended early: the phone shows the engine's reason */ if (model === "lite") { A.play("key", "5"); ui.buf = s; ui.render(); await sleep(600); ui.press("sk1"); } else { ui.typeUssd(s); A.play("tap"); await sleep(600); if (tok !== tourToken) return; phone.send(s); } }
+      await sleep(1200); if (tok === tourToken) C.toast(LB.tourDone, "ok");
+    }));
+
+    mount();
+    if (model !== "lite") setTimeout(() => { if (ui.wake) ui.on = true; }, 0);
   }
 
   /* ── homepage and /access: the same devices play the engine's own screens ── */
@@ -577,7 +586,7 @@
     class ScriptPhone {
       constructor() { this.number = ""; this.subs = new Set(); this.reset([]); }
       reset(screens) { this.threads = { "7380": [] }; this.unread = 0; this.active = false; this.screens = screens.slice(); }
-      destroy() {}
+      destroy() { }
       emit(ev, d) { this.subs.forEach(f => f(ev, d)); }
       add(dir, body, at, addr = "7380") { (this.threads[addr] = this.threads[addr] || []).push({ dir, body, at: at || clock() }); if (dir === "in") this.unread++; }
       next() { const sc = this.screens.shift(); if (!sc) return; this.active = !sc.end; A.play("receive"); this.emit("ussd", { text: sc.text, ended: sc.end, secret: !sc.end && secret(sc.text) }); }
