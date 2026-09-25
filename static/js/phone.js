@@ -1,10 +1,13 @@
 /* CWAS phone numbers: the country picker beside a phone field (templates/partials/phone.html). Madagascar comes first; every
    other country libphonenumber knows is listed by flag, name and calling code. The number's length is checked for the chosen
    country as it is typed; the server checks the number fully (services.parse_phone). Flags are cells of one sprite
-   (static/img/flags.webp) that the page has already loaded, so the list draws complete the moment it opens. */
+   (static/img/flags.webp) that the page has already loaded, so the list draws complete the moment it opens. Typing or pasting
+   an international number (+230 ...) switches the picker to that country. */
 (() => {
   const data = JSON.parse((document.querySelector("script[data-cc-data]") || {}).textContent || "[]"), by = {};
   data.forEach(r => { by[r[0]] = r; });
+  // calling code -> country; for a code several countries share, the main one (a row's sixth value) wins: +1 is the US
+  const byCode = {}; data.forEach(r => { const k = String(r[1]); if (!byCode[k] || r[5]) byCode[k] = r; });
   const lang = document.documentElement.lang || "en";
   let names = null; try { names = new Intl.DisplayNames([lang === "mg" ? "fr" : lang, "en"], { type: "region" }); } catch (e) { names = null; }
   const nameOf = r => { try { return (names && names.of(r)) || r; } catch (e) { return r; } };
@@ -26,10 +29,19 @@
       input.setCustomValidity(r[3].length && !r[3].includes(d.length) ? bad.replace("{country}", nameOf(r[0])) : "");
     };
     const close = () => { panel.hidden = true; btn.setAttribute("aria-expanded", "false"); };
-    const pick = r => {
+    const set = r => {
       hid.value = r[0]; code.textContent = "+" + r[1]; flag.style.backgroundPosition = cell(r);
       input.placeholder = either ? (input.dataset.ph || "").replace("{example}", r[2] || "") : r[2] || "";
-      close(); check(); input.focus();
+    };
+    const pick = r => { set(r); close(); check(); input.focus(); };
+    // an international number typed or pasted (+230 5...) picks its country; calling codes never begin another code, so
+    // the first match is the one. The country on show stays when it already has that code (Canada for +1, say)
+    const detect = () => {
+      const m = input.value.match(/^\s*\+\s*(\d{1,3})/); if (!m) return;
+      for (let n = 1; n <= m[1].length; n++) {
+        const k = m[1].slice(0, n), r = byCode[k];
+        if (r) { if (!by[hid.value] || String(by[hid.value][1]) !== k) set(r); return; }
+      }
     };
     const render = f => {
       list.textContent = "";
@@ -59,7 +71,7 @@
     });
     document.addEventListener("click", e => { if (!box.contains(e.target)) close(); });
     box.addEventListener("keydown", e => { if (e.key === "Escape" && !panel.hidden) { e.stopPropagation(); close(); btn.focus(); } });
-    input.addEventListener("input", check);
+    input.addEventListener("input", () => { detect(); check(); });
     check();
   });
 })();
