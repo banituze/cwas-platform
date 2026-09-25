@@ -32,7 +32,8 @@ DIAL = S.DIAL  # normalised once in services.ussd_code (always ends with #)
 SHORTCODE = os.environ.get("AT_SHORTCODE") or "7380"
 LANG_CODES = {"1": "mg", "2": "en", "3": "fr"}
 LANG_NAMES = ["Malagasy", "English", "Francais"]
-DENY_REASONS = ["Slot unavailable", "Maintenance", "Incomplete request", "Other, coordinator will call"]
+DENY_REASONS = ["Slot unavailable", "Maintenance",
+                "Incomplete request", "Other, coordinator will call"]
 _ENROLL_FAILS = {}
 _ENROLL_LOCK = threading.Lock()
 
@@ -42,7 +43,8 @@ class Ctx:
         self.lang, self.user, self.phone, self.channel = lang, user, phone, channel
         self.rejected, self.secret, self.flash, self.trail = False, False, "", []
         self.consumed, self.home_len = 0, 0
-        self.pin_ok, self.erased = False, False  # PIN checked this session; account erased (log without the phone)
+        # PIN checked this session; account erased (log without the phone)
+        self.pin_ok, self.erased = False, False
 
     def L(self, s, **kw):
         return tt(s, self.lang, **kw)
@@ -68,7 +70,8 @@ def _fit(lines):
     text = "\n".join(lines)
     limit = 26
     while len(text) > MAX_SCREEN and limit > 8:
-        lines = [(l if len(l) <= limit or i == 0 or _is_nav(l) else l[:limit - 1] + ".") for i, l in enumerate(lines)]
+        lines = [(l if len(l) <= limit or i == 0 or _is_nav(
+            l) else l[:limit - 1] + ".") for i, l in enumerate(lines)]
         text = "\n".join(lines)
         limit -= 2
     return text[:MAX_SCREEN]
@@ -118,7 +121,8 @@ def _pages(render, count):
 def menu(ctx, title, labels, back_line=True, root=False):
     """Numbered menu. Everything on one screen when it fits (no paging); '98. More' only when it must."""
     def render(idxs, more, spaced=True):
-        gap = [BLANK] if spaced else []  # spacing is shown when it fits; paging is measured without it
+        # spacing is shown when it fits; paging is measured without it
+        gap = [BLANK] if spaced else []
         lines = [title] + gap + [f"{i + 1}. {labels[i]}" for i in idxs] + gap
         if more:
             lines.append("98. " + ctx.L("More"))
@@ -128,7 +132,8 @@ def menu(ctx, title, labels, back_line=True, root=False):
             lines += back(ctx)
         return "\n".join(l for l in lines if l)
 
-    pages, page = _pages(lambda idxs, more: render(idxs, more, False), len(labels)), 0
+    pages, page = _pages(lambda idxs, more: render(
+        idxs, more, False), len(labels)), 0
     while True:
         idxs, more = pages[page], page + 1 < len(pages)
         ctx.secret = False
@@ -209,7 +214,8 @@ def household_needs(ctx):
             break
         ctx.rejected, ctx.flash = True, ctx.L("Invalid choice")
     d = yield from menu(ctx, ctx.L("How far is your water point?"), [ctx.L(label) for _, label in S.DISTANCE])
-    srcs = S.operational_sources()  # read at every session, so a newly added water point appears at once
+    # read at every session, so a newly added water point appears at once
+    srcs = S.operational_sources()
     j = yield from menu(ctx, ctx.L("Which water point do you use most?"), [short(x.name, 22) for x in srcs] + [ctx.L("Other"), ctx.L("Not sure")])
     if j == len(srcs):
         name = yield from entry(ctx, ctx.L("Name of the water point"), v_text(2, 60))
@@ -230,7 +236,8 @@ def _err(ctx, e):
             "too_late": "Too late: the slot has started.", "amount_range": "Amount must be {lo} to {hi}.", "provider_invalid": "Provider not available.",
             "not_pending": "Already decided.", "bad_window": "Invalid time window.", "not_approved": "Only approved bookings."}
     db.session.rollback()
-    params = {k: (M(v) if k in ("need", "balance") else v) for k, v in e.params.items() if k != "alts"}
+    params = {k: (M(v) if k in ("need", "balance") else v)
+              for k, v in e.params.items() if k != "alts"}
     return END(ctx, ctx.L(msgs.get(e.code, "Something went wrong."), **params))
 
 
@@ -301,10 +308,13 @@ def pin_setup_flow(ctx, user):
     pin = yield from entry(ctx, ctx.L("Create a 4-digit PIN"), v_pin, secret=True)
     yield from _confirm_pin(ctx, pin)
     code = yield from _new_recovery(ctx)
-    user.pin_hash, user.pin_failed, user.pin_locked_until = generate_password_hash(pin), 0, None
+    user.pin_hash, user.pin_failed, user.pin_locked_until = generate_password_hash(
+        pin), 0, None
     user.recovery_hash = generate_password_hash(code)
-    S.audit("user.pin_set", "user", user.id, "ussd", actor=user, channel="ussd")
-    S.event(user, "Your PIN was set. If this was not you, contact your coordinator.", "system", sms=True)
+    S.audit("user.pin_set", "user", user.id,
+            "ussd", actor=user, channel="ussd")
+    S.event(user, "Your PIN was set. If this was not you, contact your coordinator.",
+            "system", sms=True)
     db.session.commit()
     return END(ctx, ctx.L("PIN saved."), ctx.L("Dial {dial} again to continue.", dial=DIAL))
 
@@ -339,7 +349,8 @@ def _pin_failed(ctx, user, message):
     user.pin_failed = (user.pin_failed or 0) + 1
     if user.pin_failed >= 3:
         user.pin_locked_until, user.pin_failed = utcnow() + timedelta(minutes=15), 0
-        S.audit("user.pin_lock", "user", user.id, "3 wrong PINs or recovery codes", actor=user, channel="ussd")
+        S.audit("user.pin_lock", "user", user.id,
+                "3 wrong PINs or recovery codes", actor=user, channel="ussd")
         db.session.commit()
         return END(ctx, ctx.L(message), ctx.L("Too many wrong PINs. Try again in 15 minutes."))
     db.session.commit()
@@ -385,7 +396,7 @@ def pin_help_flow(ctx, user, missing=False):
 def register_flow(ctx):
     i = yield from menu(ctx, ctx.L("Register as:"), [ctx.L("Household member"), ctx.L("Community coordinator"), ctx.L("Help")])
     if i == 2:
-        yield from info(ctx, ctx.L("Book water, pay by mobile money, no queue."), ctx.L("Register to start. SMS help: {sms}", sms=SHORTCODE))
+        yield from info(ctx, ctx.L("Book a slot, pay by mobile money, no queue."), ctx.L("Register to start. SMS help: {sms}", sms=SHORTCODE))
         return END(ctx, ctx.L("Thank you for using CWAS."))
     role = "member"
     if i == 1:
@@ -414,23 +425,27 @@ def register_flow(ctx):
     db.session.add(u)
     db.session.flush()
     if role == "member":
-        hh = Household(user_id=u.id, name=name, village=village, family_size=size)
+        hh = Household(user_id=u.id, name=name,
+                       village=village, family_size=size)
         S.set_needs(hh, *needs)
         db.session.add(hh)
-    S.audit("user.register", "user", u.id, f"{role} via ussd", actor=u, channel="ussd")
-    S.event(u, "Welcome {name}! Account created. Dial {dial} to book a slot.", "system", sms=True, name=S.first_name(name), dial=DIAL)
+    S.audit("user.register", "user", u.id,
+            f"{role} via ussd", actor=u, channel="ussd")
+    S.event(u, "Welcome {name}! Dial {dial} to book a slot.",
+            "system", sms=True, name=S.first_name(name), dial=DIAL)
     db.session.commit()
-    return END(ctx, ctx.L("Welcome {name}!", name=S.first_name(name)), ctx.L("Account created."), ctx.L("Dial {dial} to book a slot.", dial=DIAL))
+    return END(ctx, ctx.L("Welcome {name}!", name=S.first_name(name)), ctx.L("Dial {dial} to book a slot.", dial=DIAL))
 
 
 # ── member ──────────────────────────────────────────────────────────────────
-MEMBER_MENU = ["Deposit funds", "Book water", "My bookings", "Cancel booking", "Balance", "Notifications", "Water points", "My profile",
+MEMBER_MENU = ["Deposit funds", "Book a slot", "My bookings", "Cancel booking", "Balance", "Notifications", "Water points", "My profile",
                "Help", "Receipts"]
 
 
 def member_main(ctx, user):
     h = user.household
-    flows = [deposit_flow, book_flow, bookings_flow, cancel_flow, balance_flow, notifications_flow, sources_flow, profile_flow, member_help, receipts_flow]
+    flows = [deposit_flow, book_flow, bookings_flow, cancel_flow, balance_flow,
+             notifications_flow, sources_flow, profile_flow, member_help, receipts_flow]
     items = list(zip(MEMBER_MENU, flows))
     while True:
         db.session.refresh(h)
@@ -441,7 +456,8 @@ def member_main(ctx, user):
 
 
 def deposit_flow(ctx, user, h):
-    provs = [("orange", "Orange Money"), ("airtel", "Airtel Money")] + ([("cash", "Cash / agent")] if S.get_setting("cash_enabled") == "1" else [])
+    provs = [("orange", "Orange Money"), ("airtel", "Airtel Money")] + \
+        ([("cash", "Cash / agent")] if S.get_setting("cash_enabled") == "1" else [])
     i = yield from menu(ctx, ctx.L("Deposit funds"), [ctx.L(l) for _, l in provs])
     provider, label = provs[i]
     lo, hi = S.get_int("min_deposit"), S.get_int("max_deposit")
@@ -500,7 +516,8 @@ def book_flow(ctx, user, h):
     if stop:
         return stop
     try:
-        b = S.create_booking(h, src.id, day, slot["start_min"], litres, "ussd", user)
+        b = S.create_booking(
+            h, src.id, day, slot["start_min"], litres, "ussd", user)
         db.session.commit()
     except S.ServiceError as e:
         return _err(ctx, e)
@@ -511,7 +528,8 @@ def book_flow(ctx, user, h):
 def _my_bookings(h, limit=6, only_open=False):
     q = Booking.query.filter_by(household_id=h.id)
     if only_open:
-        q = q.filter(Booking.status.in_(("pending", "approved")), Booking.date >= S.today_local())
+        q = q.filter(Booking.status.in_(("pending", "approved")),
+                     Booking.date >= S.today_local())
     return q.order_by(Booking.date.desc(), Booking.start_min.desc()).limit(limit).all()
 
 
@@ -523,7 +541,8 @@ def bookings_flow(ctx, user, h):
     i = yield from menu(ctx, ctx.L("Your bookings:"), [f"{b.ref} {st(ctx, b.status)} {b.date:%m-%d}" for b in rows])
     b = rows[i]
     yield from info(ctx, b.ref, short(b.source.name, 24), f"{b.date:%Y-%m-%d} {S.fmt_min(b.start_min)}-{S.fmt_min(b.end_min)}",
-                    f"{b.litres} L - {M(b.amount)}", ctx.L("Status: {status}", status=st(ctx, b.status)),
+                    f"{b.litres} L - {M(b.amount)}", ctx.L("Status: {status}",
+                                                           status=st(ctx, b.status)),
                     short(b.decision_note, 40) if b.status == "denied" and b.decision_note else "")
     return None
 
@@ -555,11 +574,16 @@ def balance_flow(ctx, user, h):
 
 
 _TITLES = [("Booked ", "Booking created"), ("Booking {ref} is approved", "Booking approved"), ("Booking {ref} was cancelled", "Booking cancelled"),
-           ("Booking {ref} was not approved", "Booking denied"), ("Booking {ref} expired", "Booking expired"), ("Booking {ref} was marked", "Not collected"),
-           ("Deposit {ref} of", "Deposit pending"), ("Deposit ", "Deposit recorded"), ("Your deposit {ref} of {amount} was not", "Deposit rejected"),
-           ("Your deposit", "Deposit confirmed"), ("Water collected", "Water collected"), ("Maintenance", "Maintenance notice"), ("Welcome", "Welcome"),
-           ("Your PIN was changed", "PIN changed"), ("Your PIN was reset", "PIN reset"), ("Your PIN", "PIN set"),
-           ("Your recovery code", "Recovery code changed"), ("Your profile", "Profile updated"), ("You asked for help", "PIN help"),
+           ("Booking {ref} was not approved", "Booking denied"), ("Booking {ref} expired",
+                                                                  "Booking expired"), ("Booking {ref} was marked", "Not collected"),
+           ("Deposit {ref} of", "Deposit pending"), ("Deposit ", "Deposit recorded"), (
+               "Your deposit {ref} of {amount} was not", "Deposit rejected"),
+           ("Your deposit", "Deposit confirmed"), ("Water collected",
+                                                   "Water collected"), ("Maintenance", "Maintenance notice"), ("Welcome", "Welcome"),
+           ("Your PIN was changed", "PIN changed"), ("Your PIN was reset",
+                                                     "PIN reset"), ("Your PIN", "PIN set"),
+           ("Your recovery code", "Recovery code changed"), ("Your profile",
+                                                             "Profile updated"), ("You asked for help", "PIN help"),
            ("PIN help", "PIN help"), ("Language set", "Language"), ("Your priority", "Priority updated")]
 
 
@@ -573,7 +597,8 @@ def _title(ctx, n):
 
 
 def notifications_flow(ctx, user, h):
-    rows = Notification.query.filter_by(user_id=user.id).order_by(Notification.id.desc()).limit(6).all()
+    rows = Notification.query.filter_by(user_id=user.id).order_by(
+        Notification.id.desc()).limit(6).all()
     if not rows:
         yield from info(ctx, ctx.L("No notifications."))
         return None
@@ -605,7 +630,8 @@ def language_flow(ctx, user, h=None):
     code = LANG_CODES[str(i + 1)]
     user.language = code
     S.audit("user.language", "user", user.id, code, actor=user, channel="ussd")
-    S.notify(user, "Language set to {code}.", "system", code=code.upper())  # in the app only: not worth an SMS
+    # in the app only: not worth an SMS
+    S.notify(user, "Language set to {code}.", "system", code=code.upper())
     db.session.commit()
     return END(ctx, tt("Language set to {code}.", code, code=code.upper()))
 
@@ -618,14 +644,16 @@ def member_help(ctx, user, h):
 
 
 def receipts_flow(ctx, user, h):
-    rows = WalletTxn.query.filter_by(household_id=h.id, status="posted").filter(WalletTxn.kind != "adjustment").order_by(WalletTxn.id.desc()).limit(5).all()
+    rows = WalletTxn.query.filter_by(household_id=h.id, status="posted").filter(
+        WalletTxn.kind != "adjustment").order_by(WalletTxn.id.desc()).limit(5).all()
     if not rows:
         yield from info(ctx, ctx.L("No receipts yet."))
         return None
     i = yield from menu(ctx, ctx.L("Receipts"), [f"{r.reference} {'+' if r.amount > 0 else ''}{r.amount:,}" for r in rows])
     r = rows[i]
     ok = yield from confirm(ctx, r.reference, f"{ctx.L(r.kind.replace('_', ' '))} {'+' if r.amount > 0 else ''}{M(r.amount)}",
-                            (r.created_at + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M"), ctx.L("Your balance is {balance}", balance=M(r.balance_after or 0)),
+                            (r.created_at + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M"), ctx.L(
+                                "Your balance is {balance}", balance=M(r.balance_after or 0)),
                             yes="Send to my SMS", no="Back")
     if ok:
         S.send_sms(user.phone, ctx.L("Receipt {ref}: {kind} {amount}, balance {balance}.", ref=r.reference, kind=ctx.L(r.kind.replace("_", " ")),
@@ -641,8 +669,10 @@ def profile_flow(ctx, user, h=None):
     member = user.role == "member"
     items = [("View profile", view_profile), ("Change name", change_name)]
     if member:
-        items += [("Village / area", change_village), ("Household size", change_size)]
-    items += [("Language", language_flow), ("Change PIN", change_pin), ("Recovery code", change_recovery), ("Forgot PIN", profile_forgot)]
+        items += [("Village / area", change_village),
+                  ("Household size", change_size)]
+    items += [("Language", language_flow), ("Change PIN", change_pin),
+              ("Recovery code", change_recovery), ("Forgot PIN", profile_forgot)]
     if member:
         items.append(("Delete account", delete_flow))
     i = yield from menu(ctx, ctx.L("My profile"), [ctx.L(n) for n, _ in items])
@@ -652,7 +682,8 @@ def profile_flow(ctx, user, h=None):
 def view_profile(ctx, user, h=None):
     lines = [short(user.name, 40), S.local_phone(user.phone)]
     if h:
-        lines += [f"{short(h.village, 20)}, " + ctx.L("{n} people", n=h.family_size), ctx.L("Priority: {level}", level=ctx.L(h.priority_level))]
+        lines += [f"{short(h.village, 20)}, " + ctx.L("{n} people", n=h.family_size),
+                  ctx.L("Priority: {level}", level=ctx.L(h.priority_level))]
     else:
         lines.append(ctx.L(user.role))
     lines += [ctx.L("Language: {code}", code=user.language.upper()),
@@ -670,7 +701,8 @@ def _save_profile(ctx, user, shown, apply):
     if stop:
         return stop
     apply()
-    S.audit("user.profile", "user", user.id, "ussd", actor=user, channel="ussd")
+    S.audit("user.profile", "user", user.id,
+            "ussd", actor=user, channel="ussd")
     S.notify(user, "Your profile was updated.", "system")
     db.session.commit()
     return END(ctx, ctx.L("Saved."), shown)
@@ -697,7 +729,8 @@ def change_size(ctx, user, h):
 
 
 def change_pin(ctx, user, h=None):
-    stop = yield from require_pin(ctx, user, forgot=False)  # the current PIN first, so a borrowed phone cannot change it
+    # the current PIN first, so a borrowed phone cannot change it
+    stop = yield from require_pin(ctx, user, forgot=False)
     if stop:
         return stop
     pin = yield from entry(ctx, ctx.L("Create a new 4-digit PIN"), v_pin, secret=True)
@@ -726,14 +759,17 @@ def delete_flow(ctx, user, h):
     removed, and any balance is recorded as a cash refund the coordinator owes."""
     bal = h.balance if h else 0
     ok = yield from confirm(ctx, ctx.L("Delete your account?"), ctx.L("Your personal data is removed."),
-                            ctx.L("Your coordinator refunds {amount} in cash.", amount=M(bal)) if bal > 0 else "",
+                            ctx.L("Your coordinator refunds {amount} in cash.", amount=M(
+                                bal)) if bal > 0 else "",
                             yes="Delete my account", no="Keep")
     if not ok:
         return END(ctx, ctx.L("Kept."))
     stop = yield from require_pin(ctx, user)
     if stop:
         return stop
-    S.send_sms(user.phone, ctx.L("Your CWAS account and personal data were deleted."), user)  # sent before the number is erased
+    # sent before the number is erased
+    S.send_sms(user.phone, ctx.L(
+        "Your CWAS account and personal data were deleted."), user)
     current_app.extensions["cwas.erase_account"](user, "ussd")
     db.session.commit()
     ctx.erased = True
@@ -743,7 +779,8 @@ def delete_flow(ctx, user, h):
 # ── coordinator / admin ─────────────────────────────────────────────────────
 def staff_main(ctx, user):
     items = [("Pending queue", queue_flow), ("Approve", approve_flow), ("Deny", deny_flow), ("Mark collected", collect_flow), ("Water points", staff_sources_flow),
-             ("Register household", register_household_flow), ("Operations summary", summary_flow), ("My profile", profile_flow), ("Help", staff_help),
+             ("Register household", register_household_flow), ("Operations summary",
+                                                               summary_flow), ("My profile", profile_flow), ("Help", staff_help),
              ("Cash deposit", cash_flow), ("Announcement", announce_flow), ("Reset household PIN", reset_member_pin_flow)]
     while True:
         i = yield from menu(ctx, ctx.L("Hello {name}", name=S.first_name(user.name)), [ctx.L(n) for n, _ in items], root=True)
@@ -809,7 +846,8 @@ def deny_flow(ctx, user):
 
 
 def collect_flow(ctx, user):
-    rows = Booking.query.filter_by(status="approved").filter(Booking.date <= S.today_local()).order_by(Booking.date, Booking.start_min).limit(6).all()
+    rows = Booking.query.filter_by(status="approved").filter(
+        Booking.date <= S.today_local()).order_by(Booking.date, Booking.start_min).limit(6).all()
     b = yield from _pick(ctx, ctx.L("Mark which?"), rows, "Nothing to mark.")
     if not b:
         return None
@@ -835,12 +873,14 @@ def staff_sources_flow(ctx, user):
         return stop
     if j in (0, 1):
         s.status = "operational" if j == 0 else "closed"
-        S.audit("source.status", "source", s.id, s.status, actor=user, channel="ussd")
+        S.audit("source.status", "source", s.id,
+                s.status, actor=user, channel="ussd")
         db.session.commit()
         return END(ctx, ctx.L("{name} is now {status}.", name=short(s.name, 18), status=ctx.L(s.status)))
     start = S.now_local()
     try:
-        _, n = S.schedule_maintenance(s, start, start + timedelta(hours=2 if j == 2 else 6), "Blocked by USSD", user, "ussd")
+        _, n = S.schedule_maintenance(
+            s, start, start + timedelta(hours=2 if j == 2 else 6), "Blocked by USSD", user, "ussd")
         db.session.commit()
     except S.ServiceError as e:
         return _err(ctx, e)
@@ -853,7 +893,8 @@ def register_household_flow(ctx, user):
         phone = yield from entry(ctx, ctx.L("Household phone number"), v_phone)
         if not User.query.filter_by(phone=phone).first():
             break
-        ctx.rejected, ctx.flash = True, ctx.L("An account with this phone or email already exists.")
+        ctx.rejected, ctx.flash = True, ctx.L(
+            "An account with this phone or email already exists.")
     village = yield from entry(ctx, ctx.L("Enter village / area"), v_text(2, 40))
     size = yield from entry(ctx, ctx.L("Enter household size (number)"), v_int(1, 40))
     flags, dist, home = yield from household_needs(ctx)
@@ -865,15 +906,20 @@ def register_household_flow(ctx, user):
     stop = yield from require_pin(ctx, user)
     if stop:
         return stop
-    u = User(role="member", name=name, phone=phone, language=LANG_CODES[str(li + 1)], pin_hash=generate_password_hash(pin))
+    u = User(role="member", name=name, phone=phone, language=LANG_CODES[str(
+        li + 1)], pin_hash=generate_password_hash(pin))
     db.session.add(u)
     db.session.flush()
-    hh = Household(user_id=u.id, name=name, village=village, family_size=size, priority_level=S.reported_level(flags))
-    S.set_needs(hh, flags, dist, home)  # the coordinator is with the household, so the level counts as checked
+    hh = Household(user_id=u.id, name=name, village=village,
+                   family_size=size, priority_level=S.reported_level(flags))
+    # the coordinator is with the household, so the level counts as checked
+    S.set_needs(hh, flags, dist, home)
     hh.needs_review = False
     db.session.add(hh)
-    S.audit("user.register", "user", u.id, "household registered by staff via ussd", actor=user, channel="ussd")
-    S.event(u, "Welcome {name}! Account created. Dial {dial} to book a slot.", "system", sms=True, name=S.first_name(name), dial=DIAL)
+    S.audit("user.register", "user", u.id,
+            "household registered by staff via ussd", actor=user, channel="ussd")
+    S.event(u, "Welcome {name}! Dial {dial} to book a slot.",
+            "system", sms=True, name=S.first_name(name), dial=DIAL)
     db.session.commit()
     return END(ctx, ctx.L("Registered {name}.", name=short(name, 18)), phone)
 
@@ -883,7 +929,8 @@ def reset_member_pin_flow(ctx, user):
     to the household's own phone. The coordinator never sees it."""
     while True:
         phone = yield from entry(ctx, ctx.L("Household phone number"), v_phone)
-        m = User.query.filter_by(phone=phone, role="member", is_active_flag=True).first()
+        m = User.query.filter_by(
+            phone=phone, role="member", is_active_flag=True).first()
         if m and m.household:
             break
         ctx.rejected, ctx.flash = True, ctx.L("No member with that number.")
@@ -907,7 +954,8 @@ def summary_flow(ctx, user):
     def c(s):
         return sum(1 for b in today if b.status == s)
     yield from info(ctx, ctx.L("Today {d}", d=t.strftime("%m-%d")), ctx.L("Pending {a}, approved {b}", a=Booking.query.filter_by(status="pending").count(), b=c("approved")),
-                    ctx.L("Collected {a}, litres {b}", a=c("collected"), b=sum(b.litres for b in today if b.status in ("approved", "collected"))),
+                    ctx.L("Collected {a}, litres {b}", a=c("collected"), b=sum(
+                        b.litres for b in today if b.status in ("approved", "collected"))),
                     ctx.L("Deposits waiting {n}, households {h}", n=WalletTxn.query.filter_by(kind="deposit", status="pending").count(), h=Household.query.count()))
     return None
 
@@ -920,7 +968,8 @@ def staff_help(ctx, user):
 def cash_flow(ctx, user):
     while True:
         phone = yield from entry(ctx, ctx.L("Household phone number"), v_phone)
-        m = User.query.filter_by(phone=phone, role="member", is_active_flag=True).first()
+        m = User.query.filter_by(
+            phone=phone, role="member", is_active_flag=True).first()
         if m and m.household:
             break
         ctx.rejected, ctx.flash = True, ctx.L("No member with that number.")
@@ -960,7 +1009,8 @@ def broadcast(message, actor, channel="web"):
         if m.phone:
             S.send_sms(m.phone, message[:160], m)
         n += 1
-    S.audit("announcement.send", "announcement", "", f"{n} recipients: {message[:80]}", actor=actor, channel=channel)
+    S.audit("announcement.send", "announcement", "",
+            f"{n} recipients: {message[:80]}", actor=actor, channel=channel)
     return n
 
 
@@ -1026,10 +1076,12 @@ def handle_ussd(session_id, phone, text, channel="telco"):
     sess = UssdSession.query.filter_by(session_id=session_id).first()
     if sess and sess.ended and sess.trail.endswith("#" + key):
         return sess.last_response
-    user = User.query.filter_by(phone=phone, is_active_flag=True).first() if phone else None
+    user = User.query.filter_by(
+        phone=phone, is_active_flag=True).first() if phone else None
     ctx = Ctx(user.language if user else "mg", user, phone, channel)
     try:
-        out = "END Invalid phone." if not phone else _run(ctx, session_flow, text.split("*") if text else [])
+        out = "END Invalid phone." if not phone else _run(
+            ctx, session_flow, text.split("*") if text else [])
     except Exception:  # never leak a traceback to a handset
         db.session.rollback()
         log.exception("USSD failure")
@@ -1042,7 +1094,8 @@ def _log_session(session_id, phone, channel, ctx, out, key):
     try:
         sess = UssdSession.query.filter_by(session_id=session_id).first()
         if not sess:
-            sess = UssdSession(session_id=session_id, phone="deleted" if ctx.erased else (phone or "?"), channel=channel)
+            sess = UssdSession(session_id=session_id, phone="deleted" if ctx.erased else (
+                phone or "?"), channel=channel)
             db.session.add(sess)
         sess.hops = (sess.hops or 0) + 1
         sess.updated_at = utcnow()
@@ -1090,9 +1143,12 @@ def _create_member(actor, name, phone, village, size, lang, pin, via, recovery=N
              recovery_hash=generate_password_hash(recovery) if recovery else None)
     db.session.add(u)
     db.session.flush()
-    db.session.add(Household(user_id=u.id, name=u.name, village=S.clean_text(village, 40), family_size=int(size)))
-    S.audit("user.register", "user", u.id, f"member via {via}", actor=actor or u, channel="sms")
-    S.event(u, "Welcome {name}! Account created. Dial {dial} to book a slot.", "system", sms=True, name=S.first_name(u.name), dial=DIAL)
+    db.session.add(Household(user_id=u.id, name=u.name,
+                   village=S.clean_text(village, 40), family_size=int(size)))
+    S.audit("user.register", "user", u.id,
+            f"member via {via}", actor=actor or u, channel="sms")
+    S.event(u, "Welcome {name}! Dial {dial} to book a slot.",
+            "system", sms=True, name=S.first_name(u.name), dial=DIAL)
     return u
 
 
@@ -1113,16 +1169,20 @@ def handle_sms(phone, text):
     action already sent its own confirmation SMS."""
     phone = S.norm_phone(phone)
     body = S.clean_text(text, 300)
-    db.session.add(SmsLog(direction="in", phone=phone or "?", body=body[:600], status="received"))
-    user = User.query.filter_by(phone=phone, is_active_flag=True).first() if phone else None
+    db.session.add(SmsLog(direction="in", phone=phone or "?",
+                   body=body[:600], status="received"))
+    user = User.query.filter_by(
+        phone=phone, is_active_flag=True).first() if phone else None
     lang = user.language if user else "en"
 
     def L(s, **kw):
         return tt(s, lang, **kw)
     parts = body.split(None, 1)
-    cmd, rest = (parts[0].upper() if parts else "HELP"), (parts[1].strip() if len(parts) > 1 else "")
+    cmd, rest = (parts[0].upper() if parts else "HELP"), (parts[1].strip() if len(
+        parts) > 1 else "")
     words = set(body.upper().split())
-    pin_help = "PIN" in words and words <= {"PIN", "HELP", "FORGOT", "RESET", "LOST"}
+    pin_help = "PIN" in words and words <= {
+        "PIN", "HELP", "FORGOT", "RESET", "LOST"}
     h = user.household if user and user.role == "member" else None
     staff = bool(user and user.role in ("coordinator", "admin"))
     reply = ""
@@ -1135,12 +1195,15 @@ def handle_sms(phone, text):
                 reply = (L("Request sent. A coordinator will call you to check your details and reset your PIN.") if S.request_pin_help(user, "sms")
                          else L("A request is already open. A coordinator will call you soon."))
                 if contacts:
-                    reply += " " + L("Coordinator: {phone}", phone=S.local_phone(contacts[0]))
+                    reply += " " + \
+                        L("Coordinator: {phone}",
+                          phone=S.local_phone(contacts[0]))
         elif user is None:
             if cmd == "REGISTER" and rest.upper().startswith("MEMBER"):
                 raw = rest[6:].strip()
                 f = _split(raw, 5) or _split(raw, 6)
-                u = _create_member(None, f[0], phone, f[1], f[2], f[3], f[4], "sms", f[5] if len(f) == 6 else None) if f else None
+                u = _create_member(None, f[0], phone, f[1], f[2], f[3], f[4], "sms", f[5] if len(
+                    f) == 6 else None) if f else None
                 if u == "exists":
                     reply = "Already registered."
                 elif u is None:
@@ -1156,38 +1219,47 @@ def handle_sms(phone, text):
             reply = "; ".join(f"{i}. {short(s.name, 20)} [{_STATE.get(s.status, '?')}] {S.fmt_min(s.open_min)}-{S.fmt_min(s.close_min)}"
                               for i, s in enumerate(WaterSource.query.order_by(WaterSource.name).all(), 1))
         elif cmd in ("BOOKINGS", "MYBOOKINGS") and h:
-            reply = " | ".join(f"{b.ref} {st_l(lang, b.status)} {b.date:%m-%d} {S.fmt_min(b.start_min)}" for b in _my_bookings(h, 3)) or L("You have no bookings yet.")
+            reply = " | ".join(f"{b.ref} {st_l(lang, b.status)} {b.date:%m-%d} {S.fmt_min(b.start_min)}" for b in _my_bookings(
+                h, 3)) or L("You have no bookings yet.")
         elif cmd == "BOOKING" and rest:
             b = _find_booking(rest.split()[0], user)
             reply = (f"{b.ref} {short(b.source.name, 20)} {b.date:%m-%d} {S.fmt_min(b.start_min)}-{S.fmt_min(b.end_min)} {b.litres} L {M(b.amount)} {st_l(lang, b.status)}"
                      if b else L("Booking not found."))
         elif cmd == "RECEIPT" and rest:
             b = _find_booking(rest.split()[0], user)
-            txn = WalletTxn.query.filter_by(booking_id=b.id, kind="booking_debit", status="posted").first() if b else None
+            txn = WalletTxn.query.filter_by(
+                booking_id=b.id, kind="booking_debit", status="posted").first() if b else None
             reply = (L("Receipt {ref}: {kind} {amount}, balance {balance}.", ref=txn.reference, kind=L("booking debit"), amount=M(txn.amount), balance=M(txn.balance_after or 0))
                      if txn else L("Receipt not found."))
         elif cmd in ("NOTICES", "NOTICE"):
-            rows = Notification.query.filter_by(user_id=user.id, is_read=False).order_by(Notification.id.desc()).limit(3).all()
+            rows = Notification.query.filter_by(user_id=user.id, is_read=False).order_by(
+                Notification.id.desc()).limit(3).all()
             for n in rows:
                 n.is_read = True
-            reply = " | ".join(S.render_notification(n, lang)[:90] for n in rows) or L("No notifications.")
+            reply = " | ".join(S.render_notification(n, lang)[
+                               :90] for n in rows) or L("No notifications.")
         elif cmd == "PROFILE":
             reply = f"{user.name}, {h.village}, {h.family_size}, {L(h.priority_level)}, {lang.upper()}" if h else f"{user.name}, {L(user.role)}"
         elif cmd == "LANG" and rest.upper() in ("MG", "FR", "EN"):
             user.language = rest.lower()
-            S.notify(user, "Language set to {code}.", "system", code=rest.upper())
-            reply = tt("Language set to {code}.", user.language, code=rest.upper())
+            S.notify(user, "Language set to {code}.",
+                     "system", code=rest.upper())
+            reply = tt("Language set to {code}.",
+                       user.language, code=rest.upper())
         elif cmd == "CANCEL" and rest:
             b = _find_booking(rest.split()[0], user)
             if b:
                 S.cancel_booking(b, user, "sms")
-                refund = WalletTxn.query.filter_by(booking_id=b.id, kind="booking_refund").first()
-                reply = L("Booking {ref} was cancelled. {amount} returned to your wallet.", ref=b.ref, amount=M(refund.amount if refund else 0))
+                refund = WalletTxn.query.filter_by(
+                    booking_id=b.id, kind="booking_refund").first()
+                reply = L("Booking {ref} was cancelled. {amount} returned to your wallet.", ref=b.ref, amount=M(
+                    refund.amount if refund else 0))
             else:
                 reply = L("Booking not found.")
         elif cmd == "DEPOSIT" and h:
             f = rest.split()
-            provider = {"ORANGE": "orange", "AIRTEL": "airtel", "CASH": "cash"}.get(f[1].upper(), "") if len(f) > 1 else "orange"
+            provider = {"ORANGE": "orange", "AIRTEL": "airtel", "CASH": "cash"}.get(
+                f[1].upper(), "") if len(f) > 1 else "orange"
             if not f or not f[0].isdigit() or not provider:
                 reply = "DEPOSIT <amount> [ORANGE|AIRTEL|CASH]"
             else:
@@ -1202,12 +1274,14 @@ def handle_sms(phone, text):
             if not day or not f[0].isdigit() or not (1 <= int(f[0]) <= len(srcs)) or not f[3].isdigit():
                 reply = "BOOK <n> <TODAY|TOMORROW|MM-DD> <HH:MM> <litres>"
             else:
-                b = S.create_booking(h, srcs[int(f[0]) - 1].id, day, S.parse_hhmm(f[2], -1), int(f[3]), "sms", user)
+                b = S.create_booking(
+                    h, srcs[int(f[0]) - 1].id, day, S.parse_hhmm(f[2], -1), int(f[3]), "sms", user)
                 if b.status == "pending":  # an approved booking already sent its own SMS
                     reply = L("Booked {ref}: {source} {date} {time}, {litres} L, {amount}. Status: pending approval.", ref=b.ref, source=b.source.name, date=f"{b.date:%Y-%m-%d}", time=S.fmt_min(b.start_min),
                               litres=b.litres, amount=M(b.amount))
         elif cmd == "PENDING" and staff:
-            reply = " | ".join(f"{b.ref} {short(b.household.name, 10)} {b.litres}L" for b in _pending(5)) or L("No pending bookings.")
+            reply = " | ".join(f"{b.ref} {short(b.household.name, 10)} {b.litres}L" for b in _pending(
+                5)) or L("No pending bookings.")
         elif cmd in ("APPROVE", "DENY", "COLLECT") and staff and rest:
             b = _find_booking(rest.split()[0])
             if not b:
@@ -1216,11 +1290,14 @@ def handle_sms(phone, text):
                 S.mark_collected(b, user, "sms")
                 reply = L("Saved.")
             else:
-                S.decide_booking(b, cmd == "APPROVE", rest.partition(" ")[2] or ("Denied by SMS" if cmd == "DENY" else ""), user, "sms")
-                reply = L("Approved {ref}.", ref=b.ref) if cmd == "APPROVE" else L("Denied {ref}. Household refunded.", ref=b.ref)
+                S.decide_booking(b, cmd == "APPROVE", rest.partition(" ")[2] or (
+                    "Denied by SMS" if cmd == "DENY" else ""), user, "sms")
+                reply = L("Approved {ref}.", ref=b.ref) if cmd == "APPROVE" else L(
+                    "Denied {ref}. Household refunded.", ref=b.ref)
         elif cmd in ("REG", "REGISTER") and staff and rest.upper().startswith("MEMBER"):
             f = _split(rest[6:].strip(), 6)
-            u = _create_member(user, f[0], S.norm_phone(f[1]), f[2], f[3], f[4], f[5], "staff sms") if f else None
+            u = _create_member(user, f[0], S.norm_phone(
+                f[1]), f[2], f[3], f[4], f[5], "staff sms") if f else None
             reply = (L("Registered {name}.", name=short(u.name, 18)) if isinstance(u, User)
                      else L("An account with this phone or email already exists.") if u == "exists" else "REG MEMBER Name|Phone|Village|Size|LANG|PIN")
         else:
@@ -1236,7 +1313,8 @@ def handle_sms(phone, text):
 def household_menu_screens(lang):
     """The household main menu, every page exactly as a caller sees it. /access shows these, so it cannot drift from the engine."""
     ctx = Ctx(lang=lang, phone="+261340000000")
-    gen = menu(ctx, ctx.L("Hello {name}", name="Rasoa"), [ctx.L(n) for n in MEMBER_MENU], root=True)
+    gen = menu(ctx, ctx.L("Hello {name}", name="Rasoa"), [
+               ctx.L(n) for n in MEMBER_MENU], root=True)
     screens = [next(gen)[4:]]
     while "\n98. " in screens[-1] and len(screens) < 6:
         screens.append(gen.send("98")[4:])
@@ -1250,19 +1328,23 @@ def demo_script(lang):
     from types import SimpleNamespace
     ctx = Ctx(lang=lang, phone="+261340000000")
     L = ctx.L
-    first = lambda gen: next(gen)[4:]  # noqa: E731  the first screen of a real step, without the CON prefix
+    def first(gen): return next(gen)[4:]  # noqa: E731  the first screen of a real step, without the CON prefix
     lk = {v: k for k, v in LANG_CODES.items()}[lang]
     welcome = first(session_flow(Ctx(lang=lang)))
-    main = first(menu(ctx, L("Hello {name}", name="Rasoa"), [L(n) for n in MEMBER_MENU], root=True))
+    main = first(menu(ctx, L("Hello {name}", name="Rasoa"), [
+                 L(n) for n in MEMBER_MENU], root=True))
     balance, deposit = 12500, 10000
-    bal = first(info(ctx, L("Your balance is {balance}", balance=M(balance)), f"+{M(deposit)} {L('deposit')}"))
+    bal = first(info(ctx, L("Your balance is {balance}", balance=M(
+        balance)), f"+{M(deposit)} {L('deposit')}"))
     script = {"ui": {"cancel": L("Cancel"), "send": L("Send"), "ok": L("OK")},
               "lite": [["dial", DIAL], ["call", ""], ["screen", welcome], ["key", lk], ["screen", main], ["key", str(MEMBER_MENU.index("Balance") + 1)], ["screen", bal]]}
     srcs = S.operational_sources()
     days = S.booking_days()
     src = srcs[0] if srcs else None
-    slots = S.slot_list(src, days[1], only_open=True) if src and len(days) > 1 else []
-    nova = [["dial", DIAL], ["call", ""], ["screen", welcome], ["key", lk], ["screen", main], ["key", str(MEMBER_MENU.index("Book water") + 1)]]
+    slots = S.slot_list(src, days[1], only_open=True) if src and len(
+        days) > 1 else []
+    nova = [["dial", DIAL], ["call", ""], ["screen", welcome], ["key", lk], [
+        "screen", main], ["key", str(MEMBER_MENU.index("Book a slot") + 1)]]
     if src and slots:
         home = SimpleNamespace(priority_level="standard")
         slot = slots[0]
@@ -1271,15 +1353,20 @@ def demo_script(lang):
         amount = S.price_quote(home, src, litres)[0]
         ref = "CW-4F7A9C21"
         nova += [["screen", first(menu(ctx, L("Select water point:"), [short(x.name, 22) for x in srcs]))], ["key", "1"],
-                 ["screen", first(menu(ctx, L("Select day:"), [_day_label(ctx, d, n) for n, d in enumerate(days)]))], ["key", "2"],
-                 ["screen", first(menu(ctx, L("Select slot:"), [f"{x['label']} ({x['free']})" for x in slots]))], ["key", "1"],
-                 ["screen", first(menu(ctx, L("Quantity:"), [f"{l} L ({M(S.price_quote(home, src, l)[0])})" for l in opts]))], ["key", str(opts.index(litres) + 1)],
-                 ["screen", first(confirm(ctx, L("Confirm booking"), short(src.name, 20), f"{days[1]:%Y-%m-%d} {slot['label']}", f"{litres} L - {M(amount)}",
-                                          L("Wallet: {balance}", balance=M(balance)), yes="Pay from wallet"))], ["key", "1"],
-                 ["screen", first(require_pin(ctx, SimpleNamespace(pin_locked_until=None)))], ["pin", "1234"],
-                 ["end", END(ctx, L("Booked!"), f"Ref: {ref}", short(src.name, 18), f"{days[1]:%Y-%m-%d} {slot['label']}", f"{litres} L - {M(amount)}",
-                             L("Status: {status}", status=L("pending approval")))[4:]]]
-        n = [x.id for x in WaterSource.query.order_by(WaterSource.name).all()].index(src.id) + 1  # SMS numbers follow SOURCES
+                 ["screen", first(menu(ctx, L("Select day:"), [_day_label(
+                     ctx, d, n) for n, d in enumerate(days)]))], ["key", "2"],
+                 ["screen", first(menu(ctx, L("Select slot:"), [
+                                  f"{x['label']} ({x['free']})" for x in slots]))], ["key", "1"],
+                 ["screen", first(menu(ctx, L("Quantity:"), [f"{l} L ({M(S.price_quote(home, src, l)[0])})" for l in opts]))], [
+            "key", str(opts.index(litres) + 1)],
+            ["screen", first(confirm(ctx, L("Confirm booking"), short(src.name, 20), f"{days[1]:%Y-%m-%d} {slot['label']}", f"{litres} L - {M(amount)}",
+                                     L("Wallet: {balance}", balance=M(balance)), yes="Pay from wallet"))], ["key", "1"],
+            ["screen", first(require_pin(ctx, SimpleNamespace(pin_locked_until=None)))], [
+            "pin", "1234"],
+            ["end", END(ctx, L("Booked!"), f"Ref: {ref}", short(src.name, 18), f"{days[1]:%Y-%m-%d} {slot['label']}", f"{litres} L - {M(amount)}",
+                        L("Status: {status}", status=L("pending approval")))[4:]]]
+        n = [x.id for x in WaterSource.query.order_by(WaterSource.name).all()].index(
+            src.id) + 1  # SMS numbers follow SOURCES
         sms_src = WaterSource.query.order_by(WaterSource.name).all()[n - 1]
         sms_slots = S.slot_list(sms_src, days[1], only_open=True)
         t = sms_slots[min(1, len(sms_slots) - 1)] if sms_slots else slot
@@ -1293,6 +1380,7 @@ def demo_script(lang):
                          ["wait", 1600],
                          ["in", tt("Booking {ref} is approved: {source}, {date} {time}.", lang, ref=ref2, source=sms_src.name, date=f"{days[1]:%Y-%m-%d}", time=hhmm)]]
     else:
-        script["max"] = [["type", "BAL"], ["in", L("Your balance is {balance}", balance=M(balance))]]
+        script["max"] = [["type", "BAL"], [
+            "in", L("Your balance is {balance}", balance=M(balance))]]
     script["nova"] = nova
     return script
