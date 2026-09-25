@@ -15,7 +15,8 @@ def from_python(path):
     tree = ast.parse(path.read_text())
     for n in ast.walk(tree):
         if isinstance(n, ast.Call):
-            name = n.func.attr if isinstance(n.func, ast.Attribute) else getattr(n.func, "id", "")
+            name = n.func.attr if isinstance(
+                n.func, ast.Attribute) else getattr(n.func, "id", "")
             if name in CALLS and n.args:
                 for a in n.args[:2 if name in ("notify", "sms_user", "tt") else 1]:
                     if isinstance(a, ast.Constant) and isinstance(a.value, str):
@@ -33,7 +34,8 @@ def from_python(path):
 
 BLOCK = re.compile(r"\{\{.*?\}\}|\{%.*?%\}", re.S)
 STR = re.compile(r"""(['"])((?:\\.|(?!\1).)+)\1""")
-SKIP = re.compile(r"^(#|/|https?:|\.|[a-z_]+\.[a-z_]+|[a-z]+[-:][a-z0-9-]+|[a-z_]+=|%|\d|_)|\.html|\.png|\.svg|\.js|\.css|^[a-z_]+$")
+SKIP = re.compile(
+    r"^(#|/|https?:|\.|[a-z_]+\.[a-z_]+|[a-z]+[-:][a-z0-9-]+|[a-z_]+=|%|\d|_)|\.html|\.png|\.svg|\.js|\.css|^[a-z_]+$")
 
 
 def from_template(path):
@@ -59,7 +61,8 @@ def collect():
     keys = set()
     for p in ROOT.glob("*.py"):
         keys |= from_python(p)
-    keys |= {n.value for n in ast.walk(ast.parse((ROOT / "legal.py").read_text())) if isinstance(n, ast.Constant) and isinstance(n.value, str) and len(n.value) > 3 and not n.value.startswith("Legal texts") and not n.value.startswith("These are working drafts") and not re.fullmatch(r"[\d-]+", n.value) and not n.value.startswith("!")}
+    keys |= {n.value for n in ast.walk(ast.parse((ROOT / "legal.py").read_text())) if isinstance(n, ast.Constant) and isinstance(n.value, str) and len(
+        n.value) > 3 and not n.value.startswith("Legal texts") and not n.value.startswith("These are working drafts") and not re.fullmatch(r"[\d-]+", n.value) and not n.value.startswith("!")}
     for p in (ROOT / "templates").rglob("*.html"):
         keys |= from_template(p)
     return {k for k in keys if k and not k.startswith(("<", "#", "!")) and (" " in k or k[0].isupper() or k in ("none", "no show"))}

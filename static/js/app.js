@@ -103,7 +103,7 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
       Object.keys(BRAND).forEach(th => {
         if (th === document.documentElement.dataset.theme) return;
         const url = (holder.getAttribute("data-shot-" + th) || "").split(",").map(x => x.trim().split(" ")[0]).find(x => x.includes("-" + w + "."));
-        if (url) { const im = new Image(); im.src = url; if (im.decode) im.decode().catch(() => {}); warm.push(im); }
+        if (url) { const im = new Image(); im.src = url; if (im.decode) im.decode().catch(() => { }); warm.push(im); }
       });
     });
   };
@@ -177,7 +177,7 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
   const prefetchLangs = () => {
     const cur = document.documentElement.lang;
     const codes = [...new Set(langForms().flatMap(f => Array.from(f.querySelectorAll('[name="code"]')).map(b => b.value)))].filter(c => c && c !== cur);
-    const go = () => codes.reduce((p, c) => p.then(() => fetchLang(c).catch(() => {})), Promise.resolve());
+    const go = () => codes.reduce((p, c) => p.then(() => fetchLang(c).catch(() => { })), Promise.resolve());
     (window.requestIdleCallback || (fn => setTimeout(fn, 900)))(go, { timeout: 3000 });
   };
   document.addEventListener("submit", e => {
@@ -186,7 +186,7 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
     e.preventDefault();
     if (code === document.documentElement.lang) { closeMenus(); return; }
     const body = new FormData(f); body.set("code", code);
-    fetch(f.action, { method: "POST", body, credentials: "same-origin", redirect: "manual", keepalive: true }).catch(() => {});  // remembers the choice
+    fetch(f.action, { method: "POST", body, credentials: "same-origin", redirect: "manual", keepalive: true }).catch(() => { });  // remembers the choice
     Audio.play("tap");
     fetchLang(code).then(html => { swapLang(html, code); prefetchLangs(); }).catch(() => {
       const i = document.createElement("input"); i.type = "hidden"; i.name = "code"; i.value = code; f.appendChild(i);
@@ -249,7 +249,7 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
         if ((d.items || []).length) Audio.play("notify");
         last = d.last || last;
         badge().forEach(b => { b.textContent = d.unread; b.hidden = !d.unread; });
-      }).catch(() => {});
+      }).catch(() => { });
     };
     setInterval(poll, 20000); document.addEventListener("visibilitychange", poll);
   }
@@ -273,8 +273,8 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
     const load = () => { if (v.getAttribute("src")) return; v.autoplay = !paused; v.preload = paused ? "metadata" : "auto"; v.src = v.dataset.hd && !saveData && v.clientWidth > 900 ? v.dataset.hd : v.dataset.src; };
     btn.addEventListener("click", load);
     if (!saveData) { if ("IntersectionObserver" in window) new IntersectionObserver((es, o) => es.forEach(en => { if (en.isIntersecting) { load(); o.disconnect(); } }), { rootMargin: "100% 0px" }).observe(v); else load(); }
-    if ("IntersectionObserver" in window) new IntersectionObserver(es => es.forEach(en => { visible = en.isIntersecting; if (!visible) v.pause(); else if (!paused) v.play().catch(() => {}); }), { threshold: .05 }).observe(v);
-    document.addEventListener("pointerdown", () => { if (!paused && v.paused && visible) v.play().catch(() => {}); }, { once: true });
+    if ("IntersectionObserver" in window) new IntersectionObserver(es => es.forEach(en => { visible = en.isIntersecting; if (!visible) v.pause(); else if (!paused) v.play().catch(() => { }); }), { threshold: .05 }).observe(v);
+    document.addEventListener("pointerdown", () => { if (!paused && v.paused && visible) v.play().catch(() => { }); }, { once: true });
   });
 
   /* ── receipt printer (metal thermal printer) ── */
@@ -324,11 +324,11 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
           const lab = inp.nextElementSibling; lab.dataset.state = s.state; inp.disabled = s.state !== "open";
           const sm = $("small", lab); if (sm) sm.textContent = s.state === "open" ? `${s.free}/${s.capacity}` : s.state;
         });
-      }).catch(() => {});
+      }).catch(() => { });
     };
     setInterval(refresh, 25000);
   }
 
   /* offline support (read-only pages are cached; money and booking actions always need the server) */
-  if ("serviceWorker" in navigator && location.pathname.startsWith("/app")) navigator.serviceWorker.register("/sw.js").catch(() => {});
+  if ("serviceWorker" in navigator && location.pathname.startsWith("/app")) navigator.serviceWorker.register("/sw.js").catch(() => { });
 })();

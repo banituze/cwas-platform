@@ -35,10 +35,12 @@
         S = big * 0.34; D = big * 0.5; LEN = ROWS * D; P = big * 1.1; tw = Math.min(W * 0.5, 260); th = tw * 0.72;
       };
       let k0 = 0;
-      ["left", "right", "top", "bottom"].forEach((wall, wi) => { for (let r = 0; r < ROWS; r++) for (let c = 0; c < 2; c++) {
-        const img = (r + c + wi) % 3 !== 0 && pics.length ? pics[k0 % pics.length] : null;
-        tiles.push({ wall, r, c, img, word: img ? "" : (words.length ? words[k0 % words.length] : ""), kind: KIND[k0 % 3] }); k0++;
-      } });
+      ["left", "right", "top", "bottom"].forEach((wall, wi) => {
+        for (let r = 0; r < ROWS; r++) for (let c = 0; c < 2; c++) {
+          const img = (r + c + wi) % 3 !== 0 && pics.length ? pics[k0 % pics.length] : null;
+          tiles.push({ wall, r, c, img, word: img ? "" : (words.length ? words[k0 % words.length] : ""), kind: KIND[k0 % 3] }); k0++;
+        }
+      });
       const draw = () => {
         g.clearRect(0, 0, W, H);
         const cx = W / 2 + swx * 18, cy = H / 2 + swy * 14, zmax = P * 0.55, list = [];
@@ -109,8 +111,8 @@
       const o = clamp((z + L - 700) / 900, 0, 1) * clamp((620 - z) / 420, 0, 1);
       t.el.style.transform = t.wall === "left" ? `translate3d(${-S}px,${t.across}px,${z}px) rotateY(90deg)`
         : t.wall === "right" ? `translate3d(${S}px,${t.across}px,${z}px) rotateY(-90deg)`
-        : t.wall === "top" ? `translate3d(${t.across}px,${-S}px,${z}px) rotateX(-90deg)`
-        : `translate3d(${t.across}px,${S}px,${z}px) rotateX(90deg)`;
+          : t.wall === "top" ? `translate3d(${t.across}px,${-S}px,${z}px) rotateX(-90deg)`
+            : `translate3d(${t.across}px,${S}px,${z}px) rotateX(90deg)`;
       t.el.style.opacity = o.toFixed(3);
     });
     let offset = 0, boost = 0, sx = 0, sy = 0, tx = 0, ty = 0, running = false, raf = 0, lastT = 0, lastScroll = scrollY, vel = 0;

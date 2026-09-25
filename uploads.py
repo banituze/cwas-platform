@@ -13,7 +13,8 @@ from i18n import tt
 
 MAX_FILES = 5
 MAX_BYTES = 10 * 1024 * 1024
-TEXT_EXT = {"txt", "md", "log", "csv", "tsv", "json", "xml", "yaml", "yml", "ini", "cfg", "conf", "html", "htm", "css", "js", "py", "sql", "rtf", "srt", "vcf", "ics"}
+TEXT_EXT = {"txt", "md", "log", "csv", "tsv", "json", "xml", "yaml", "yml", "ini",
+            "cfg", "conf", "html", "htm", "css", "js", "py", "sql", "rtf", "srt", "vcf", "ics"}
 
 
 def human(n):
@@ -118,14 +119,17 @@ def describe(name, d, lang):
         if kind in ("text", "csv", "json"):
             txt = d.decode("utf-8", "replace")
             if kind == "csv":
-                rows = list(csv.reader(io.StringIO(txt), delimiter="\t" if ext == "tsv" else ","))
+                rows = list(csv.reader(io.StringIO(txt),
+                            delimiter="\t" if ext == "tsv" else ","))
                 rows = [r for r in rows if r]
-                out = L("Table: {rows} rows and {cols} columns. Columns: {names}.", rows=max(0, len(rows) - 1), cols=len(rows[0]) if rows else 0, names=", ".join(c[:18] for c in (rows[0] if rows else [])[:5]))
+                out = L("Table: {rows} rows and {cols} columns. Columns: {names}.", rows=max(0, len(
+                    rows) - 1), cols=len(rows[0]) if rows else 0, names=", ".join(c[:18] for c in (rows[0] if rows else [])[:5]))
                 for ci, col in enumerate(rows[0] if rows else []):
                     vals = []
                     for r in rows[1:]:
                         try:
-                            vals.append(float(r[ci].replace(" ", "").replace(",", ".")))
+                            vals.append(
+                                float(r[ci].replace(" ", "").replace(",", ".")))
                         except (ValueError, IndexError):
                             vals = []
                             break
@@ -148,7 +152,8 @@ def describe(name, d, lang):
                 xml = z.read("word/document.xml").decode("utf-8", "ignore")
                 return L("Word document, about {n} words, {size}.", n=len(re.sub(r"<[^>]+>", " ", xml).split()))
             if kind == "spreadsheet" and "xl/workbook.xml" in names:
-                sheets = re.findall(r'<sheet [^>]*name="([^"]+)"', z.read("xl/workbook.xml").decode("utf-8", "ignore"))
+                sheets = re.findall(
+                    r'<sheet [^>]*name="([^"]+)"', z.read("xl/workbook.xml").decode("utf-8", "ignore"))
                 return L("Spreadsheet with {n} sheets: {names}.", n=len(sheets), names=", ".join(sheets[:4]))
             if kind == "presentation":
                 return L("Presentation with {n} slides.", n=len([n for n in names if re.match(r"ppt/slides/slide\d+\.xml", n)]))
@@ -173,9 +178,11 @@ def reply_for(text, files, lang):
         lines.append(f"- {name[:40]}: {describe(name, data, lang)}")
     t = (text or "").lower()
     if any(k in t for k in ("pay", "deposit", "receipt", "refund", "rembours", "famerenana", "reçu", "rosia")):
-        lines.append(tt("For a payment problem, tell your coordinator the transaction reference. Files in this chat are not shared with anyone.", lang))
+        lines.append(
+            tt("For a payment problem, tell your coordinator the transaction reference. Files in this chat are not shared with anyone.", lang))
     else:
-        lines.append(tt("Saved in this chat. Tell me what you would like to know about it.", lang))
+        lines.append(
+            tt("Saved in this chat. Tell me what you would like to know about it.", lang))
     return "\n".join(lines)[:1500]
 
 
@@ -197,7 +204,8 @@ def optimize(name, data, limit=2560):
             im.thumbnail((limit, limit), Image.LANCZOS)
         out = io.BytesIO()
         if fmt == "JPEG":
-            im.convert("RGB").save(out, "JPEG", quality=85, optimize=True, progressive=True)
+            im.convert("RGB").save(out, "JPEG", quality=85,
+                                   optimize=True, progressive=True)
         elif fmt == "PNG":
             im.save(out, "PNG", optimize=True)
         else:

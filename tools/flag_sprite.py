@@ -30,7 +30,8 @@ CELL_W, CELL_H = 44, 32      # 2x of the 22 x 16 box the flag is shown in
 def draw(path):
     """One flag scaled to cover its cell (the same crop as object-fit: cover), centred."""
     # Render 1 px taller than the cell (4:3 flags into an 11:8 box), then trim the extra half pixel top and bottom.
-    png = cairosvg.svg2png(url=path, output_width=CELL_W, output_height=CELL_H + 1)
+    png = cairosvg.svg2png(url=path, output_width=CELL_W,
+                           output_height=CELL_H + 1)
     img = Image.open(io.BytesIO(png)).convert("RGBA")
     top = (img.height - CELL_H) // 2
     return img.crop((0, top, CELL_W, top + CELL_H))
@@ -39,10 +40,12 @@ def draw(path):
 def main():
     names = sorted(f for f in os.listdir(FLAGS) if f.endswith(".svg"))
     if len(names) > COLS * ROWS:
-        sys.exit(f"{len(names)} flags do not fit a {COLS} x {ROWS} sheet; raise ROWS here, in services.py and in .flag")
+        sys.exit(
+            f"{len(names)} flags do not fit a {COLS} x {ROWS} sheet; raise ROWS here, in services.py and in .flag")
     sheet = Image.new("RGBA", (COLS * CELL_W, ROWS * CELL_H), (0, 0, 0, 0))
     for i, name in enumerate(names):
-        sheet.paste(draw(os.path.join(FLAGS, name)), ((i % COLS) * CELL_W, (i // COLS) * CELL_H))
+        sheet.paste(draw(os.path.join(FLAGS, name)),
+                    ((i % COLS) * CELL_W, (i // COLS) * CELL_H))
     # Lossless keeps every flag's edges crisp; flat colours compress well, so the sheet stays small.
     sheet.save(OUT, "WEBP", lossless=True, quality=100, method=6)
     print(f"{len(names)} flags -> {os.path.relpath(OUT, ROOT)} ({os.path.getsize(OUT) // 1024} KB)")

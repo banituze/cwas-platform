@@ -28,7 +28,8 @@ def modules(text):
     """The full module string for text: start B, data, checksum, stop and the final bar."""
     vals = [ord(c) - 32 for c in str(text) if 32 <= ord(c) <= 126]
     check = (START_B + sum(i * v for i, v in enumerate(vals, 1))) % 103
-    bits = PATTERNS[START_B] + "".join(PATTERNS[v] for v in vals) + PATTERNS[check] + PATTERNS[STOP]
+    bits = PATTERNS[START_B] + "".join(PATTERNS[v]
+                                       for v in vals) + PATTERNS[check] + PATTERNS[STOP]
     return bits if len(PATTERNS[STOP]) == 13 else bits + "11"
 
 
@@ -41,7 +42,8 @@ def svg(text, height=52, cls="c128"):
             j = i
             while j < len(bits) and bits[j] == "1":
                 j += 1
-            rects.append(f'<rect x="{i + quiet}" width="{j - i}" height="{height}"/>')
+            rects.append(
+                f'<rect x="{i + quiet}" width="{j - i}" height="{height}"/>')
             i = j
         else:
             i += 1

@@ -6,10 +6,10 @@
   "use strict";
   const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const A = () => (window.CWAS && window.CWAS.audio) || { play() {} };
+  const A = () => (window.CWAS && window.CWAS.audio) || { play() { } };
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const ease = t => 1 - Math.pow(1 - t, 3);
-  const io = (cb, o) => ("IntersectionObserver" in window ? new IntersectionObserver(cb, o) : { observe: e => cb([{ isIntersecting: true, target: e }]), unobserve() {} });
+  const io = (cb, o) => ("IntersectionObserver" in window ? new IntersectionObserver(cb, o) : { observe: e => cb([{ isIntersecting: true, target: e }]), unobserve() { } });
   const safe = fn => { try { fn(); } catch (e) { if (window.console) console.warn("fx:", e); } };
 
   /* ── liquid reveal + type reveal + bars ── */
@@ -74,16 +74,16 @@
     $$("[data-letters]").forEach(el => safe(() => splitLetters(el)));
   }
   function splitLetters(el) {
-      const label = el.dataset.letters || el.textContent.trim(); el.setAttribute("aria-label", label); el.textContent = ""; el.classList.add("lts");
-      /* letters are grouped per word and the words are joined by a real space, so a long label (French or Malagasy
-         on a small phone) wraps between words instead of breaking in the middle of one */
-      let i = 0;
-      label.split(" ").forEach((word, w) => {
-        if (w) el.appendChild(document.createTextNode(" "));
-        const wrap = document.createElement("span"); wrap.className = "ltw"; wrap.setAttribute("aria-hidden", "true");
-        Array.from(word).forEach(ch => { const s = document.createElement("span"); s.className = "lt"; s.style.setProperty("--i", i++); const b = document.createElement("b"), f = document.createElement("i"); b.textContent = ch; f.textContent = ch; s.append(b, f); wrap.appendChild(s); });
-        el.appendChild(wrap);
-      });
+    const label = el.dataset.letters || el.textContent.trim(); el.setAttribute("aria-label", label); el.textContent = ""; el.classList.add("lts");
+    /* letters are grouped per word and the words are joined by a real space, so a long label (French or Malagasy
+       on a small phone) wraps between words instead of breaking in the middle of one */
+    let i = 0;
+    label.split(" ").forEach((word, w) => {
+      if (w) el.appendChild(document.createTextNode(" "));
+      const wrap = document.createElement("span"); wrap.className = "ltw"; wrap.setAttribute("aria-hidden", "true");
+      Array.from(word).forEach(ch => { const s = document.createElement("span"); s.className = "lt"; s.style.setProperty("--i", i++); const b = document.createElement("b"), f = document.createElement("i"); b.textContent = ch; f.textContent = ch; s.append(b, f); wrap.appendChild(s); });
+      el.appendChild(wrap);
+    });
   }
 
   /* ── entrance orbit ── */

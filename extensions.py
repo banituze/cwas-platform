@@ -7,6 +7,8 @@ from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
 
 csrf = CSRFProtect()
-limiter = Limiter(key_func=get_remote_address, default_limits=["600 per hour"], storage_uri="memory://")
+limiter = Limiter(key_func=get_remote_address, default_limits=[
+                  "600 per hour"], storage_uri="memory://")
 login_manager = LoginManager()
-WRITE_LOCK = threading.RLock()  # one writer at a time keeps SQLite, the audit chain and slot counts consistent
+# one writer at a time keeps SQLite, the audit chain and slot counts consistent
+WRITE_LOCK = threading.RLock()
