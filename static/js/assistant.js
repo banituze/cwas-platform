@@ -1,4 +1,4 @@
-/* Assistant: saved chats, file attachments, voice input and read-aloud. */
+/* Assistant: saved chats, file attachments, voice input and read-aloud. The suggestions stay under every chat. */
 (() => {
   "use strict";
   const root = document.querySelector("[data-chat]"); if (!root) return;
@@ -70,10 +70,10 @@
     $("span", row).textContent = t.title; $$(".chat-item", threadsEl).forEach(r => r.setAttribute("aria-current", r === row ? "true" : "false"));
     $("[data-del-all]").classList.remove("hidden");
   };
-  const clearLog = () => { log.innerHTML = ""; $("[data-chips]").hidden = false; };
+  const clearLog = () => { log.innerHTML = ""; };
   const load = id => fetch(`/api/assistant/threads/${id}`, { credentials: "same-origin" }).then(r => r.json()).then(d => {
     threadId = d.id; clearLog(); d.messages.forEach(addMsg); setTitle(d.title); exportLink();
-    $$(".chat-item", threadsEl).forEach(r => r.setAttribute("aria-current", r.dataset.thread == d.id ? "true" : "false")); if (d.messages.length) $("[data-chips]").hidden = true;
+    $$(".chat-item", threadsEl).forEach(r => r.setAttribute("aria-current", r.dataset.thread == d.id ? "true" : "false"));
   });
   const fresh = () => { threadId = null; clearLog(); setTitle(); exportLink(); $$(".chat-item", threadsEl).forEach(r => r.setAttribute("aria-current", "false")); };
 
@@ -95,7 +95,7 @@
     const text = ta.value.trim(); if (!text && !pending.length) return;
     busy = true; if (rec) rec.stop();
     const fd = new FormData(); fd.append("message", text); if (threadId) fd.append("thread_id", threadId); pending.forEach(f => fd.append("files", f));
-    ta.value = ""; grow(); const sent = pending; pending = []; drawPending(); $("[data-chips]").hidden = true; C.audio.play("send");
+    ta.value = ""; grow(); const sent = pending; pending = []; drawPending(); C.audio.play("send");
     const typing = el("div", "msg ai"); typing.innerHTML = '<div class="bubble typing"><i></i><i></i><i></i></div>'; log.appendChild(typing); log.scrollTop = log.scrollHeight;
     fetch("/api/assistant/message", { method: "POST", credentials: "same-origin", headers: { "X-CSRFToken": C.csrf() }, body: fd }).then(r => r.json().then(d => ({ ok: r.ok, d }))).then(({ ok, d }) => {
       typing.remove();
@@ -117,6 +117,6 @@
   $("[data-del-all]").addEventListener("click", () => { if (!confirm(L.delAll)) return; fetch("/api/assistant/threads/delete-all", { method: "POST", credentials: "same-origin", headers: { "X-CSRFToken": C.csrf() } }).then(() => { threadsEl.innerHTML = ""; $("[data-del-all]").classList.add("hidden"); fresh(); C.audio.play("tap"); }); });
   $("[data-rename]").addEventListener("click", () => { if (!threadId) return; const t = prompt(L.rename, titleEl.textContent); if (t) C.post(`/api/assistant/threads/${threadId}/rename`, { title: t }).then(d => { setTitle(d.title); upsertThread(d); }); });
 
-  init.messages.forEach(addMsg); if (init.messages.length) $("[data-chips]").hidden = true;
+  init.messages.forEach(addMsg);
   setTitle(init.active ? (init.threads.find(t => t.id === init.active) || {}).title : ""); exportLink();
 })();
