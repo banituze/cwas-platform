@@ -58,7 +58,7 @@ On Windows use `python app.py`. Keep this terminal open; the server runs until y
 | Demo coordinator | `coordinator@cwas.demo` or `+261340000001` / `Demo Water @2026` | USSD PIN `2468` |
 | Demo households | `+261340000101` to `+261340000108` / `Demo Water @2026` | USSD PIN `1234` |
 
-**8. Try the phone channels.** Open http://localhost:5000/simulator, pick a demo phone, dial `*384*9411#` or text `BAL` to `7380`. The simulator drives the real USSD and SMS code; messages are recorded instead of sent until Africa's Talking keys are set.
+**8. Try the phone channels.** Open http://localhost:5000/simulator, pick a demo phone, dial `*384*9411#` or text `BALANCE` to `7380`. The simulator drives the real USSD and SMS code; messages are recorded instead of sent until Africa's Talking keys are set.
 
 **9. Run the tests** (optional). They use a throwaway database and take about 20 seconds.
 
