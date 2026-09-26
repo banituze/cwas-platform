@@ -156,7 +156,7 @@
 
   /* ── grid deck: cards are dealt from a rotating stack into a 3D grid, which then dives through the camera ── */
   function griddeck(el) {
-    const grid = $(".dk-grid", el), cards = $$(".dk-card", el), bar = $("[data-dk-bar]", el), n = cards.length; if (!n || reduce) return;
+    const grid = $(".dk-grid", el), cards = $$(".dk-card", el), bar = $("[data-dk-bar]", el), n = cards.length; const mobileDeck = matchMedia("(max-width:767px), (pointer:coarse)").matches; if (!n || reduce || mobileDeck) return;
     // K: the cards are laid out K times larger (--dk in CSS) and everything is placed K times further from the camera, which
     // looks identical on screen but keeps the drawing at full resolution; P is the .dk-scene perspective
     const K = parseFloat(getComputedStyle(cards[0]).getPropertyValue("--dk")) || 1, P = 1000, cap = K > 1 ? Math.min(.72, 1 - 1 / K) : .72;
