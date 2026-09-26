@@ -6673,8 +6673,7 @@ html[data-theme="saina"] {
 
   /* ── polish 14: the install card is small, green and white only, and part of the first paint: it is there the moment the
      page is, with no entrance and no looping motion, so it costs nothing while the page scrolls. boot.js takes it away
-     before the first paint inside the installed app (html.no-install) and marks
-     iPhone and iPad (html.is-ios), which install through Share. Fixed to the bottom of the screen, it never moves the page */
+     before the first paint inside the installed app (html.no-install) and marks */
   html:not(.js) .install-card,
   html.no-install .install-card {
     display: none
@@ -6752,19 +6751,6 @@ html[data-theme="saina"] {
     height: 30px
   }
 
-  html.is-ios .install-card [data-install-text],
-  html.is-ios .install-card .ic-go {
-    display: none
-  }
-
-  html.is-ios .install-card [data-install-ios] {
-    display: -webkit-box;
-    font-size: .8rem;
-    line-height: 1.3;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden
-  }
 }
 
 /* ── polish 15: smooth scrolling on phones. A fixed page background repaints on every scroll frame on Android and is

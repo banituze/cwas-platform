@@ -12,8 +12,8 @@
   if (matchMedia("(display-mode: standalone)").matches || navigator.standalone === true) { root.classList.add("no-install"); return; }   // never inside the installed app
   const go = card.querySelector("[data-install-go]");
   const manual = card.querySelector("[data-install-manual]");
+  const ios = card.querySelector("[data-install-ios]");
   let prompt = window.__bip || null, installed = false, timer = 0;
-  if (root.classList.contains("is-ios")) go.hidden = true;
   const KEY = "cwas-install-closed";
   // closing slides the card away and takes it out of the page; when the visitor closed it, the choice is remembered
   const hide = remember => {
@@ -31,7 +31,10 @@
   card.querySelector("[data-install-close]").addEventListener("click", () => hide(true));
   card.addEventListener("keydown", e => { if (e.key === "Escape") hide(true); });
   go.addEventListener("click", async () => {
-    if (!prompt) { card.querySelector("[data-install-text]").hidden = true; manual.hidden = false; return; }
+    if (!prompt) {
+      card.querySelector("[data-install-text]").hidden = true; if (root.classList.contains("is-ios") && ios) ios.hidden = false;
+      else manual.hidden = false; return;
+    }
     const p = prompt; prompt = null; p.prompt();
     try { await p.userChoice; } catch (e) { /* the browser closed its prompt */ }
     hide();
