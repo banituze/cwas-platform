@@ -5351,13 +5351,13 @@ body {
 @layer components {
   @media (max-width:1023px) {
     .more-sheet a {
-      flex-direction:row;
-      justify-content:flex-start;
-      gap:8px;
-      padding-left:10px;
-      padding-right:10px;
-      font-size:13px;
-      white-space:nowrap
+      flex-direction: row;
+      justify-content: flex-start;
+      gap: 8px;
+      padding-left: 10px;
+      padding-right: 10px;
+      font-size: 13px;
+      white-space: nowrap
     }
   }
 }
