@@ -3792,7 +3792,52 @@ html[data-theme="saina"] {
     }
   }
 
-
+@media (max-width:767px),(pointer:coarse){
+  .deck{height:auto}
+  .deck .dk-stick{position:relative;top:auto;height:auto;overflow:visible;padding:0 0 24px}
+  .deck .tn-head{position:relative;inset:auto;top:auto;margin-bottom:22px}
+  .deck .tn-head p{display:none}
+  .deck .dk-scene{position:relative;inset:auto;perspective:none}
+  .deck .dk-grid{
+    position:relative;
+    left:auto;
+    top:auto;
+    width:auto;
+    height:auto;
+    margin:0 auto;
+    padding:0 16px;
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:12px;
+    transform:none!important;
+    transform-style:flat
+  }
+  .deck .dk-card{
+    --dk:1;
+    position:relative;
+    left:auto;
+    top:auto;
+    width:auto;
+    height:104px;
+    opacity:1!important;
+    transform:none!important;
+    transform-style:flat;
+    will-change:auto
+  }
+  .deck .dk-card>.orb-face:first-child{
+    position:relative;
+    inset:auto;
+    width:100%;
+    height:100%;
+    zoom:1
+  }
+  .deck .dk-card>.orb-back{display:none}
+  .deck .dk-card .orb-face{padding:12px}
+  .deck .dk-card .orb-face .ico{width:32px;height:32px}
+  .deck .dk-card .orb-face b{font-size:.82rem}
+  .deck .dk-card .orb-face p{display:block;font-size:.68rem}
+  .deck .tn-hud{display:none}
+}
 
   .fx-safe [data-reveal],
   .fx-safe [data-type] .tc {
