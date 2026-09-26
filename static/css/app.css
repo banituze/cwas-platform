@@ -6062,7 +6062,6 @@ select.field option {
 .btn-ghost:hover {
     background: rgb(var(--ink)/.14);
     border-color: rgb(var(--ink)/.4);
-    transform: translateY(-1px)
 }
 
 .auth-side,
