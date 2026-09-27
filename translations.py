@@ -1298,4 +1298,5 @@ _add([
     ("Welcome to CWAS, {name}.", "Bienvenue sur CWAS, {name}.",
      "Tongasoa eto amin'ny CWAS, {name}."),
     ("You are logged out.", "Vous êtes déconnecté.", "Efa nivoaka ianao."),
+    ("No users found.", "Aucun utilisateur trouvé.", "Tsy misy mpampiasa hita."),
 ])
