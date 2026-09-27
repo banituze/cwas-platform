@@ -221,7 +221,7 @@ def register_routes(app):
                 say("Too many attempts. Try again in 15 minutes.", "err")
             elif user and user.password_hash and check_password_hash(user.password_hash, pw):
                 if not user.is_active_flag:
-                    say("This account is not active yet. Ask an administrator.", "err")
+                    say("This account is not active yet. Ask the administrator to activate it.", "err")
                 elif user.mfa_enabled:
                     session.clear()
                     session["mfa_uid"], session["mfa_next"], session["mfa_tries"] = user.id, request.form.get(
@@ -229,10 +229,10 @@ def register_routes(app):
                     return redirect(url_for("login_mfa"))
                 else:
                     return finish_login(user, request.form.get("next"))
-            elif user and user.role == "member" and not user.password_hash and user.pin_hash and check_password_hash(user.pin_hash, pw):
+            elif user and user.role in ("member", "coordinator") and not user.password_hash and user.pin_hash and check_password_hash(user.pin_hash, pw):
                 # registered by USSD: the PIN opens the web account once, then the person chooses the password for next time
                 if not user.is_active_flag:
-                    say("This account is not active yet. Ask an administrator.", "err")
+                    say("This account is not active yet. Ask the administrator to activate it.", "err")
                 else:
                     user.must_change_password = True
                     return finish_login(user, url_for("change_password"))
@@ -1434,7 +1434,8 @@ def register_routes(app):
         elif action == "activate":
             u.is_active_flag = True
             S.audit("user.activate", "user", u.id)
-            S.notify(u, "Your account is now active.", "system")
+            S.event(u, "Your coordinator account is now active. You can now access CWAS.", "system",
+                    sms=True) if u.role == "coordinator" else S.notify(u, "Your account is now active.", "system")
             say("Account activated.")
         elif action == "deactivate":
             if u.role == "admin" and admins <= 1:

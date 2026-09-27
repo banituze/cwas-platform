@@ -229,7 +229,7 @@ def v_phone(tok):
 
 
 def _err(ctx, e):
-    msgs = {"insufficient_funds": "Not enough balance. Need {need}, you have {balance}.", "slot_full": "That slot just filled. Try another.",
+    msgs = {"insufficient_funds": "Not enough ance. Need {need}, you have {balance}.", "slot_full": "That slot just filled. Try another.",
             "slot_blocked": "Slot blocked by maintenance.", "one_per_day": "You already have a booking that day.",
             "source_unavailable": "Water point not available.", "date_range": "Choose a day in the next 7 days.",
             "slot_unavailable": "Slot not available.", "litres_invalid": "Litres not allowed here.", "not_cancellable": "This booking cannot be cancelled.",
@@ -273,6 +273,8 @@ def session_flow(ctx):
     user = ctx.user
     if user is None:
         return (yield from register_flow(ctx))
+    if not user.is_active_flag:
+        return END(ctx, ctx.L("This account is not active yet. Ask the administrator to activate it."))
     if user.role == "member" and not user.household:
         return END(ctx, ctx.L("Something went wrong."))
     if not user.pin_hash:
@@ -421,7 +423,7 @@ def register_flow(ctx):
     if User.query.filter_by(phone=ctx.phone).first():
         return END(ctx, ctx.L("An account with this phone or email already exists."))
     u = User(role=role, name=name, phone=ctx.phone, language=ctx.lang, pin_hash=generate_password_hash(pin),
-             recovery_hash=generate_password_hash(recovery))
+             recovery_hash=generate_password_hash(recovery), is_active_flag=(role != "coordinator"))
     db.session.add(u)
     db.session.flush()
     if role == "member":
@@ -431,10 +433,14 @@ def register_flow(ctx):
         db.session.add(hh)
     S.audit("user.register", "user", u.id,
             f"{role} via ussd", actor=u, channel="ussd")
-    S.event(u, "Welcome {name}! Dial {dial} to book a slot.",
-            "system", sms=True, name=S.first_name(name), dial=DIAL)
+    if role == "coordinator":
+        S.event(u, "Welcome {name}! Your coordinator account is waiting for approval.",
+                "system", sms=True, name=S.first_name(name))
+    else:
+        S.event(u, "Welcome {name}! Dial {dial} to book a slot.",
+                "system", sms=True, name=S.first_name(name), dial=DIAL)
     db.session.commit()
-    return END(ctx, ctx.L("Welcome {name}!", name=S.first_name(name)), ctx.L("Dial {dial} to book a slot.", dial=DIAL))
+    return END(ctx, ctx.L("Welcome {name}! Your coordinator account is waiting for approval.", name=S.first_name(name))) if role == "coordinator" else END(ctx, ctx.L("Welcome {name}!", name=S.first_name(name)), ctx.L("Dial {dial} to book a slot.", dial=DIAL))
 
 
 # ── member ──────────────────────────────────────────────────────────────────
@@ -1076,8 +1082,7 @@ def handle_ussd(session_id, phone, text, channel="telco"):
     sess = UssdSession.query.filter_by(session_id=session_id).first()
     if sess and sess.ended and sess.trail.endswith("#" + key):
         return sess.last_response
-    user = User.query.filter_by(
-        phone=phone, is_active_flag=True).first() if phone else None
+    user = User.query.filter_by(phone=phone).first() if phone else None
     ctx = Ctx(user.language if user else "mg", user, phone, channel)
     try:
         out = "END Invalid phone." if not phone else _run(
@@ -1213,7 +1218,7 @@ def handle_sms(phone, text):
         elif cmd == "HELP":
             reply = (L("BALANCE, SOURCES, BOOKINGS, BOOKING <ref>, CANCEL <ref>, DEPOSIT <amount>, BOOK <n> <day> <HH:MM> <litres>, RECEIPT <ref>, NOTICES, PROFILE, PIN HELP, LANG MG/FR/EN. Menu: dial {dial}.", dial=DIAL)
                      if not staff else L("PENDING, APPROVE <ref>, DENY <ref>, COLLECT <ref>, REG MEMBER Name|Phone|Village|Size|LANG|PIN, SOURCES, LANG MG/FR/EN."))
-        elif cmd in ("BALANCE", "BALANCE", "WALLET") and h:
+        elif cmd in ("BALANCE", "WALLET") and h:
             reply = L("Your balance is {balance}", balance=M(h.balance))
         elif cmd == "SOURCES":
             reply = "; ".join(f"{i}. {short(s.name, 20)} [{_STATE.get(s.status, '?')}] {S.fmt_min(s.open_min)}-{S.fmt_min(s.close_min)}"
@@ -1333,9 +1338,8 @@ def demo_script(lang):
     welcome = first(session_flow(Ctx(lang=lang)))
     main = first(menu(ctx, L("Hello {name}", name="Rasoa"), [
                  L(n) for n in MEMBER_MENU], root=True))
-    balance, deposit = 12500, 10000
-    bal = first(info(ctx, L("Your balance is {balance}", balance=M(
-        balance)), f"+{M(deposit)} {L('deposit')}"))
+    balance = 12500
+    bal = first(info(ctx, L("Your balance is {balance}", balance=M(balance))))
     script = {"ui": {"cancel": L("Cancel"), "send": L("Send"), "ok": L("OK")},
               "lite": [["dial", DIAL], ["call", ""], ["screen", welcome], ["key", lk], ["screen", main], ["key", str(MEMBER_MENU.index("Balance") + 1)], ["screen", bal]]}
     srcs = S.operational_sources()
