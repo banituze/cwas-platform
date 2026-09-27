@@ -1,7 +1,7 @@
 {% from "partials/macros.html" import icon, printer with context %}
 {# A booking receipt, printed by the thermal printer and ready for the browser's print dialog. #}
 <div class="glass-strong relative p-6 {{ 'w-[min(420px,94vw)]' if modal }}" data-printer-scope>
-  {% if modal %}<button type="button" class="toast-x absolute right-4 top-4" data-modal-close
+  {% if modal %}<button type="button" class="btn-icon absolute right-4 top-4 z-20" data-modal-close
     aria-label="{{ t('Close') }}">{{ icon('x') }}</button>{% endif %}
   {% call printer(True) %}
   <div class="rc-head"><span class="rc-brand"><svg viewBox="0 0 64 64" aria-hidden="true">

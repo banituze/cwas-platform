@@ -1009,12 +1009,14 @@ def announce_flow(ctx, user):
 
 
 def broadcast(message, actor, channel="web"):
-    n = 0
-    for m in User.query.filter_by(role="member", is_active_flag=True).all():
+    members = User.query.filter_by(role="member", is_active_flag=True).all()
+    phones = []
+    for m in members:
         S.notify(m, "", "announcement", body=message)
         if m.phone:
-            S.send_sms(m.phone, message[:160], m)
-        n += 1
+            phones.append(m.phone)
+    S.send_sms_bulk(phones, message[:160])
+    n = len(members)
     S.audit("announcement.send", "announcement", "",
             f"{n} recipients: {message[:80]}", actor=actor, channel=channel)
     return n

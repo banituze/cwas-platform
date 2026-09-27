@@ -30,15 +30,20 @@ TZ = ZoneInfo("Indian/Antananarivo")
 HORIZON_DAYS = 7
 LITRE_STEPS = (20, 40, 60, 80, 100)
 DEFAULT_SETTINGS = {
-    "discount_elevated": "30",   # % off the tariff for households flagged elevated priority
-    "discount_high": "60",       # % off for the most vulnerable households (business plan: up to 70%)
+    # % off the tariff for households flagged elevated priority
+    "discount_elevated": "30",
+    # % off for the most vulnerable households (business plan: up to 70%)
+    "discount_high": "60",
     "min_deposit": "500",
     "max_deposit": "200000",
-    "auto_approve": "0",         # 1 = bookings the AI rates low-risk are approved without a coordinator click
+    # 1 = bookings the AI rates low-risk are approved without a coordinator click
+    "auto_approve": "0",
     "cash_enabled": "1",
     "no_show_grace_min": "60",
-    "enroll_coord": "AMPOTAKA-COORD",   # USSD/SMS enrollment codes; production seeds random ones
-    "coord_access": "Coord@2026",  # asked by the web sign-up form; an administrator still approves every coordinator
+    # USSD/SMS enrollment codes; production seeds random ones
+    "enroll_coord": "AMPOTAKA-COORD",
+    # asked by the web sign-up form; an administrator still approves every coordinator
+    "coord_access": "Coord@2026",
 }
 
 
@@ -137,15 +142,20 @@ def phone_countries():
     if _CC is None:
         import phonenumbers
         from phonenumbers import PhoneMetadata, PhoneNumberFormat, PhoneNumberType
-        flags, rows = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "flags"), []
-        cells = {f[:-4].upper(): i for i, f in enumerate(sorted(f for f in os.listdir(flags) if f.endswith(".svg")))}
+        flags, rows = os.path.join(os.path.dirname(
+            os.path.abspath(__file__)), "static", "flags"), []
+        cells = {f[:-4].upper(): i for i, f in enumerate(
+            sorted(f for f in os.listdir(flags) if f.endswith(".svg")))}
         for r in sorted(phonenumbers.SUPPORTED_REGIONS):
             meta = PhoneMetadata.metadata_for_region(r)
             if not meta or r not in cells:
                 continue
-            ex = phonenumbers.example_number_for_type(r, PhoneNumberType.MOBILE) or phonenumbers.example_number(r)
-            lens = sorted({x for d in (meta.general_desc, meta.mobile, meta.fixed_line) if d for x in (d.possible_length or ()) if x > 0})
-            rows.append([r, meta.country_code, phonenumbers.format_number(ex, PhoneNumberFormat.NATIONAL) if ex else "", lens, cells[r]])
+            ex = phonenumbers.example_number_for_type(
+                r, PhoneNumberType.MOBILE) or phonenumbers.example_number(r)
+            lens = sorted({x for d in (meta.general_desc, meta.mobile, meta.fixed_line) if d for x in (
+                d.possible_length or ()) if x > 0})
+            rows.append([r, meta.country_code, phonenumbers.format_number(
+                ex, PhoneNumberFormat.NATIONAL) if ex else "", lens, cells[r]])
         _CC = sorted(rows, key=lambda x: x[0] != "MG")
     return _CC
 
@@ -198,7 +208,8 @@ def totp_uri(secret, email):
 def _actor_bits(actor):
     if actor is None and has_request_context():
         from flask_login import current_user
-        actor = current_user if getattr(current_user, "is_authenticated", False) else None
+        actor = current_user if getattr(
+            current_user, "is_authenticated", False) else None
     if actor is None:
         return None, "system"
     return actor.id, (actor.email or actor.phone or actor.name)
@@ -208,7 +219,8 @@ def audit(action, entity="", entity_id="", detail="", actor=None, channel=None):
     actor_id, label = _actor_bits(actor)
     ip = ""
     if has_request_context():
-        ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "").split(",")[0].strip()[:64]
+        ip = (request.headers.get("X-Forwarded-For", request.remote_addr)
+              or "").split(",")[0].strip()[:64]
     last = AuditLog.query.order_by(AuditLog.id.desc()).first()
     at = utcnow()
     row = AuditLog(at=at, actor_id=actor_id, actor_label=label[:190], channel=channel or "web", action=action,
@@ -236,6 +248,8 @@ def verify_audit_chain():
 
 # ── people: names and phone numbers as households read them ─────────────────
 log = logging.getLogger("cwas.services")
+
+
 def ussd_code(raw):
     """The USSD code exactly as a caller dials it. It always ends with #: a .env line AT_USSD_CODE=*384*9411# read by a
     parser that starts a comment at # arrives as *384*9411, which phones reject as an invalid MMI code. Quotes and spaces
@@ -245,7 +259,8 @@ def ussd_code(raw):
 
 
 DIAL = ussd_code(os.environ.get("AT_USSD_CODE"))
-RECOVERY_RE = re.compile(r"^\d{6}$")  # recovery code: six digits, distinct from the four-digit PIN
+# recovery code: six digits, distinct from the four-digit PIN
+RECOVERY_RE = re.compile(r"^\d{6}$")
 
 
 def first_name(name, limit=20):
@@ -267,7 +282,8 @@ def local_phone(phone):
 def notify(user, template, kind="system", body="", **params):
     if not user:
         return None
-    n = Notification(user_id=user.id, kind=kind, key=template, params=json.dumps(params, default=str), body=body)
+    n = Notification(user_id=user.id, kind=kind, key=template,
+                     params=json.dumps(params, default=str), body=body)
     db.session.add(n)
     return n
 
@@ -285,9 +301,10 @@ def render_notification(n, lang):
 OK_SMS = {"Success", "Sent", "Queued", "Processed"}
 
 
-def _at_post(data, sandbox):
-    """One call to the Africa's Talking messaging API. Returns the recipient status ("Success", "InvalidSenderId", ...)."""
-    url = ("https://api.sandbox.africastalking.com" if sandbox else "https://api.africastalking.com") + "/version1/messaging"
+def _at_post(data, sandbox, all_recipients=False):
+    """One call to the Africa's Talking messaging API. Returns one status, or every recipient when requested."""
+    url = ("https://api.sandbox.africastalking.com" if sandbox else "https://api.africastalking.com") + \
+        "/version1/messaging"
     req = urllib.request.Request(url, urllib.parse.urlencode(data).encode(), {
         "apiKey": os.environ["AT_API_KEY"], "Accept": "application/json", "Content-Type": "application/x-www-form-urlencoded"})
     try:
@@ -296,14 +313,17 @@ def _at_post(data, sandbox):
     except urllib.error.HTTPError as e:  # some rejections come back as 4xx with the reason in the body
         raw = e.read().decode("utf-8", "replace")
     except Exception:  # noqa: BLE001 - network trouble: the message stays recorded as failed
-        return "failed"
+        return [] if all_recipients else "failed"
     if "InvalidSenderId" in raw:
         return "InvalidSenderId"
     try:
-        rec = (json.loads(raw).get("SMSMessageData") or {}).get("Recipients") or []
+        rec = (json.loads(raw).get("SMSMessageData")
+               or {}).get("Recipients") or []
+        if all_recipients:
+            return rec
         return str(rec[0].get("status") or "failed") if rec else "failed"
     except (ValueError, AttributeError, IndexError, TypeError):
-        return "failed"
+        return [] if all_recipients else "failed"
 
 
 def send_sms(phone, body, user=None, live=True, log_body=None):
@@ -322,18 +342,61 @@ def send_sms(phone, body, user=None, live=True, log_body=None):
         username = os.environ.get("AT_USERNAME", "sandbox")
         sandbox = username == "sandbox"
         data = {"username": username, "to": phone, "message": body}
-        sender = (os.environ.get("AT_SENDER_ID", "CWAS") or os.environ.get("AT_SHORTCODE") or "").strip()
+        sender = (os.environ.get("AT_SENDER_ID", "CWAS")
+                  or os.environ.get("AT_SHORTCODE") or "").strip()
         if sender:
             data["from"] = sender
         status = _at_post(data, sandbox)
         if status == "InvalidSenderId" and "from" in data:
-            log.warning("Sender %r is not registered on this Africa's Talking app; sent with the default sender.", sender)
+            log.warning(
+                "Sender %r is not registered on this Africa's Talking app; sent with the default sender.", sender)
             del data["from"]
             status = _at_post(data, sandbox)
         row.status = "sent" if status in OK_SMS else "failed"
         if log_body:
             row.body = log_body[:640]
     return row
+
+
+def send_sms_bulk(phones, body, live=True):
+    """Send one message to many phones in small Africa's Talking batches while keeping one SMS log per recipient."""
+    phones = list(dict.fromkeys(p for p in phones if p))
+    if not phones:
+        return []
+    body = body[:640]
+    rows = {phone: SmsLog(direction="out", phone=phone,
+                          body=body, status="simulated") for phone in phones}
+    db.session.add_all(rows.values())
+    if live and os.environ.get("SMS_ENABLED", "0") == "1" and os.environ.get("AT_API_KEY"):
+        username = os.environ.get("AT_USERNAME", "sandbox")
+        sandbox = username == "sandbox"
+        sender = (os.environ.get("AT_SENDER_ID", "CWAS")
+                  or os.environ.get("AT_SHORTCODE") or "").strip()
+        for i in range(0, len(phones), 50):
+            chunk = phones[i:i + 50]
+            data = {"username": username,
+                    "to": ",".join(chunk), "message": body}
+            if sender:
+                data["from"] = sender
+            recipients = _at_post(data, sandbox, True)
+            if recipients == "InvalidSenderId" and "from" in data:
+                log.warning(
+                    "Sender %r is not registered on this Africa's Talking app; sent with the default sender.", sender)
+                del data["from"]
+                recipients = _at_post(data, sandbox, True)
+            seen = set()
+            if isinstance(recipients, list):
+                for rec in recipients:
+                    phone = str(rec.get("number")
+                                or rec.get("phoneNumber") or "")
+                    if phone in rows and phone in chunk:
+                        rows[phone].status = "sent" if str(
+                            rec.get("status") or "failed") in OK_SMS else "failed"
+                        seen.add(phone)
+            for phone in chunk:
+                if phone not in seen:
+                    rows[phone].status = "failed"
+    return list(rows.values())
 
 
 def sms_user(user, template, **params):
@@ -354,7 +417,8 @@ def event(user, template, kind="system", sms=False, **params):
 def payment_mode():
     """live keeps deposits pending until the provider confirms; simulation posts at once. Production defaults to live so
     nobody can mint money by accident."""
-    prod = bool(os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("CWAS_ENV") == "production")
+    prod = bool(os.environ.get("RAILWAY_ENVIRONMENT")
+                or os.environ.get("CWAS_ENV") == "production")
     return os.environ.get("PAYMENT_MODE") or ("live" if prod else "simulation")
 
 
@@ -367,7 +431,8 @@ class ServiceError(Exception):
 
 
 _REF_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
-PROVIDER_LABEL = {"orange": "Orange Money", "airtel": "Airtel Money", "cash": "Cash / agent"}
+PROVIDER_LABEL = {"orange": "Orange Money",
+                  "airtel": "Airtel Money", "cash": "Cash / agent"}
 
 
 def new_ref(prefix):
@@ -383,7 +448,8 @@ def wallet_post(h, kind, amount, provider, note="", booking=None, status="posted
     """Adds one ledger row. Only posted rows move the spendable balance; pending mobile-money rows do not."""
     prefix = "WT"
     if status == "posted" and amount < 0 and h.balance + amount < 0:
-        raise ServiceError("insufficient_funds", need=-amount, balance=h.balance)
+        raise ServiceError("insufficient_funds", need=-
+                           amount, balance=h.balance)
     txn = WalletTxn(household_id=h.id, kind=kind, amount=amount, status=status, provider=provider,
                     reference=new_ref(prefix), booking_id=booking.id if booking else None, note=note[:255],
                     created_by=actor.id if actor else None)
@@ -406,8 +472,10 @@ def deposit(h, amount, provider, actor=None, channel="web"):
         raise ServiceError("provider_invalid")
     h = lock_household(h.id)
     status = "pending" if payment_mode() == "live" and channel != "staff" else "posted"
-    txn = wallet_post(h, "deposit", amount, provider, note=f"{channel} deposit", status=status, actor=actor)
-    audit("wallet.deposit", "wallet", txn.reference, f"{provider} {amount} MGA {status}", actor=actor, channel=channel)
+    txn = wallet_post(h, "deposit", amount, provider,
+                      note=f"{channel} deposit", status=status, actor=actor)
+    audit("wallet.deposit", "wallet", txn.reference,
+          f"{provider} {amount} MGA {status}", actor=actor, channel=channel)
     label = PROVIDER_LABEL.get(provider, provider)
     if status == "posted":
         event(h.user, "Deposit {ref} recorded: +{amount} via {provider}. Your balance is {balance}.", "wallet", sms=True, ref=txn.reference,
@@ -425,7 +493,8 @@ def confirm_pending_deposit(txn, actor=None, channel="web"):
     txn.status = "posted"
     h.balance += txn.amount
     txn.balance_after = h.balance
-    audit("wallet.confirm", "wallet", txn.reference, f"{txn.provider} {txn.amount} MGA confirmed", actor=actor, channel=channel)
+    audit("wallet.confirm", "wallet", txn.reference,
+          f"{txn.provider} {txn.amount} MGA confirmed", actor=actor, channel=channel)
     event(h.user, "Your deposit {ref} of {amount} was confirmed. Your new balance is {balance}.", "wallet", sms=True,
           ref=txn.reference, amount=fmt_ar(txn.amount), balance=fmt_ar(h.balance))
     return txn
@@ -444,7 +513,8 @@ def reject_pending_deposit(txn, actor=None, channel="web", reason=""):
         raise ServiceError("not_pending")
     txn.status = "failed"
     h = db.session.get(Household, txn.household_id)
-    audit("wallet.reject", "wallet", txn.reference, clean_text(reason, 120), actor=actor, channel=channel)
+    audit("wallet.reject", "wallet", txn.reference, clean_text(
+        reason, 120), actor=actor, channel=channel)
     event(h.user, "Your deposit {ref} of {amount} was not confirmed, so nothing was added. Ask your coordinator if you paid.",
           "wallet", sms=True, ref=txn.reference, amount=fmt_ar(txn.amount))
     return txn
@@ -456,15 +526,19 @@ _WEAK_PINS = {"0000", "1111", "2222", "9999", "1234", "4321", "0123", "1212"}
 
 def set_pin(user, pin, actor=None, channel="web"):
     """A new PIN. Clears failed attempts and sends a security SMS, so a change nobody asked for is noticed."""
-    user.pin_hash, user.pin_failed, user.pin_locked_until = generate_password_hash(pin), 0, None
-    audit("user.pin_change", "user", user.id, channel, actor=actor or user, channel=channel)
-    event(user, "Your PIN was changed. If this was not you, contact your coordinator.", "system", sms=True)
+    user.pin_hash, user.pin_failed, user.pin_locked_until = generate_password_hash(
+        pin), 0, None
+    audit("user.pin_change", "user", user.id, channel,
+          actor=actor or user, channel=channel)
+    event(user, "Your PIN was changed. If this was not you, contact your coordinator.",
+          "system", sms=True)
 
 
 def set_recovery(user, code, actor=None, channel="web"):
     """A new recovery code. It resets a forgotten PIN without calling anyone, so it is stored hashed like the PIN."""
     user.recovery_hash = generate_password_hash(code)
-    audit("user.recovery_set", "user", user.id, channel, actor=actor or user, channel=channel)
+    audit("user.recovery_set", "user", user.id,
+          channel, actor=actor or user, channel=channel)
     event(user, "Your recovery code was changed. If this was not you, contact your coordinator.", "system", sms=True)
 
 
@@ -474,19 +548,24 @@ def reset_pin_by_staff(target, actor, channel="web"):
     pin = "0000"
     while pin in _WEAK_PINS:
         pin = f"{secrets.randbelow(10000):04d}"
-    target.pin_hash, target.pin_failed, target.pin_locked_until = generate_password_hash(pin), 0, None
-    audit("user.pin_reset", "user", target.id, f"by {actor.role} #{actor.id}", actor=actor, channel=channel)
+    target.pin_hash, target.pin_failed, target.pin_locked_until = generate_password_hash(
+        pin), 0, None
+    audit("user.pin_reset", "user", target.id,
+          f"by {actor.role} #{actor.id}", actor=actor, channel=channel)
     notify(target, "Your PIN was reset by a coordinator. Change the temporary PIN in My profile.", "system")
     msg = "Your coordinator reset your PIN. Temporary PIN: {pin}. Dial {dial} and change it in My profile."
-    send_sms(target.phone, tt(msg, target.language, pin=pin, dial=DIAL), target, log_body=tt(msg, target.language, pin="****", dial=DIAL))
+    send_sms(target.phone, tt(msg, target.language, pin=pin, dial=DIAL),
+             target, log_body=tt(msg, target.language, pin="****", dial=DIAL))
     return True
 
 
 def staff_contacts(user=None, limit=2):
     """Numbers a person can call for help: coordinators (then administrators) for households, administrators for staff."""
     from models import User
-    roles = ("admin",) if user is not None and user.role in ("coordinator", "admin") else ("coordinator", "admin")
-    q = User.query.filter(User.role.in_(roles), User.is_active_flag.is_(True), User.phone.isnot(None))
+    roles = ("admin",) if user is not None and user.role in (
+        "coordinator", "admin") else ("coordinator", "admin")
+    q = User.query.filter(User.role.in_(
+        roles), User.is_active_flag.is_(True), User.phone.isnot(None))
     if user is not None:
         q = q.filter(User.id != user.id)
     rows = sorted(q.all(), key=lambda u: (roles.index(u.role), u.id))
@@ -505,22 +584,26 @@ def request_pin_help(user, channel="sms"):
     if Notification.query.filter(Notification.user_id == user.id, Notification.key == PIN_HELP_ACK,
                                  Notification.created_at >= utcnow() - timedelta(hours=1)).first():
         return False
-    roles = ("admin",) if user.role in ("coordinator", "admin") else ("coordinator", "admin")
+    roles = ("admin",) if user.role in (
+        "coordinator", "admin") else ("coordinator", "admin")
     h = user.household
-    who = f"{user.name} ({local_phone(user.phone)})" + (f", {h.village}" if h and h.village else "")
+    who = f"{user.name} ({local_phone(user.phone)})" + \
+        (f", {h.village}" if h and h.village else "")
     for st in User.query.filter(User.role.in_(roles), User.is_active_flag.is_(True), User.id != user.id).all():
         notify(st, PIN_HELP_STAFF, "system", who=who)
         if st.phone and st.role == roles[0]:
             send_sms(st.phone, tt(PIN_HELP_STAFF, st.language, who=who), st)
     notify(user, PIN_HELP_ACK, "system")
-    audit("user.pin_help", "user", user.id, channel, actor=user, channel=channel)
+    audit("user.pin_help", "user", user.id,
+          channel, actor=user, channel=channel)
     return True
 
 
 # ── slots (FR3.2, FR4.1, FR9.2) ─────────────────────────────────────────────
 def price_quote(h, source, litres):
     base = round(source.tariff_per_100l * litres / 100)
-    pct = {"standard": 0, "elevated": get_int("discount_elevated"), "high": get_int("discount_high")}.get(h.priority_level, 0)
+    pct = {"standard": 0, "elevated": get_int("discount_elevated"), "high": get_int(
+        "discount_high")}.get(h.priority_level, 0)
     return round(base * (100 - pct) / 100), pct, base
 
 
@@ -533,7 +616,8 @@ def slot_list(source, day, only_open=False):
         return []
     now = now_local()
     counts = dict(db.session.query(Booking.start_min, func.count(Booking.id)).filter(
-        Booking.source_id == source.id, Booking.date == day, Booking.status.in_(Booking.ACTIVE)
+        Booking.source_id == source.id, Booking.date == day, Booking.status.in_(
+            Booking.ACTIVE)
     ).group_by(Booking.start_min).all())
     day_total = sum(counts.values())
     d0 = datetime.combine(day, datetime.min.time())
@@ -542,7 +626,8 @@ def slot_list(source, day, only_open=False):
     out, m = [], source.open_min
     step = max(5, source.slot_minutes)
     while m + step <= source.close_min:
-        s_dt, e_dt = d0 + timedelta(minutes=m), d0 + timedelta(minutes=m + step)
+        s_dt, e_dt = d0 + timedelta(minutes=m), d0 + \
+            timedelta(minutes=m + step)
         used = counts.get(m, 0)
         if e_dt <= now:
             m += step
@@ -577,7 +662,8 @@ def alternatives(source, day, litres, limit=3):
         if d < day:
             continue
         for s in slot_list(source, d, only_open=True):
-            found.append((abs((d - day).days) * 1440 + abs(s["start_min"] - 720), source, d, s))
+            found.append((abs((d - day).days) * 1440 +
+                         abs(s["start_min"] - 720), source, d, s))
     for other in operational_sources():
         if other.id == source.id:
             continue
@@ -594,10 +680,12 @@ def alt_text(alts, lang):
 # ── AI: explainable priority, risk and forecasting (FR11) ───────────────────
 # ── household needs: the same questions, in the same order, on the web, by USSD and when a coordinator registers ──
 VULN = [("elderly", "Someone aged 60 or over", "Aged 60+"), ("disability", "Someone living with a disability", "Disability"),
-        ("infant", "A child under 5", "Child under 5"), ("pregnant", "Pregnant or breastfeeding", "Pregnant/nursing"),
+        ("infant", "A child under 5", "Child under 5"), ("pregnant",
+                                                         "Pregnant or breastfeeding", "Pregnant/nursing"),
         ("single", "Single-parent household", "Single parent"), ("illness", "Long-term illness", "Long illness")]
 VULN_CODES = [c for c, _, _ in VULN]
-DISTANCE = [(100, "Under 200 m"), (350, "200 m to 500 m"), (750, "500 m to 1 km"), (1500, "1 km to 2 km"), (3500, "2 km to 5 km"), (6000, "Over 5 km")]
+DISTANCE = [(100, "Under 200 m"), (350, "200 m to 500 m"), (750, "500 m to 1 km"),
+            (1500, "1 km to 2 km"), (3500, "2 km to 5 km"), (6000, "Over 5 km")]
 LEVEL_POINTS = {"standard": 0, "elevated": 25, "high": 45}
 
 
@@ -617,27 +705,32 @@ def distance_label(m):
     return min(DISTANCE, key=lambda d: abs(d[0] - (m or 0)))[1]
 
 
-OTHER_SOURCE = "other:"  # prefix of a water point the household names itself (not in the list yet)
+# prefix of a water point the household names itself (not in the list yet)
+OTHER_SOURCE = "other:"
 
 
 def set_needs(h, flags, distance_m=None, source_id=None):
     """Store the household's own answers. Priority uses them at once; the subsidy waits for a coordinator's check.
     source_id is a water point id, 0/None for Not sure, or "other:<name>" for a point that is not in the list."""
-    h.vuln_flags = clean_flags(flags.split(",") if isinstance(flags, str) else flags)
+    h.vuln_flags = clean_flags(flags.split(
+        ",") if isinstance(flags, str) else flags)
     if distance_m is not None:
         h.distance_m = distance_m
     if isinstance(source_id, str) and source_id.startswith(OTHER_SOURCE):
-        h.home_source_id, h.home_source_note = None, clean_text(source_id[len(OTHER_SOURCE):], 80)
+        h.home_source_id, h.home_source_note = None, clean_text(
+            source_id[len(OTHER_SOURCE):], 80)
     elif source_id is not None:
         h.home_source_id, h.home_source_note = (source_id or None), ""
-    h.needs_review = bool(h.vuln_flags) and LEVEL_POINTS[reported_level(h.vuln_flags)] > LEVEL_POINTS.get(h.priority_level, 0)
+    h.needs_review = bool(h.vuln_flags) and LEVEL_POINTS[reported_level(
+        h.vuln_flags)] > LEVEL_POINTS.get(h.priority_level, 0)
 
 
 def priority_breakdown(h):
     """Every point of a priority score has a stated reason (NFR11: explainable, checked for bias)."""
     lvl = h.priority_level
     if h.needs_review and LEVEL_POINTS[reported_level(h.vuln_flags)] > LEVEL_POINTS.get(lvl, 0):
-        vuln = ("Vulnerability level (self-reported, awaiting check)", LEVEL_POINTS[reported_level(h.vuln_flags)])
+        vuln = ("Vulnerability level (self-reported, awaiting check)",
+                LEVEL_POINTS[reported_level(h.vuln_flags)])
     else:
         vuln = ("Vulnerability level", LEVEL_POINTS.get(lvl, 0))
     parts = [vuln,
@@ -646,9 +739,11 @@ def priority_breakdown(h):
     since = today_local() - timedelta(days=7)
     recent = Booking.query.filter(Booking.household_id == h.id, Booking.date >= since,
                                   Booking.status.in_(("approved", "collected", "pending"))).count()
-    parts.append(("Fair-share boost (few recent bookings)", max(0, 10 - recent * 3)))
+    parts.append(("Fair-share boost (few recent bookings)",
+                 max(0, 10 - recent * 3)))
     since14 = today_local() - timedelta(days=14)
-    ns = Booking.query.filter(Booking.household_id == h.id, Booking.date >= since14, Booking.status == "no_show").count()
+    ns = Booking.query.filter(Booking.household_id == h.id,
+                              Booking.date >= since14, Booking.status == "no_show").count()
     parts.append(("Recent no-shows", -min(ns * 5, 15)))
     total = max(0, min(100, sum(p for _, p in parts)))
     return total, parts
@@ -684,7 +779,8 @@ def forecast(source, weeks=8):
     for d, c in rows:
         by_wd[d.weekday()].append(c)
     all_counts = [c for _, c in rows]
-    fallback = statistics.mean(all_counts) if all_counts else source.daily_capacity * 0.3
+    fallback = statistics.mean(
+        all_counts) if all_counts else source.daily_capacity * 0.3
     out = []
     for i in range(HORIZON_DAYS):
         d = t + timedelta(days=i)
@@ -694,7 +790,8 @@ def forecast(source, weeks=8):
         out.append({"date": d, "expected": exp, "ratio": ratio,
                     "level": "high" if ratio >= 0.8 else "medium" if ratio >= 0.5 else "low", "samples": len(vals)})
     hours = db.session.query(Booking.start_min, func.count(Booking.id)).filter(
-        Booking.source_id == source.id, Booking.date >= since, Booking.status.in_(("approved", "collected", "pending", "no_show"))
+        Booking.source_id == source.id, Booking.date >= since, Booking.status.in_(
+            ("approved", "collected", "pending", "no_show"))
     ).group_by(Booking.start_min).order_by(func.count(Booking.id).desc()).first()
     return out, (fmt_min(hours[0]) if hours else None)
 
@@ -707,25 +804,32 @@ def detect_anomalies():
         Booking.status == "cancelled", Booking.created_at >= week).group_by(Booking.household_id).having(func.count(Booking.id) >= 3).all()
     for hid, c in canc:
         h = db.session.get(Household, hid)
-        flags.append({"severity": "medium", "who": h.name, "text": "{n} cancellations in 7 days", "params": {"n": c}})
+        flags.append({"severity": "medium", "who": h.name,
+                     "text": "{n} cancellations in 7 days", "params": {"n": c}})
     ns = db.session.query(Booking.household_id, func.count(Booking.id)).filter(
         Booking.status == "no_show", Booking.date >= today_local() - timedelta(days=14)).group_by(Booking.household_id).having(func.count(Booking.id) >= 3).all()
     for hid, c in ns:
         h = db.session.get(Household, hid)
-        flags.append({"severity": "medium", "who": h.name, "text": "{n} no-shows in 14 days", "params": {"n": c}})
+        flags.append({"severity": "medium", "who": h.name,
+                     "text": "{n} no-shows in 14 days", "params": {"n": c}})
     dep = db.session.query(WalletTxn.household_id, func.count(WalletTxn.id)).filter(
         WalletTxn.kind == "deposit", WalletTxn.created_at >= t - timedelta(hours=1)).group_by(WalletTxn.household_id).having(func.count(WalletTxn.id) >= 3).all()
     for hid, c in dep:
         h = db.session.get(Household, hid)
-        flags.append({"severity": "high", "who": h.name, "text": "{n} deposits within one hour", "params": {"n": c}})
-    big = WalletTxn.query.filter(WalletTxn.kind == "deposit", WalletTxn.amount >= 50000, WalletTxn.created_at >= week).all()
+        flags.append({"severity": "high", "who": h.name,
+                     "text": "{n} deposits within one hour", "params": {"n": c}})
+    big = WalletTxn.query.filter(
+        WalletTxn.kind == "deposit", WalletTxn.amount >= 50000, WalletTxn.created_at >= week).all()
     for x in big:
-        flags.append({"severity": "medium", "who": x.household.name, "text": "Large deposit {amount}", "params": {"amount": fmt_ar(x.amount)}})
-    lit = [b.litres for b in Booking.query.filter(Booking.created_at >= t - timedelta(days=30)).all()]
+        flags.append({"severity": "medium", "who": x.household.name,
+                     "text": "Large deposit {amount}", "params": {"amount": fmt_ar(x.amount)}})
+    lit = [b.litres for b in Booking.query.filter(
+        Booking.created_at >= t - timedelta(days=30)).all()]
     if len(lit) >= 10:
         mu, sd = statistics.mean(lit), statistics.pstdev(lit) or 1
         for b in Booking.query.filter(Booking.created_at >= week, Booking.litres > mu + 2 * sd).limit(5):
-            flags.append({"severity": "low", "who": b.household.name, "text": "Unusually large request: {l} L", "params": {"l": b.litres}})
+            flags.append({"severity": "low", "who": b.household.name,
+                         "text": "Unusually large request: {l} L", "params": {"l": b.litres}})
     return flags
 
 
@@ -733,11 +837,14 @@ def fairness_check():
     """NFR11 - compares approval rates across vulnerability levels so the system does not repeat unfairness."""
     rows = []
     for level in ("standard", "elevated", "high"):
-        q = Booking.query.join(Household).filter(Household.priority_level == level, Booking.status.in_(("approved", "collected", "denied", "no_show")))
+        q = Booking.query.join(Household).filter(Household.priority_level == level, Booking.status.in_(
+            ("approved", "collected", "denied", "no_show")))
         total = q.count()
-        ok = q.filter(Booking.status.in_(("approved", "collected", "no_show"))).count()
+        ok = q.filter(Booking.status.in_(
+            ("approved", "collected", "no_show"))).count()
         hh = Household.query.filter_by(priority_level=level).count()
-        rows.append({"level": level, "households": hh, "decided": total, "approval": round(100 * ok / total) if total else None})
+        rows.append({"level": level, "households": hh, "decided": total,
+                    "approval": round(100 * ok / total) if total else None})
     rates = [r["approval"] for r in rows if r["approval"] is not None]
     flagged = len(rates) >= 2 and (max(rates) - min(rates)) > 25
     return rows, flagged
@@ -755,7 +862,8 @@ def create_booking(h, source_id, day, start_min, litres, channel="web", actor=No
         raise ServiceError("date_range")
     if litres not in litre_options(src):
         raise ServiceError("litres_invalid")
-    slot = next((s for s in slot_list(src, day) if s["start_min"] == start_min), None)
+    slot = next((s for s in slot_list(src, day)
+                if s["start_min"] == start_min), None)
     if not slot:
         raise ServiceError("slot_unavailable")
     if slot["state"] == "blocked":
@@ -767,7 +875,8 @@ def create_booking(h, source_id, day, start_min, litres, channel="web", actor=No
         raise ServiceError("one_per_day")
     amount, pct, _ = price_quote(h, src, litres)
     if h.balance < amount:
-        raise ServiceError("insufficient_funds", need=amount, balance=h.balance)
+        raise ServiceError("insufficient_funds",
+                           need=amount, balance=h.balance)
     score, note, suggestion = assess_booking(h, litres, day)
     ref = new_ref("CW")
     b = Booking(ref=ref, household_id=h.id, source_id=src.id, date=day, start_min=slot["start_min"], end_min=slot["end_min"],
@@ -775,11 +884,14 @@ def create_booking(h, source_id, day, start_min, litres, channel="web", actor=No
                 ai_note=note[:255], ai_suggestion=suggestion)
     db.session.add(b)
     db.session.flush()
-    wallet_post(h, "booking_debit", -amount, "wallet", note=f"Booking {ref}", booking=b, actor=actor)
-    audit("booking.create", "booking", ref, f"{src.name} {day} {fmt_min(b.start_min)} {litres}L {amount} MGA", actor=actor, channel=channel)
+    wallet_post(h, "booking_debit", -amount, "wallet",
+                note=f"Booking {ref}", booking=b, actor=actor)
+    audit("booking.create", "booking", ref,
+          f"{src.name} {day} {fmt_min(b.start_min)} {litres}L {amount} MGA", actor=actor, channel=channel)
     if get_setting("auto_approve") == "1" and suggestion == "approve":
         b.status, b.decided_at, b.decision_note = "approved", utcnow(), "Auto-approved (low risk)"
-        audit("booking.auto_approve", "booking", ref, "AI low-risk auto approval", channel="system")
+        audit("booking.auto_approve", "booking", ref,
+              "AI low-risk auto approval", channel="system")
         event(h.user, "Booking {ref} is approved: {source}, {date} {time}.", "booking", sms=True, ref=ref, source=src.name,
               date=f"{day:%d/%m}", time=fmt_min(b.start_min))
     else:
@@ -790,40 +902,49 @@ def create_booking(h, source_id, day, start_min, litres, channel="web", actor=No
 
 def _refund(b, reason, actor=None, channel="web"):
     h = lock_household(b.household_id)
-    debit = WalletTxn.query.filter_by(booking_id=b.id, kind="booking_debit", status="posted").first()
-    already = WalletTxn.query.filter_by(booking_id=b.id, kind="booking_refund", status="posted").first()
+    debit = WalletTxn.query.filter_by(
+        booking_id=b.id, kind="booking_debit", status="posted").first()
+    already = WalletTxn.query.filter_by(
+        booking_id=b.id, kind="booking_refund", status="posted").first()
     if debit and not already:
-        wallet_post(h, "booking_refund", -debit.amount, "wallet", note=reason, booking=b, actor=actor)
+        wallet_post(h, "booking_refund", -debit.amount, "wallet",
+                    note=reason, booking=b, actor=actor)
         return -debit.amount
     return 0
 
 
 def cancel_booking(b, actor=None, channel="web"):
-    start = datetime.combine(b.date, datetime.min.time()) + timedelta(minutes=b.start_min)
+    start = datetime.combine(b.date, datetime.min.time()) + \
+        timedelta(minutes=b.start_min)
     if b.status not in ("pending", "approved"):
         raise ServiceError("not_cancellable")
     if start <= now_local():
         raise ServiceError("too_late")
     b.status = "cancelled"
     amount = _refund(b, f"Refund for cancelled {b.ref}", actor, channel)
-    audit("booking.cancel", "booking", b.ref, f"refund {amount}", actor=actor, channel=channel)
-    event(b.household.user, "Booking {ref} was cancelled. {amount} returned to your wallet.", "booking", sms=True, ref=b.ref, amount=fmt_ar(amount))
+    audit("booking.cancel", "booking", b.ref,
+          f"refund {amount}", actor=actor, channel=channel)
+    event(b.household.user, "Booking {ref} was cancelled. {amount} returned to your wallet.",
+          "booking", sms=True, ref=b.ref, amount=fmt_ar(amount))
     return b
 
 
 def decide_booking(b, approve, note="", actor=None, channel="web"):
     if b.status != "pending":
         raise ServiceError("not_pending")
-    b.decided_by, b.decided_at, b.decision_note = (actor.id if actor else None), utcnow(), clean_text(note, 250)
+    b.decided_by, b.decided_at, b.decision_note = (
+        actor.id if actor else None), utcnow(), clean_text(note, 250)
     if approve:
         b.status = "approved"
-        audit("booking.approve", "booking", b.ref, note, actor=actor, channel=channel)
+        audit("booking.approve", "booking", b.ref,
+              note, actor=actor, channel=channel)
         event(b.household.user, "Booking {ref} is approved: {source}, {date} {time}.", "booking", sms=True, ref=b.ref,
               source=b.source.name, date=f"{b.date:%d/%m}", time=fmt_min(b.start_min))
     else:
         b.status = "denied"
         amount = _refund(b, f"Refund for denied {b.ref}", actor, channel)
-        audit("booking.deny", "booking", b.ref, note, actor=actor, channel=channel)
+        audit("booking.deny", "booking", b.ref,
+              note, actor=actor, channel=channel)
         event(b.household.user, "Booking {ref} was not approved. {amount} returned to your wallet. Reason: {reason}", "booking", sms=True,
               ref=b.ref, amount=fmt_ar(amount), reason=b.decision_note or "-")
     return b
@@ -833,8 +954,10 @@ def mark_collected(b, actor=None, channel="web"):
     if b.status != "approved":
         raise ServiceError("not_approved")
     b.status = "collected"
-    audit("booking.collected", "booking", b.ref, "", actor=actor, channel=channel)
-    event(b.household.user, "Water collected for booking {ref}. Thank you!", "booking", sms=True, ref=b.ref)
+    audit("booking.collected", "booking", b.ref,
+          "", actor=actor, channel=channel)
+    event(b.household.user,
+          "Water collected for booking {ref}. Thank you!", "booking", sms=True, ref=b.ref)
     return b
 
 
@@ -842,8 +965,10 @@ def mark_no_show(b, actor=None, channel="web"):
     if b.status != "approved":
         raise ServiceError("not_approved")
     b.status = "no_show"
-    audit("booking.no_show", "booking", b.ref, "", actor=actor, channel=channel)
-    event(b.household.user, "Booking {ref} was marked as not collected.", "booking", sms=True, ref=b.ref)
+    audit("booking.no_show", "booking", b.ref,
+          "", actor=actor, channel=channel)
+    event(b.household.user,
+          "Booking {ref} was marked as not collected.", "booking", sms=True, ref=b.ref)
     return b
 
 
@@ -854,16 +979,20 @@ def sweep(now=None):
     grace = get_int("no_show_grace_min")
     changed = 0
     for b in Booking.query.filter(Booking.status.in_(("pending", "approved")), Booking.date <= now.date()).all():
-        end = datetime.combine(b.date, datetime.min.time()) + timedelta(minutes=b.end_min)
+        end = datetime.combine(b.date, datetime.min.time()
+                               ) + timedelta(minutes=b.end_min)
         if b.status == "pending" and end <= now:
             b.status = "cancelled"
             amount = _refund(b, f"Refund for expired {b.ref}", None, "system")
-            audit("booking.expire", "booking", b.ref, "unreviewed until slot end", channel="system")
-            notify(b.household.user, "Booking {ref} expired before review. {amount} returned to your wallet.", "booking", ref=b.ref, amount=fmt_ar(amount))
+            audit("booking.expire", "booking", b.ref,
+                  "unreviewed until slot end", channel="system")
+            notify(b.household.user, "Booking {ref} expired before review. {amount} returned to your wallet.",
+                   "booking", ref=b.ref, amount=fmt_ar(amount))
             changed += 1
         elif b.status == "approved" and end + timedelta(minutes=grace) <= now:
             b.status = "no_show"
-            audit("booking.no_show", "booking", b.ref, "auto", channel="system")
+            audit("booking.no_show", "booking",
+                  b.ref, "auto", channel="system")
             changed += 1
     if changed:
         db.session.commit()
@@ -875,24 +1004,29 @@ def schedule_maintenance(source, start, end, reason, actor=None, channel="web"):
     """Blocks the affected slots, cancels and refunds bookings inside the window, and offers alternatives."""
     if end <= start:
         raise ServiceError("bad_window")
-    m = Maintenance(source_id=source.id, starts_at=start, ends_at=end, reason=clean_text(reason, 250), created_by=actor.id if actor else None)
+    m = Maintenance(source_id=source.id, starts_at=start, ends_at=end, reason=clean_text(
+        reason, 250), created_by=actor.id if actor else None)
     db.session.add(m)
     db.session.flush()
     affected = 0
     q = Booking.query.filter(Booking.source_id == source.id, Booking.status.in_(("pending", "approved")),
                              Booking.date >= start.date(), Booking.date <= end.date()).all()
     for b in q:
-        s = datetime.combine(b.date, datetime.min.time()) + timedelta(minutes=b.start_min)
-        e = datetime.combine(b.date, datetime.min.time()) + timedelta(minutes=b.end_min)
+        s = datetime.combine(b.date, datetime.min.time()) + \
+            timedelta(minutes=b.start_min)
+        e = datetime.combine(b.date, datetime.min.time()) + \
+            timedelta(minutes=b.end_min)
         if s < end and e > start:
             b.status = "cancelled"
-            amount = _refund(b, f"Refund: maintenance at {source.name}", actor, channel)
+            amount = _refund(
+                b, f"Refund: maintenance at {source.name}", actor, channel)
             alts = alternatives(source, b.date, b.litres)
             for_user = b.household.user
             event(for_user, "Maintenance at {source}: booking {ref} was cancelled and {amount} refunded. Free slots: {alts}", "maintenance", sms=True,
                   source=source.name, ref=b.ref, amount=fmt_ar(amount), alts=alt_text(alts, for_user.language))
             affected += 1
-    audit("maintenance.schedule", "source", source.id, f"{start} to {end}: {reason} ({affected} bookings moved)", actor=actor, channel=channel)
+    audit("maintenance.schedule", "source", source.id,
+          f"{start} to {end}: {reason} ({affected} bookings moved)", actor=actor, channel=channel)
     return m, affected
 
 
@@ -934,21 +1068,27 @@ def equity_report(d0, d1):
 
 
 def financial_report(d0, d1):
-    a, b_ = datetime.combine(d0, datetime.min.time()), datetime.combine(d1 + timedelta(days=1), datetime.min.time())
-    txns = WalletTxn.query.filter(WalletTxn.created_at >= a - timedelta(hours=3), WalletTxn.created_at < b_ - timedelta(hours=3)).all()
+    a, b_ = datetime.combine(d0, datetime.min.time()), datetime.combine(
+        d1 + timedelta(days=1), datetime.min.time())
+    txns = WalletTxn.query.filter(WalletTxn.created_at >= a - timedelta(
+        hours=3), WalletTxn.created_at < b_ - timedelta(hours=3)).all()
     dep, by_provider = 0, {}
     for x in txns:
         if x.kind == "deposit" and x.status == "posted":
             dep += x.amount
             by_provider[x.provider] = by_provider.get(x.provider, 0) + x.amount
-    pending = sum(x.amount for x in txns if x.kind == "deposit" and x.status == "pending")
-    refunds = sum(x.amount for x in txns if x.kind == "booking_refund" and x.status == "posted")
-    bs = _bookings_between(d0, d1).filter(Booking.status.in_(("approved", "collected", "no_show"))).all()
+    pending = sum(x.amount for x in txns if x.kind ==
+                  "deposit" and x.status == "pending")
+    refunds = sum(x.amount for x in txns if x.kind ==
+                  "booking_refund" and x.status == "posted")
+    bs = _bookings_between(d0, d1).filter(
+        Booking.status.in_(("approved", "collected", "no_show"))).all()
     revenue = sum(x.amount for x in bs)
     by_source = {}
     for x in bs:
         by_source[x.source.name] = by_source.get(x.source.name, 0) + x.amount
-    subsidy = sum(round(x.amount * x.discount_pct / max(1, 100 - x.discount_pct)) for x in bs if x.discount_pct)
+    subsidy = sum(round(x.amount * x.discount_pct /
+                  max(1, 100 - x.discount_pct)) for x in bs if x.discount_pct)
     return {"deposits": dep, "pending": pending, "refunds": refunds, "revenue": revenue, "by_provider": by_provider,
             "by_source": by_source, "subsidy": subsidy, "held": db.session.query(func.coalesce(func.sum(Household.balance), 0)).scalar()}
 
@@ -959,21 +1099,26 @@ def to_csv(header, rows):
     w.writerow(header)
     for r in rows:
         # Guard against spreadsheet formula injection in exported text.
-        w.writerow([("'" + c) if isinstance(c, str) and c[:1] in "=+-@" else c for c in r])
+        w.writerow([("'" + c) if isinstance(c, str)
+                   and c[:1] in "=+-@" else c for c in r])
     return buf.getvalue()
 
 
 # ── assistant (FR11.3): keyword intents answered from live data ─────────────
 _INTENTS = [
     ("balance", ("balance", "wallet", "solde", "vola", "sisa", "money left")),
-    ("bookings", ("my booking", "next booking", "réservation", "famandrihana", "reservation", "bookings")),
-    ("book", ("book", "reserve", "slot", "réserver", "mamandrika", "famandrihana vaovao")),
+    ("bookings", ("my booking", "next booking", "réservation",
+     "famandrihana", "reservation", "bookings")),
+    ("book", ("book", "reserve", "slot", "réserver",
+     "mamandrika", "famandrihana vaovao")),
     ("cancel", ("cancel", "annul", "foano", "foana")),
     ("price", ("price", "cost", "tarif", "prix", "vidiny", "sarany", "how much")),
     ("hours", ("hour", "open", "horaire", "ouvert", "ora", "misokatra")),
-    ("sources", ("water point", "source", "borehole", "puits", "fantsakana", "forage", "where")),
+    ("sources", ("water point", "source", "borehole",
+     "puits", "fantsakana", "forage", "where")),
     ("ussd", ("ussd", "sms", "feature phone", "*384", "code")),
-    ("deposit", ("deposit", "add money", "orange", "airtel", "pay", "recharge", "dépôt", "manampy", "mandoa")),
+    ("deposit", ("deposit", "add money", "orange", "airtel",
+     "pay", "recharge", "dépôt", "manampy", "mandoa")),
     ("language", ("language", "langue", "fiteny", "malagasy", "français", "english")),
     ("help", ("help", "aide", "fanampiana", "hello", "bonjour", "salama", "hi")),
 ]
@@ -981,7 +1126,8 @@ _INTENTS = [
 
 def assistant_reply(user, text, lang):
     t = (text or "").lower()
-    intent = next((name for name, keys in _INTENTS if any(k in t for k in keys)), "fallback")
+    intent = next((name for name, keys in _INTENTS if any(
+        k in t for k in keys)), "fallback")
     h = user.household if user and user.role == "member" else None
     if intent == "balance" and h:
         return tt("Your wallet balance is {balance}.", lang, balance=fmt_ar(h.balance))
