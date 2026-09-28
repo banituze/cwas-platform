@@ -10,18 +10,23 @@ collects water.') }}{% endblock %}
   <p class="mt-5 max-w-xl text-lg text-mute">{{ t('Booking, payment, approval, maintenance, reports and audit, built
     around how Ampotaka actually collects water.') }}</p>
 </header>
-{# Gallery Depth: real screens of CWAS (demo data) travel in from deep perspective and settle flat and sharp once, as
-they come into view, (static/js/fx.js). Without a script, or with reduced motion, they simply sit in place. #}
-<section class="gd mx-auto mt-14 max-w-page px-4" data-gallery-depth>{% for key, cap, kind, pos in (('coord-queue',
-  'Approval queue', 'desk', 'a'), ('app-book', 'Book a slot', 'phone', 'b'), ('app-wallet', 'Wallet', 'phone', 'c'),
-  ('coord-insights', 'Demand forecast', 'desk', 'd')) %}
-  <figure class="gd-item gd-{{ kind }} gd-{{ pos }}">
-    <div class="gd-move">
-      <div class="gd-frame">{% if kind == 'desk' %}<div class="gd-bar" aria-hidden="true"><i></i><i></i><i></i></div>{%
-        endif %}{{ shot(key, t(cap)) }}</div>
+{# Scroll Stack: the current theme's product screens pin and unstack as the page scrolls. #}
+<section class="ps mx-auto mt-14 max-w-page px-4" data-product-stack aria-label="{{ t('Platform') }}">
+  {% for key, cap, kind in (('coord-queue', 'Approval queue', 'desk'), ('app-book', 'Book a slot', 'phone'),
+    ('app-wallet', 'Wallet', 'phone'), ('coord-insights', 'Demand forecast', 'desk')) %}
+  <figure class="ps-card gd-{{ kind }}" style="--ps-i:{{ loop.index0 }}">
+    <div class="ps-copy">
+      <span class="ps-number" aria-hidden="true">{{ '%02d'|format(loop.index) }} / 04</span>
       <figcaption>{{ t(cap) }}</figcaption>
     </div>
-  </figure>{% endfor %}
+    <div class="ps-preview">
+      <div class="gd-frame">
+        {% if kind == 'desk' %}<div class="gd-bar" aria-hidden="true"><i></i><i></i><i></i></div>{% endif %}
+        {{ shot(key, t(cap)) }}
+      </div>
+    </div>
+  </figure>
+  {% endfor %}
 </section>
 
 <div class="mx-auto max-w-page space-y-28 px-4 pt-20">

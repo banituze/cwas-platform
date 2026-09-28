@@ -7123,3 +7123,85 @@ html[data-theme="saina"] body[data-page="coord_announce"] .side {
     -webkit-backdrop-filter: none;
     backdrop-filter: none
 }
+
+
+/* Platform mockups: scroll-stacked product screens, with each full capture visible. */
+.ps {
+  --ps-top: clamp(86px, 12svh, 130px);
+  padding-bottom: 26svh;
+  isolation: isolate;
+}
+.ps-card {
+  position: sticky;
+  top: calc(var(--ps-top) + var(--ps-i) * 9px);
+  z-index: calc(10 + var(--ps-i));
+  display: grid;
+  grid-template-columns: minmax(0, .29fr) minmax(0, .71fr);
+  align-items: center;
+  gap: clamp(16px, 3.5vw, 54px);
+  height: min(74svh, 690px);
+  min-height: 365px;
+  margin: 0 0 42svh;
+  padding: clamp(18px, 3.5vw, 44px);
+  border: 1px solid var(--glass-line);
+  border-radius: clamp(22px, 3.6vw, 40px);
+  background: rgb(var(--bg));
+  box-shadow: 0 32px 70px -48px var(--shade);
+  transform-origin: 50% 0;
+  backface-visibility: hidden;
+}
+.ps-card:last-child { margin-bottom: 0; }
+.ps.is-live .ps-card { transform: scale(var(--ps-scale, 1)); }
+.ps-copy { display: flex; min-width: 0; flex-direction: column; gap: 18px; }
+.ps-number {
+  color: rgb(var(--mute));
+  font-size: .8rem;
+  font-weight: 750;
+  letter-spacing: .14em;
+  font-variant-numeric: tabular-nums;
+}
+.ps-card figcaption {
+  margin: 0;
+  color: rgb(var(--ink));
+  font: 800 clamp(1.75rem, 3.3vw, 3.8rem)/1.05 "Bricolage Grotesque Variable", system-ui, sans-serif;
+  letter-spacing: -.045em;
+  text-align: left;
+}
+.ps-preview { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; height: 100%; }
+.ps-preview .gd-frame { flex: none; max-width: 100%; overflow: hidden; }
+.ps .gd-phone { width: auto; }
+.ps .gd-desk .gd-frame { width: min(100%, 790px); }
+.ps .gd-phone .gd-frame { width: min(260px, 29svh, 60vw); }
+.ps .gd-screen img { object-fit: contain; }
+@media (max-width: 700px) {
+  .ps { --ps-top: clamp(76px, 10svh, 100px); padding-bottom: 15svh; }
+  .ps-card {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 14px;
+    height: min(76svh, 610px);
+    min-height: 320px;
+    margin-bottom: 30svh;
+    padding: 18px 16px;
+    border-radius: 24px;
+  }
+  .ps-copy { flex-direction: row; justify-content: space-between; align-items: baseline; gap: 14px; }
+  .ps-card figcaption { font-size: clamp(1.35rem, 5vw, 2.3rem); text-align: right; }
+  .ps-number { flex-shrink: 0; font-size: .72rem; }
+  .ps-card.gd-desk { height: min(56svh, 480px); min-height: 320px; }
+  .ps .gd-phone .gd-frame { width: min(205px, 27svh, 59vw); }
+  .ps .gd-desk .gd-frame { width: min(100%, 560px); }
+}
+@media (max-height: 500px), (prefers-reduced-motion: reduce) {
+  .ps { padding-bottom: 0; }
+  .ps-card {
+    position: relative;
+    top: auto;
+    height: auto;
+    min-height: 0;
+    margin-bottom: 22px;
+    transform: none !important;
+  }
+  .ps-preview { min-height: 0; }
+  .ps-card:last-child { margin-bottom: 0; }
+}

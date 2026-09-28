@@ -209,6 +209,28 @@
   }
 
 
+  /* ── platform product screens: each new sticky card gently presses the prior card back ── */
+  function productStack(el) {
+    const cards = $$(".ps-card", el);
+    if (reduce || cards.length < 2 || matchMedia("(max-height: 500px)").matches) return;
+    el.classList.add("is-live");
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      cards.forEach((card, i) => {
+        const next = cards[i + 1];
+        if (!next) return;
+        const r = card.getBoundingClientRect(), n = next.getBoundingClientRect();
+        const overlap = clamp((r.top + card.offsetHeight * .9 - n.top) / (card.offsetHeight * .72), 0, 1);
+        card.style.setProperty("--ps-scale", (1 - overlap * .055).toFixed(4));
+      });
+    };
+    const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } };
+    addEventListener("scroll", onScroll, { passive: true });
+    addEventListener("resize", onScroll);
+    update();
+  }
+
   /* ── jerrycans: real 20 L jerrycans fill from the bottom with the litres chosen; tap one to choose its total ── */
   function cans(el) {
     const form = el.closest("[data-book]") || document, radios = () => $$("input[name=litres]", form), list = $$(".can", el);  // the small 20 L cans
@@ -273,6 +295,7 @@
   $$("[data-tunnel]").forEach(e => safe(() => tunnel(e)));
   $$("[data-gallery-rise]").forEach(e => safe(() => galleryRise(e)));
   $$("[data-gallery-depth]").forEach(e => safe(() => galleryDepth(e)));
+  $$("[data-product-stack]").forEach(e => safe(() => productStack(e)));
   $$("[data-cans]").forEach(e => safe(() => cans(e)));
   window.__fxReady = true;
 })();
