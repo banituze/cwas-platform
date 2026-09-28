@@ -9509,3 +9509,9 @@ html[data-theme] .dk-card>.orb-face {
         grid-template-columns: repeat(6, minmax(0, 1fr))
     }
 }
+
+html[data-theme="saina"] body[data-page="coord_announce"] .side {
+    background-color: rgb(var(--bg));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none
+}

@@ -7117,3 +7117,9 @@ html[data-theme] .dk-card>.orb-face {
 .hdr-bar:has([data-menu].open) [data-tip]::after {
   display: none
 }
+
+html[data-theme="saina"] body[data-page="coord_announce"] .side {
+    background-color: rgb(var(--bg));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none
+}
