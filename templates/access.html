@@ -40,8 +40,7 @@ including registering, booking, paying, cancelling and reading receipts. SMS ans
       {% for h, p in (('Register','A new phone number is walked through language, name, village, household size and a
       PIN.'),('Book a slot','Water point, day, open slot, litres, then confirm. Capacity, one booking per day and
       balance are checked at the last step. The answer shows the reference and the balance left; an SMS follows.'),('Add
-      money','Orange Money or Airtel Money, then an amount. In simulation the deposit posts at once with a DEP
-      reference. In live mode it stays pending until the provider confirms.'),('Balance and history','Current balance
+      money','Orange Money or Airtel Money, then an amount. A deposit stays pending until the provider confirms it.'),('Balance and history','Current balance
       with recent movements, booking history with full details, receipts and notifications.'),('Cancel','Future pending
       or approved bookings can be cancelled once, with one refund.'),('Profile','Name, household size, village, access
       needs, language and PIN.'),('Coordinators','Approve or deny requests, change a source status, add a cash deposit,
@@ -74,8 +73,7 @@ including registering, booking, paying, cancelling and reading receipts. SMS ans
       <h2 class="text-2xl font-bold">{{ t('For your security') }}</h2>
       <ul class="mt-4 space-y-3 text-mute">{% for h in ('The phone number is the identity; the PIN is never stored in
         the session log.','Money movement never happens by SMS.','A repeated request from the network returns the stored
-        answer instead of running twice.','Payment providers confirm deposits with a signed message; without it a live
-        deposit stays pending.') %}<li class="flex gap-3">{{ icon('check', 'mt-0.5 text-ok') }}<span>{{ t(h) }}</span>
+        answer instead of running twice.','Payment providers confirm deposits with a signed message; without confirmation, the deposit stays pending.') %}<li class="flex gap-3">{{ icon('check', 'mt-0.5 text-ok') }}<span>{{ t(h) }}</span>
         </li>{% endfor %}</ul>
     </div>
   </section>

@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% from "partials/macros.html" import icon with context %}
 {% block title %}{{ t('Device lab') }}{% endblock %}
-{% block desc %}{{ t('Pick a phone, dial the service and watch every request. The same engine answers the live line.')
+{% block desc %}{{ t('Pick a phone, dial the service and follow each request through CWAS.')
 }}{% endblock %}
 {% block content %}
 {% import "partials/sim_labels.html" as SL with context %}{% set LB = SL.LB %}
@@ -8,8 +8,7 @@
   <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
     <div>
       <h1 class="text-4xl font-extrabold md:text-5xl">{{ t('Device lab') }}</h1>
-      <p class="mt-2 max-w-2xl text-mute">{{ t('Pick a phone, dial the service and watch every request. The same engine
-        answers the live line.') }}</p>
+      <p class="mt-2 max-w-2xl text-mute">{{ t('Pick a phone, dial the service and follow each request through CWAS.') }}</p>
     </div>
     <a class="chip chip-link" href="tel:{{ USSD_CODE|replace('#', '%23') }}"
       aria-label="{{ t('Dial') }} {{ USSD_CODE }}">{{ icon('phone') }}<b>{{ USSD_CODE }}</b></a>

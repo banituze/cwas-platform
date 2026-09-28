@@ -26,10 +26,10 @@
     <h2 class="text-xl font-bold">{{ t('Integrations (set as environment variables)') }}</h2>
     <ul class="mt-4 space-y-2 text-sm">
         <li class="flex gap-3">{{ icon('check' if sms else 'alert', 'text-ok' if sms else 'text-mute') }}{{ t('SMS
-            delivery through Africa\'s Talking') }}: {{ t('live') if sms else t('simulated (SMS_ENABLED=0)') }}</li>
+            delivery through Africa\'s Talking') }}: {{ t('Enabled') if sms else t('Disabled') }}</li>
         <li class="flex gap-3">{{ icon('check' if live == 'live' else 'alert', 'text-ok' if live == 'live' else
-            'text-mute') }}{{ t('Mobile money') }}: {{ live }}</li>
+            'text-mute') }}{{ t('Mobile money') }}: {{ t('Provider confirmation') if live == 'live' else t('Automatic confirmation') }}</li>
         <li class="flex gap-3">{{ icon('check' if token else 'alert', 'text-ok' if token else 'text-hot') }}{{ t('Telco
-            webhook token') }}: {{ t('set') if token else t('not set: set AT_WEBHOOK_TOKEN before going live') }}</li>
+            webhook token') }}: {{ t('set') if token else t('not set: set AT_WEBHOOK_TOKEN to receive provider confirmations') }}</li>
     </ul>
 </section>{% endblock %}

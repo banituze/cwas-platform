@@ -29,9 +29,7 @@
             placeholder="{{ t('Other amount in MGA') }}" aria-label="{{ t('Other amount in MGA') }}"></div>
       </fieldset>
       <button class="btn btn-primary w-full !py-3">{{ t('Add money') }}</button>
-      <p class="hint">{{ t('Live mode never invents a payment: a deposit stays pending until the provider confirms it.')
-        if live else t('Simulation mode: deposits post immediately for the pilot rehearsal. Cash stays pending until a
-        coordinator confirms it.') }}</p>
+      <p class="hint">{{ t('A deposit stays pending until the provider confirms it.') }}</p>
     </form>
   </section>
   <section class="glass-strong p-2">
