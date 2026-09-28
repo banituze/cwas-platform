@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="352" height="494" viewBox="0 0 352 494">
+<defs><filter id="feather" x="-15%" y="-15%" width="130%" height="130%"><feGaussianBlur stdDeviation="12" /></filter></defs>
+<path fill="white" filter="url(#feather)" d="M82 75C110 67 247 67 273 80C290 91 296 117 296 148L293 415C293 445 271 455 252 459H92C69 454 56 432 57 404L58 156C60 114 65 88 82 75Z"/>
+</svg>
