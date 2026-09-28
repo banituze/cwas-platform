@@ -5196,8 +5196,8 @@ body {
   }
 
   .can .cf {
-    filter: grayscale(.65) brightness(1.12) contrast(.98);
-    opacity: .73;
+    filter: saturate(.88) brightness(.91) contrast(1.08);
+    opacity: .9;
     -webkit-mask: url(/static/img/objects/jerrycan-water-interior.svg) center/contain no-repeat;
     mask: url(/static/img/objects/jerrycan-water-interior.svg) center/contain no-repeat;
     clip-path: inset(calc(92% - var(--f, 0)*72%) 0 0 0);
@@ -5208,7 +5208,7 @@ body {
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: linear-gradient(96deg, rgba(255, 255, 255, 0) 12%, rgba(255, 255, 255, .11) 27%, rgba(255, 255, 255, 0) 41%, rgba(255, 255, 255, .09) 74%, rgba(255, 255, 255, 0) 91%);
+    background: linear-gradient(90deg, rgba(36, 43, 25, .16) 6%, rgba(255, 255, 255, .025) 27%, transparent 42%, rgba(255, 255, 255, .045) 68%, rgba(29, 40, 23, .13) 95%), linear-gradient(180deg, transparent 8%, rgba(43, 52, 30, .025) 60%, rgba(37, 48, 27, .07));
     -webkit-mask: url(/static/img/objects/jerrycan-water-interior.svg) center/contain no-repeat;
     mask: url(/static/img/objects/jerrycan-water-interior.svg) center/contain no-repeat;
     clip-path: inset(calc(92% - var(--f, 0)*72%) 0 0 0);
@@ -5222,8 +5222,8 @@ body {
     height: 2px;
     bottom: calc(8% + var(--f, 0)*72%);
     border-radius: 50%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .9) 17%, rgba(75, 80, 78, .44) 51%, rgba(255, 255, 255, .98) 82%, transparent);
-    box-shadow: 0 1px 2px rgba(40, 45, 44, .13);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .48) 19%, rgba(43, 52, 33, .56) 49%, rgba(255, 255, 255, .54) 81%, transparent);
+    box-shadow: 0 1px 1px rgba(49, 56, 37, .22);
     opacity: clamp(0, calc(var(--f, 0)*4), 1);
     transition: bottom 1s cubic-bezier(.2, .9, .2, 1), opacity .6s;
     animation: slosh 2.6s ease-in-out infinite;
