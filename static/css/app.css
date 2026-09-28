@@ -9597,3 +9597,106 @@ html[data-theme="saina"] body[data-page="coord_announce"] .side {
   .ps-preview { min-height: 0; }
   .ps-card:last-child { margin-bottom: 0; }
 }
+
+
+/* Platform tablet mockup: desk screenshots sit inside an unbranded tablet shell that follows the active theme. */
+:root {
+  --tablet-shell: #f7f7f4;
+  --tablet-shell-edge: #d8ddd8;
+  --tablet-detail: rgba(15, 24, 20, .52);
+  --tablet-shadow: rgba(10, 16, 12, .24);
+}
+html[data-theme=saina] {
+  --tablet-shell: #151c1b;
+  --tablet-shell-edge: #2a3431;
+  --tablet-detail: rgba(255, 255, 255, .72);
+  --tablet-shadow: rgba(0, 0, 0, .42);
+}
+html[data-theme=maitso] {
+  --tablet-shell: #0a7f3a;
+  --tablet-shell-edge: #07592a;
+  --tablet-detail: rgba(255, 255, 255, .75);
+  --tablet-shadow: rgba(0, 64, 26, .30);
+}
+html[data-theme=mena] {
+  --tablet-shell: #cf2b21;
+  --tablet-shell-edge: #971d16;
+  --tablet-detail: rgba(255, 255, 255, .75);
+  --tablet-shadow: rgba(96, 12, 8, .32);
+}
+html[data-theme=fotsy] {
+  --tablet-shell: #ffffff;
+  --tablet-shell-edge: #d5e2db;
+  --tablet-detail: rgba(12, 24, 18, .55);
+  --tablet-shadow: rgba(10, 16, 12, .18);
+}
+.ps .gd-tablet {
+  width: min(100%, 820px);
+  display: flex;
+  justify-content: center;
+  filter: drop-shadow(0 36px 64px color-mix(in srgb, var(--tablet-shadow) 92%, transparent));
+}
+.ps .gd-tablet-shell {
+  position: relative;
+  width: 100%;
+  padding: clamp(12px, 1.2vw, 14px);
+  border-radius: clamp(28px, 3vw, 34px);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tablet-shell) 90%, white 10%), var(--tablet-shell));
+  border: 1px solid color-mix(in srgb, var(--tablet-shell-edge) 78%, white 22%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.32), inset 0 -12px 18px rgba(0,0,0,.08);
+}
+.ps .gd-tablet-shell .gd-frame {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid rgba(0,0,0,.08);
+  background: #f5f6f5;
+  box-shadow: 0 24px 46px -30px rgba(0,0,0,.24);
+}
+.ps .gd-tablet .gd-screen {
+  aspect-ratio: 16 / 10;
+}
+.ps .gd-tablet-cam,
+.ps .gd-tablet-home {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+}
+.ps .gd-tablet-cam {
+  top: 6px;
+  width: clamp(7px, .7vw, 8px);
+  aspect-ratio: 1;
+  background: color-mix(in srgb, var(--tablet-detail) 84%, black 16%);
+  box-shadow: 0 0 0 3px rgba(255,255,255,.08);
+}
+.ps .gd-tablet-home {
+  bottom: 7px;
+  width: clamp(44px, 5vw, 56px);
+  height: clamp(4px, .45vw, 5px);
+  background: color-mix(in srgb, var(--tablet-detail) 62%, transparent);
+}
+/* Theme-aware phone shells in the /platform product gallery */
+.ps .gd-phone .gd-frame {
+  background: var(--phone-body);
+  border-color: var(--phone-edge);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.24), 0 40px 90px -48px rgba(0,0,0,.55);
+}
+.ps .gd-phone .gd-screen {
+  background: rgb(var(--bg));
+}
+@media (max-width: 700px) {
+  .ps .gd-tablet { width: min(100%, 560px); }
+  .ps .gd-tablet-shell { padding: 10px; border-radius: 24px; }
+  .ps .gd-tablet-shell .gd-frame { border-radius: 18px; }
+}
+/* Keep the original solid mockup covers with a black default phone and instant theme updates. */
+.ps .gd-phone .gd-frame,
+.ps .gd-tablet-shell {
+  transition: none !important;
+}
+html[data-theme=saina] .ps .gd-phone .gd-frame,
+html:not([data-theme]) .ps .gd-phone .gd-frame {
+  background: #101313;
+  border-color: #070909;
+}

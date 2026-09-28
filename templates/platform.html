@@ -20,10 +20,21 @@ collects water.') }}{% endblock %}
       <figcaption>{{ t(cap) }}</figcaption>
     </div>
     <div class="ps-preview">
+      {% if kind == 'desk' %}
+      <div class="gd-tablet" aria-hidden="true">
+        <div class="gd-tablet-shell">
+          <span class="gd-tablet-cam"></span>
+          <div class="gd-frame">
+            {{ shot(key, t(cap)) }}
+          </div>
+          <span class="gd-tablet-home"></span>
+        </div>
+      </div>
+      {% else %}
       <div class="gd-frame">
-        {% if kind == 'desk' %}<div class="gd-bar" aria-hidden="true"><i></i><i></i><i></i></div>{% endif %}
         {{ shot(key, t(cap)) }}
       </div>
+      {% endif %}
     </div>
   </figure>
   {% endfor %}
