@@ -286,7 +286,7 @@ class Platform(unittest.TestCase):
         self.assertEqual(out, "CON Tongasoa eto amin'ny CWAS/Welcome to CWAS/Bienvenue sur CWAS\n\n"
                               "Safidio ny fiteny/Choose language/Choisissez votre langue:\n\n1. Malagasy\n2. English\n3. Francais\n\n99. Exit")
         menu = self.play("+261340000102", "2")
-        for item in ("1. Deposit funds", "2. Book water", "3. My bookings", "4. Cancel booking", "5. Balance", "6. Notifications",
+        for item in ("1. Deposit funds", "2. Book a slot", "3. My bookings", "4. Cancel booking", "5. Balance", "6. Notifications",
                      "7. Water points", "8. My profile", "9. Help", "10. Receipts", "99. Exit"):
             self.assertIn(item, menu)
         # room on the screen means no paging

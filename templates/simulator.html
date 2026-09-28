@@ -41,7 +41,7 @@
       {% if demo %}<section class="glass-strong p-4">
         <h2 class="mb-3 text-sm font-bold uppercase tracking-wide text-mute">{{ t('Guided runs') }}</h2>
         <div class="grid gap-2">{% for key, label, ico in (('register','Register a household','user'),('deposit','Add
-          money','wallet'),('book','Book water','calendar'),('approve','Approve the queue','check')) %}<button
+          money','wallet'),('book','Book a slot','calendar'),('approve','Approve the queue','check')) %}<button
             type="button" class="btn btn-ghost btn-sm !justify-start" data-tour="{{ key }}">{{ icon(ico) }}{{ t(label)
             }}</button>{% endfor %}</div>
       </section>{% endif %}

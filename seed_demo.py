@@ -86,7 +86,7 @@ def seed_demo():
             except S.ServiceError:
                 db.session.rollback()
     S.notify(
-        households[0].user, "Welcome to CWAS. Dial *384*9411# to book water, add money and check your balance.", "system")
+        households[0].user, "Welcome to CWAS. Dial *384*9411# to book a slot, add money and check your balance.", "system")
     S.audit("seed.demo", "system", "",
             "demo coordinator, households and history", channel="system")
     db.session.commit()
