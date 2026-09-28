@@ -22,7 +22,7 @@
   /* a number as typed on a handset, in the lab's +261 form: 034 00 000 01 and 261340000001 both become +261340000001 */
   const normNum = v => { let s = String(v || "").replace(/[^\d+]/g, ""); if (/^0\d{9}$/.test(s)) s = "+261" + s.slice(1); else if (/^261\d{9}$/.test(s)) s = "+" + s; return s; };
   /* the handsets' contacts, who a number belongs to, and the round initial shown for anyone who is not CWAS */
-  const CONTACTS = () => [["CWAS Water", DIAL], ["CWAS SMS", SHORT], [LB.coord, "+261340000001"], ...init.demo.map((p, i) => ["Household " + (i + 1), p])];
+  const CONTACTS = () => [["CWAS USSD", DIAL], ["CWAS SMS", SHORT], [LB.coord, "+261340000001"], ...init.demo.map((p, i) => ["Household " + (i + 1), p])];
   const who = a => a === SHORT ? "CWAS" : (CONTACTS().find(c => normNum(c[1]) === a) || [a])[0];
   const avatarOf = a => `<span class="avatar" style="background:#7c8582">${esc(String(who(a)).replace(/^\+/, "")[0] || "#")}</span>`;
   /* the round plus in Messages can be dragged anywhere on the screen; a tap without a drag writes a new message. Where it
@@ -269,7 +269,7 @@
       v.appendChild(f); if (lab) setTimeout(() => $$("input", f)[to ? 1 : 0].focus({ preventScroll: true }), 420); return v;
     },
     contacts() {
-      const v = this.view(LB.contacts), me = this, rows = [["CWAS Water", DIAL, "#25b35a"], ["CWAS SMS", "7380", "#2f7bff"], [LB.coord, "+261340000001", "#f59e0b"], ...init.demo.map((p, i) => ["Household " + (i + 1), p, "#7c8582"])];
+      const v = this.view(LB.contacts), me = this, rows = [["CWAS USSD", DIAL, "#25b35a"], ["CWAS SMS", "7380", "#2f7bff"], [LB.coord, "+261340000001", "#f59e0b"], ...init.demo.map((p, i) => ["Household " + (i + 1), p, "#7c8582"])];
       v.appendChild(h("p", "", esc(LB.contactsHint))).style.cssText = "padding:0 16px 8px;font-size:12px;opacity:.6";
       rows.forEach(([n, p, c]) => { const b = h("button", "list-i", `${/^CWAS/.test(n) ? CWAS_LOGO : `<span class="avatar" style="background:${c}">${esc(n[0])}</span>`}<span><b>${esc(n)}</b><small>${esc(p)}</small></span>`); b.type = "button"; b.addEventListener("click", () => { if (p === SHORT) { me.close(); me.open("thread", null, SHORT); } else { me.close(); me.open("phone"); const pv = me.stack[me.stack.length - 1]; pv._set(p); setTimeout(() => me.call(p, n), 500); } }); v.appendChild(b); });
       v.style.overflowY = "auto"; return v;
