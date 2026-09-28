@@ -75,16 +75,23 @@
 
   /* ── one phone identity: number, SMS threads, USSD session ── */
   class Phone {
-    constructor(number) { this.number = number; this.threads = { "7380": [] }; this.unread = 0; this.last = 0; this.ready = false; this.subs = new Set(); this.pending = this.loadLocal(); this.timer = setInterval(() => this.poll(), 3000); this.sid = ""; this.active = false; this.tokens = []; this.poll(); }
+    constructor(number) { this.number = number; this.threads = { "7380": [] }; this.unread = 0; this.last = 0; this.readId = Number(C.store.get("cwas_sim_sms_read:" + number, "0")) || 0; this.maxServerId = 0; this.ready = false; this.subs = new Set(); this.pending = this.loadLocal(); this.timer = setInterval(() => this.poll(), 3000); this.sid = ""; this.active = false; this.tokens = []; this.poll(); }
     destroy() { clearInterval(this.timer); }
     emit(ev, d) { this.subs.forEach(f => f(ev, d)); }
-    add(dir, body, at, addr = "7380") { (this.threads[addr] = this.threads[addr] || []).push({ dir, body, at: at || clock() }); if (dir === "in") this.unread++; }
+    add(dir, body, at, addr = "7380", id = 0) { (this.threads[addr] = this.threads[addr] || []).push({ dir, body, at: at || clock() }); if (id) this.maxServerId = Math.max(this.maxServerId, id); if (dir === "in" && (!id || id > this.readId)) this.unread++; }
+    markRead() {
+      this.unread = 0;
+      this.readId = Math.max(this.readId, this.maxServerId);
+      C.store.set("cwas_sim_sms_read:" + this.number, String(this.readId));
+      const rows = Phone.log(this.number);
+      if (rows.some(r => r.dir === "in" && !r.seen)) { rows.forEach(r => { if (r.dir === "in") r.seen = true; }); Phone.save(this.number, rows); }
+    }
     async poll(soon) {
       if (document.hidden && !soon) return;
       try {
         const r = await fetch(`/simulator/api/inbox?phone=${encodeURIComponent(this.number)}&after=${this.last}`, { credentials: "same-origin" }).then(x => x.ok ? x.json() : null);
         if (!r) return; this.last = r.last || this.last;
-        (r.messages || []).forEach(m => { this.add("in", m.body, m.at); if (this.ready) this.emit("sms", m); });
+        (r.messages || []).forEach(m => { this.add("in", m.body, m.at, SHORT, m.id); if (this.ready) this.emit("sms", m); });
         if ((r.messages || []).length) this.emit("threads");
         if (!this.ready && this.pending.length) {   // texts other handsets left for this number arrive as the phone comes on
           const p = this.pending; this.pending = [];
@@ -101,8 +108,7 @@
     static save(n, rows) { C.store.set(Phone.key(n), JSON.stringify(rows.slice(-200))); }
     loadLocal() {
       const rows = Phone.log(this.number), fresh = [];
-      rows.forEach(r => { (this.threads[r.addr] = this.threads[r.addr] || []).push({ dir: r.dir, body: r.body, at: r.at }); if (r.dir === "in" && !r.seen) { r.seen = true; fresh.push(r); this.unread++; } });
-      if (fresh.length) Phone.save(this.number, rows);
+      rows.forEach(r => { (this.threads[r.addr] = this.threads[r.addr] || []).push({ dir: r.dir, body: r.body, at: r.at }); if (r.dir === "in" && !r.seen) { fresh.push(r); this.unread++; } });
       return fresh;
     }
     /* to the CWAS shortcode a text goes through the real SMS engine; to any other number it lands in that number's log */
@@ -120,7 +126,7 @@
       const r = await Net.sms(this.number, text);
       if (r.error) { this.add("in", LB.invalid); this.emit("threads"); return addr; }
       this.last = Math.max(this.last, r.last || 0);
-      (r.messages || []).forEach(m => { this.add("in", m.body, m.at); this.emit("sms", m); });
+      (r.messages || []).forEach(m => { this.add("in", m.body, m.at, SHORT, m.id); this.emit("sms", m); });
       this.emit("threads");
       return addr;
     }
@@ -166,7 +172,7 @@
       this.$("[data-bar]").addEventListener("click", () => { if (this.stack.length) this.close(); A.play("tap"); });
       const lock = this.$("[data-lock]"); let y0 = null;
       lock.addEventListener("pointerdown", e => { y0 = e.clientY; }); lock.addEventListener("pointerup", e => { if (y0 !== null) this.unlock(); y0 = null; });
-      this.offSub = phone.subs.add(this.onPhone = (ev, d) => this.handle(ev, d)); this.locked = true; this.on = true;
+      this.offSub = phone.subs.add(this.onPhone = (ev, d) => this.handle(ev, d)); this.locked = true; this.on = true; this.setBadge();
     }
     appBtn(id) { const b = h("button", "app", icon(id) + `<span>${esc(LB[id] || id)}</span>`); b.type = "button"; b.dataset.app = id; if (id === "messages") { const dot = h("span"); dot.dataset.dot = ""; dot.style.cssText = "position:absolute;top:-4px;right:6px;min-width:18px;height:18px;border-radius:9px;background:#ef4444;color:#fff;font:700 11px/18px system-ui;text-align:center;display:none;padding:0 4px"; b.style.position = "relative"; b.firstChild.style.position = "relative"; b.appendChild(dot); } b.addEventListener("click", () => this.open(id, b)); return b; }
     destroy() { this.phone.subs.delete(this.onPhone); this.timers.forEach(clearInterval); this.stack.forEach(v => v._end && v._end()); }
@@ -193,7 +199,7 @@
       if (this.locked) return;
       const v = this.apps[id].call(this, arg); v.classList.add("away");
       if (origin) { const r = origin.getBoundingClientRect(), s = this.screen.getBoundingClientRect(); v.style.setProperty("--ox", (r.left + r.width / 2 - s.left) + "px"); v.style.setProperty("--oy", (r.top + r.height / 2 - s.top) + "px"); }
-      this.os.appendChild(v); requestAnimationFrame(() => requestAnimationFrame(() => v.classList.remove("away"))); this.stack.push(v); this.os.classList.add("in-app"); A.play("tap"); if (id === "messages" || id === "thread") { this.phone.unread = 0; this.setBadge(); }
+      this.os.appendChild(v); requestAnimationFrame(() => requestAnimationFrame(() => v.classList.remove("away"))); this.stack.push(v); this.os.classList.add("in-app"); A.play("tap"); if (id === "messages" || id === "thread") { this.phone.markRead(); this.setBadge(); }
     }
     close() { const v = this.stack.pop(); if (!v) return; if (v._end) v._end(); v.classList.add("away"); setTimeout(() => v.remove(), 360); if (!this.stack.length) this.os.classList.remove("in-app"); }
     typeUssd(v) { const i = this.$(".ussd-card input"); if (i) i.value = v; }
@@ -241,7 +247,7 @@
         });
       };
       v.append(list, nb);
-      draw(); const sub = ev => { if (ev === "threads") { draw(); me.phone.unread = 0; me.setBadge(); } }; me.phone.subs.add(sub); v._end = () => me.phone.subs.delete(sub); return v;
+      draw(); const sub = ev => { if (ev === "threads") { draw(); me.phone.markRead(); me.setBadge(); } }; me.phone.subs.add(sub); v._end = () => me.phone.subs.delete(sub); return v;
     },
     /* one conversation: the bubbles, then a line to answer on */
     thread(addr = SHORT) {
@@ -255,7 +261,7 @@
         f.addEventListener("submit", e => { e.preventDefault(); const i = $("input", f), t = i.value.trim(); if (!t) return; i.value = ""; me.phone.sendSms(t, addr); });
         body.append(list, f); list.scrollTop = list.scrollHeight;
       };
-      draw(); const sub = (ev) => { if (ev === "threads") { draw(); me.phone.unread = 0; me.setBadge(); } }; me.phone.subs.add(sub); v._end = () => me.phone.subs.delete(sub); return v;
+      draw(); const sub = (ev) => { if (ev === "threads") { draw(); me.phone.markRead(); me.setBadge(); } }; me.phone.subs.add(sub); v._end = () => me.phone.subs.delete(sub); return v;
     },
     /* a new message: the recipient's number, then the text; the conversation opens once it is sent */
     compose(to = "") {
@@ -300,7 +306,7 @@
     handle(ev, d) {
       if (ev === "sms") { if (!this.on) this.power(); A.play("sms"); this.flash = LB.newMsg; setTimeout(() => { this.flash = ""; this.render(); }, 3500); }
       if (ev === "ussd") { if (d.gone) this.go("home"); else { this.state = "ussd"; this.ussd = d; this.f = field(); this.scroll = 0; this.entry = false; } }
-      if (ev === "threads" && this.state === "thread") this.scroll = "end";   // a new message scrolls into view
+      if (ev === "threads" && (this.state === "msgs" || this.state === "thread")) { if (this.state === "thread") this.scroll = "end"; this.phone.markRead(); }
       this.render();
     }
     power() { this.on = !this.on; this.screen.classList.toggle("off", !this.on); A.play(this.on ? "poweron" : "poweroff"); }
@@ -312,7 +318,7 @@
       return [[null, "+ " + LB.newMsg, ""], ...Object.keys(th).filter(a => th[a].length).map(a => { const x = th[a][th[a].length - 1]; return [a, who(a), x.body.slice(0, 48)]; })];
     }
     go(s) { this.state = s; this.sel = 0; this.scroll = 0; this.note = ""; this.mt.k = null; this.entry = false; }
-    openThread(addr) { this.addr = addr; this.go("thread"); this.scroll = "end"; this.phone.unread = 0; }
+    openThread(addr) { this.addr = addr; this.go("thread"); this.scroll = "end"; this.phone.markRead(); }
     newMessage(to = "", back) {
       this.back = back || (this.state === "home" ? "home" : "msgs"); this.go("compose");
       this.to = field(to); this.body = field(); this.focus = to ? "body" : "to"; this.mode = "Abc";
@@ -473,7 +479,7 @@
     }
     openItem(id) {
       if (id === "phone") { this.go("dial"); this.f = field(); }
-      else if (id === "messages") { this.go("msgs"); this.phone.unread = 0; }
+      else if (id === "messages") { this.go("msgs"); this.phone.markRead(); }
       else if (id === "contacts") this.go("contacts");
       else if (id === "calc") { this.go("calc"); this.calc = { cur: "0", acc: null, op: null, fresh: true }; }
       else if (id === "settings") { this.go("settings"); this.setting = 0; }
@@ -589,6 +595,7 @@
       destroy() { }
       emit(ev, d) { this.subs.forEach(f => f(ev, d)); }
       add(dir, body, at, addr = "7380") { (this.threads[addr] = this.threads[addr] || []).push({ dir, body, at: at || clock() }); if (dir === "in") this.unread++; }
+      markRead() { this.unread = 0; }
       next() { const sc = this.screens.shift(); if (!sc) return; this.active = !sc.end; A.play("receive"); this.emit("ussd", { text: sc.text, ended: sc.end, secret: !sc.end && secret(sc.text) }); }
       dial() { this.active = true; A.play("connect"); setTimeout(() => this.next(), 650); }
       send() { if (!this.active) return; A.play("send"); setTimeout(() => this.next(), 450); }
