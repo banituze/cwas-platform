@@ -178,7 +178,7 @@ def register_routes(app):
         colour = {"saina": "#FFFFFF", "fotsy": "#FFFFFF",
                   "maitso": "#007E3A", "mena": "#D42A20"}.get(th, "#FFFFFF")
         base = f"/static/icons/{th}/"
-        return jsonify(id="/app", name="CWAS - Community Water Access Scheduler", short_name="CWAS", start_url="/app", scope="/", display="standalone",
+        return jsonify(id="/app", name="CWAS - Community Water Access Scheduler", short_name="CWAS", start_url="/", scope="/", display="standalone",
                        background_color=colour, theme_color=colour, icons=[{"src": base + "icon-192.png", "sizes": "192x192", "type": "image/png"},
                                                                            {"src": base + "icon-512.png", "sizes": "512x512", "type": "image/png"},
                                                                            {"src": base + "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}])
