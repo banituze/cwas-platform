@@ -62,7 +62,7 @@ including registering, booking, paying, cancelling and reading receipts. SMS ans
           <tbody>{% for c, d in (('HELP','List of commands'),('BALANCE / WALLET','Balance, and recent
             movements'),('SOURCES','Water points, hours and tariff'),('BOOKINGS','Your latest bookings'),('BOOKING <ref>
               ','One booking in detail'),('RECEIPT <ref>','Receipt for a booking'),('NOTICES','Unread
-                notices'),('PROFILE','Your profile'),('LANG MG / FR / EN','Change language')) %}<tr>
+                notices'),('PROFILE','Your profile')) %}<tr>
                   <td class="font-mono font-bold">{{ c }}</td>
                   <td>{{ t(d) }}</td>
                 </tr>{% endfor %}</tbody>

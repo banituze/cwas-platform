@@ -361,7 +361,7 @@ def _pin_failed(ctx, user, message):
 
 def forgot_pin_flow(ctx, user, resume=False):
     """Forgot PIN. The recovery code sets a new PIN at once. Without it, the person asks a coordinator, who checks
-    their details by phone and resets the PIN (texting PIN HELP to the shortcode does the same)."""
+    their details by phone and resets the PIN. SMS does not initiate account changes."""
     if user.pin_locked_until and user.pin_locked_until > utcnow():
         return END(ctx, ctx.L("Too many wrong PINs. Try again in 15 minutes."))
     i = yield from menu(ctx, ctx.L("Forgot PIN"), [ctx.L("I have my recovery code"), ctx.L("I do not have it")])
@@ -384,8 +384,8 @@ def pin_help_flow(ctx, user, missing=False):
     """No recovery code: how to reach a coordinator, and a call-back request."""
     contacts = S.staff_contacts(user, 1)
     lines = [ctx.L("No recovery code is saved.")] if missing else []
-    lines.append(ctx.L("SMS PIN HELP to {sms}, or call {phone}.", sms=SHORTCODE, phone=S.local_phone(contacts[0])) if contacts
-                 else ctx.L("SMS PIN HELP to {sms}.", sms=SHORTCODE))
+    lines.append(ctx.L("Coordinator phone: {phone}.", phone=S.local_phone(contacts[0])) if contacts
+                 else ctx.L("Request a coordinator call through this menu."))
     ok = yield from confirm(ctx, *lines, yes="Ask for a call", no="Exit")
     if not ok:
         return END(ctx, ctx.L("Thank you for using CWAS."))
@@ -967,7 +967,7 @@ def summary_flow(ctx, user):
 
 
 def staff_help(ctx, user):
-    yield from info(ctx, ctx.L("SMS {sms}: PENDING, APPROVE ref, DENY ref, COLLECT ref.", sms=SHORTCODE), ctx.L("REG MEMBER Name|Phone|Village|Size|LANG|PIN"))
+    yield from info(ctx, ctx.L("SMS {sms}: PENDING and SOURCES only for inquiries.", sms=SHORTCODE), ctx.L("Use PIN-protected USSD for approvals and registration."))
     return None
 
 
@@ -1114,49 +1114,12 @@ def _log_session(session_id, phone, channel, ctx, out, key):
         db.session.rollback()
 
 
-# ── SMS ─────────────────────────────────────────────────────────────────────
-def _parse_day(word):
-    w = word.upper()
-    if w in ("TODAY", "TOMORROW"):
-        return S.today_local() + timedelta(days=0 if w == "TODAY" else 1)
-    for fmt in ("%Y-%m-%d", "%m-%d"):
-        try:
-            d = datetime.strptime(word, fmt).date()
-            return d if fmt == "%Y-%m-%d" else d.replace(year=S.today_local().year)
-        except ValueError:
-            pass
-    return None
-
-
+# ── SMS: read-only inquiries (all account and transaction changes use authenticated USSD/web) ──
 def _find_booking(ref, user=None):
     b = Booking.query.filter_by(ref=ref.upper()).first()
     if b and user is not None and user.role == "member" and b.household_id != user.household.id:
         return None
     return b
-
-
-def _split(rest, n):
-    parts = [p.strip() for p in rest.split("|")]
-    return parts if len(parts) == n else None
-
-
-def _create_member(actor, name, phone, village, size, lang, pin, via, recovery=None):
-    if not (S.clean_text(name, 40) and phone and PIN_RE.match(pin or "") and size.isdigit() and 1 <= int(size) <= 40
-            and lang.lower() in ("mg", "fr", "en") and (recovery is None or S.RECOVERY_RE.match(recovery))):
-        return None
-    if User.query.filter_by(phone=phone).first():
-        return "exists"
-    u = User(role="member", name=S.clean_text(name, 40), phone=phone, language=lang.lower(), pin_hash=generate_password_hash(pin),
-             recovery_hash=generate_password_hash(recovery) if recovery else None)
-    db.session.add(u)
-    db.session.flush()
-    db.session.add(Household(user_id=u.id, name=u.name,
-                   village=S.clean_text(village, 40), family_size=int(size)))
-    S.audit("user.register", "user", u.id,
-            f"member via {via}", actor=actor or u, channel="sms")
-    S.event(u, "Welcome {name}! Dial {dial} to book a slot.",
-            "system", sms=True, name=S.first_name(u.name), dial=DIAL)
-    return u
 
 
 def st_l(lang, status):
@@ -1171,142 +1134,72 @@ def _sms_err(lang, e):
     return _err(c, e)[4:]
 
 
+_SMS_BLOCKED = frozenset({
+    "BOOK", "CANCEL", "DEPOSIT", "APPROVE", "DENY", "COLLECT",
+    "REG", "REGISTER", "LANG", "PIN", "FORGOT", "RESET", "RECOVER", "LOST",
+})
+_SMS_REDIRECT = "SMS is for inquiries only. Dial {dial} or use the website to make account or booking changes."
+_SMS_HELP_MEMBER = "BALANCE, SOURCES, BOOKINGS, BOOKING <ref>, RECEIPT <ref>, NOTICES, PROFILE. Changes: dial {dial}."
+_SMS_HELP_STAFF = "PENDING, SOURCES, BOOKING <ref>, NOTICES, PROFILE. Approvals and changes: dial {dial}."
+
+
 def handle_sms(phone, text):
-    """Identity is the sending phone number; words in the message never grant rights. Returns a reply, or '' when the
-    action already sent its own confirmation SMS."""
+    """Answer read-only SMS inquiries; no SMS command may change an account, booking or payment.
+
+    Sender ID and telco webhook authentication do not authenticate individual actions. Never request or
+    accept a PIN over SMS. A rejected command is redacted in the incoming SMS log.
+    """
     phone = S.norm_phone(phone)
     body = S.clean_text(text, 300)
+    parts = body.split(None, 1)
+    cmd, rest = (parts[0].upper() if parts else "HELP"), (parts[1].strip() if len(parts) > 1 else "")
+    words = set(body.upper().split())
+    pin_help = "PIN" in words and words <= {"PIN", "HELP", "FORGOT", "RESET", "LOST"}
+    blocked = cmd in _SMS_BLOCKED or pin_help
     db.session.add(SmsLog(direction="in", phone=phone or "?",
-                   body=body[:600], status="received"))
-    user = User.query.filter_by(
-        phone=phone, is_active_flag=True).first() if phone else None
+                          body=(f"{cmd} [blocked]" if blocked else body)[:600], status="received"))
+    user = User.query.filter_by(phone=phone, is_active_flag=True).first() if phone else None
     lang = user.language if user else "en"
 
-    def L(s, **kw):
-        return tt(s, lang, **kw)
-    parts = body.split(None, 1)
-    cmd, rest = (parts[0].upper() if parts else "HELP"), (parts[1].strip() if len(
-        parts) > 1 else "")
-    words = set(body.upper().split())
-    pin_help = "PIN" in words and words <= {
-        "PIN", "HELP", "FORGOT", "RESET", "LOST"}
+    def L(message, **kw):
+        return tt(message, lang, **kw)
+
     h = user.household if user and user.role == "member" else None
     staff = bool(user and user.role in ("coordinator", "admin"))
     reply = ""
     try:
-        if pin_help:
-            if user is None:
-                reply = f"No account uses this number. Dial {DIAL} to register."
-            else:
-                contacts = S.staff_contacts(user, 1)
-                reply = (L("Request sent. A coordinator will call you to check your details and reset your PIN.") if S.request_pin_help(user, "sms")
-                         else L("A request is already open. A coordinator will call you soon."))
-                if contacts:
-                    reply += " " + \
-                        L("Coordinator: {phone}",
-                          phone=S.local_phone(contacts[0]))
-        elif user is None:
-            if cmd == "REGISTER" and rest.upper().startswith("MEMBER"):
-                raw = rest[6:].strip()
-                f = _split(raw, 5) or _split(raw, 6)
-                u = _create_member(None, f[0], phone, f[1], f[2], f[3], f[4], "sms", f[5] if len(
-                    f) == 6 else None) if f else None
-                if u == "exists":
-                    reply = "Already registered."
-                elif u is None:
-                    reply = "Format: REGISTER MEMBER Name|Village|FamilySize|LANG|PIN|RecoveryCode"
-            else:
-                reply = f"Dial {DIAL} to register, or text REGISTER MEMBER Name|Village|FamilySize|LANG|PIN|RecoveryCode to {SHORTCODE}."
+        if blocked:
+            reply = L(_SMS_REDIRECT, dial=DIAL)
         elif cmd == "HELP":
-            reply = (L("BALANCE, SOURCES, BOOKINGS, BOOKING <ref>, CANCEL <ref>, DEPOSIT <amount>, BOOK <n> <day> <HH:MM> <litres>, RECEIPT <ref>, NOTICES, PROFILE, PIN HELP, LANG MG/FR/EN. Menu: dial {dial}.", dial=DIAL)
-                     if not staff else L("PENDING, APPROVE <ref>, DENY <ref>, COLLECT <ref>, REG MEMBER Name|Phone|Village|Size|LANG|PIN, SOURCES, LANG MG/FR/EN."))
-        elif cmd in ("BALANCE", "WALLET") and h:
+            reply = L(_SMS_HELP_STAFF if staff else _SMS_HELP_MEMBER, dial=DIAL)
+        elif user is None:
+            reply = L("Dial {dial} to register or sign in.", dial=DIAL)
+        elif cmd in ("BALANCE", "BAL", "WALLET") and h:
             reply = L("Your balance is {balance}", balance=M(h.balance))
         elif cmd == "SOURCES":
-            reply = "; ".join(f"{i}. {short(s.name, 20)} [{_STATE.get(s.status, '?')}] {S.fmt_min(s.open_min)}-{S.fmt_min(s.close_min)}"
-                              for i, s in enumerate(WaterSource.query.order_by(WaterSource.name).all(), 1))
+            reply = "; ".join(f"{i}. {short(source.name, 20)} [{_STATE.get(source.status, '?')}] {S.fmt_min(source.open_min)}-{S.fmt_min(source.close_min)}"
+                              for i, source in enumerate(WaterSource.query.order_by(WaterSource.name).all(), 1))
         elif cmd in ("BOOKINGS", "MYBOOKINGS") and h:
-            reply = " | ".join(f"{b.ref} {st_l(lang, b.status)} {b.date:%m-%d} {S.fmt_min(b.start_min)}" for b in _my_bookings(
-                h, 3)) or L("You have no bookings yet.")
+            reply = " | ".join(f"{booking.ref} {st_l(lang, booking.status)} {booking.date:%m-%d} {S.fmt_min(booking.start_min)}"
+                               for booking in _my_bookings(h, 3)) or L("You have no bookings yet.")
         elif cmd == "BOOKING" and rest:
-            b = _find_booking(rest.split()[0], user)
-            reply = (f"{b.ref} {short(b.source.name, 20)} {b.date:%m-%d} {S.fmt_min(b.start_min)}-{S.fmt_min(b.end_min)} {b.litres} L {M(b.amount)} {st_l(lang, b.status)}"
-                     if b else L("Booking not found."))
+            booking = _find_booking(rest.split()[0], user)
+            reply = (f"{booking.ref} {short(booking.source.name, 20)} {booking.date:%m-%d} {S.fmt_min(booking.start_min)}-{S.fmt_min(booking.end_min)} {booking.litres} L {M(booking.amount)} {st_l(lang, booking.status)}"
+                     if booking else L("Booking not found."))
         elif cmd == "RECEIPT" and rest:
-            b = _find_booking(rest.split()[0], user)
-            txn = WalletTxn.query.filter_by(
-                booking_id=b.id, kind="booking_debit", status="posted").first() if b else None
+            booking = _find_booking(rest.split()[0], user)
+            txn = WalletTxn.query.filter_by(booking_id=booking.id, kind="booking_debit", status="posted").first() if booking else None
             reply = (L("Receipt {ref}: {kind} {amount}, balance {balance}.", ref=txn.reference, kind=L("booking debit"), amount=M(txn.amount), balance=M(txn.balance_after or 0))
                      if txn else L("Receipt not found."))
         elif cmd in ("NOTICES", "NOTICE"):
             rows = Notification.query.filter_by(user_id=user.id, is_read=False).order_by(
                 Notification.id.desc()).limit(3).all()
-            for n in rows:
-                n.is_read = True
-            reply = " | ".join(S.render_notification(n, lang)[
-                               :90] for n in rows) or L("No notifications.")
+            # Reading an SMS inquiry does not mark notices read or change app notification state.
+            reply = " | ".join(S.render_notification(n, lang)[:90] for n in rows) or L("No notifications.")
         elif cmd == "PROFILE":
             reply = f"{user.name}, {h.village}, {h.family_size}, {L(h.priority_level)}, {lang.upper()}" if h else f"{user.name}, {L(user.role)}"
-        elif cmd == "LANG" and rest.upper() in ("MG", "FR", "EN"):
-            user.language = rest.lower()
-            S.notify(user, "Language set to {code}.",
-                     "system", code=rest.upper())
-            reply = tt("Language set to {code}.",
-                       user.language, code=rest.upper())
-        elif cmd == "CANCEL" and rest:
-            b = _find_booking(rest.split()[0], user)
-            if b:
-                S.cancel_booking(b, user, "sms")
-                refund = WalletTxn.query.filter_by(
-                    booking_id=b.id, kind="booking_refund").first()
-                reply = L("Booking {ref} was cancelled. {amount} returned to your wallet.", ref=b.ref, amount=M(
-                    refund.amount if refund else 0))
-            else:
-                reply = L("Booking not found.")
-        elif cmd == "DEPOSIT" and h:
-            f = rest.split()
-            provider = {"ORANGE": "orange", "AIRTEL": "airtel", "CASH": "cash"}.get(
-                f[1].upper(), "") if len(f) > 1 else "orange"
-            if not f or not f[0].isdigit() or not provider:
-                reply = "DEPOSIT <amount> [ORANGE|AIRTEL|CASH]"
-            else:
-                txn = S.deposit(h, int(f[0]), provider, user, "sms")
-                if txn.status != "posted":  # a posted deposit already sent its own confirmation SMS
-                    reply = L("Deposit {ref} of {amount} via {provider} is waiting for confirmation.", ref=txn.reference, amount=M(txn.amount),
-                              provider={"orange": "Orange Money", "airtel": "Airtel Money"}.get(provider, "Cash"))
-        elif cmd == "BOOK" and h:
-            f = rest.split()
-            srcs = WaterSource.query.order_by(WaterSource.name).all()
-            day = _parse_day(f[1]) if len(f) >= 4 else None
-            if not day or not f[0].isdigit() or not (1 <= int(f[0]) <= len(srcs)) or not f[3].isdigit():
-                reply = "BOOK <n> <TODAY|TOMORROW|MM-DD> <HH:MM> <litres>"
-            else:
-                b = S.create_booking(
-                    h, srcs[int(f[0]) - 1].id, day, S.parse_hhmm(f[2], -1), int(f[3]), "sms", user)
-                if b.status == "pending":  # an approved booking already sent its own SMS
-                    reply = L("Booked {ref}: {source} {date} {time}, {litres} L, {amount}. Status: pending approval.", ref=b.ref, source=b.source.name, date=f"{b.date:%Y-%m-%d}", time=S.fmt_min(b.start_min),
-                              litres=b.litres, amount=M(b.amount))
         elif cmd == "PENDING" and staff:
-            reply = " | ".join(f"{b.ref} {short(b.household.name, 10)} {b.litres}L" for b in _pending(
-                5)) or L("No pending bookings.")
-        elif cmd in ("APPROVE", "DENY", "COLLECT") and staff and rest:
-            b = _find_booking(rest.split()[0])
-            if not b:
-                reply = L("Booking not found.")
-            elif cmd == "COLLECT":
-                S.mark_collected(b, user, "sms")
-                reply = L("Saved.")
-            else:
-                S.decide_booking(b, cmd == "APPROVE", rest.partition(" ")[2] or (
-                    "Denied by SMS" if cmd == "DENY" else ""), user, "sms")
-                reply = L("Approved {ref}.", ref=b.ref) if cmd == "APPROVE" else L(
-                    "Denied {ref}. Household refunded.", ref=b.ref)
-        elif cmd in ("REG", "REGISTER") and staff and rest.upper().startswith("MEMBER"):
-            f = _split(rest[6:].strip(), 6)
-            u = _create_member(user, f[0], S.norm_phone(
-                f[1]), f[2], f[3], f[4], f[5], "staff sms") if f else None
-            reply = (L("Registered {name}.", name=short(u.name, 18)) if isinstance(u, User)
-                     else L("An account with this phone or email already exists.") if u == "exists" else "REG MEMBER Name|Phone|Village|Size|LANG|PIN")
+            reply = " | ".join(f"{booking.ref} {short(booking.household.name, 10)} {booking.litres}L" for booking in _pending(5)) or L("No pending bookings.")
         else:
             reply = L("Unknown command. Send HELP.")
         db.session.commit()
@@ -1371,20 +1264,10 @@ def demo_script(lang):
             "pin", "1234"],
             ["end", END(ctx, L("Booked!"), f"Ref: {ref}", short(src.name, 18), f"{days[1]:%Y-%m-%d} {slot['label']}", f"{litres} L - {M(amount)}",
                         L("Status: {status}", status=L("pending approval")))[4:]]]
-        n = [x.id for x in WaterSource.query.order_by(WaterSource.name).all()].index(
-            src.id) + 1  # SMS numbers follow SOURCES
-        sms_src = WaterSource.query.order_by(WaterSource.name).all()[n - 1]
-        sms_slots = S.slot_list(sms_src, days[1], only_open=True)
-        t = sms_slots[min(1, len(sms_slots) - 1)] if sms_slots else slot
-        hhmm = S.fmt_min(t["start_min"])
-        ref2 = "CW-7K3M9Q21"
-        amt2 = S.price_quote(home, sms_src, litres)[0]
+        n = [x.id for x in WaterSource.query.order_by(WaterSource.name).all()].index(src.id) + 1
         script["max"] = [["type", "BALANCE"], ["in", L("Your balance is {balance}", balance=M(balance))],
-                         ["type", f"BOOK {n} TOMORROW {hhmm} {litres}"],
-                         ["in", L("Booked {ref}: {source} {date} {time}, {litres} L, {amount}. Status: pending approval.", ref=ref2, source=sms_src.name,
-                                  date=f"{days[1]:%Y-%m-%d}", time=hhmm, litres=litres, amount=M(amt2))],
-                         ["wait", 1600],
-                         ["in", tt("Booking {ref} is approved: {source}, {date} {time}.", lang, ref=ref2, source=sms_src.name, date=f"{days[1]:%Y-%m-%d}", time=hhmm)]]
+                         ["type", f"BOOK {n} TOMORROW {S.fmt_min(slot['start_min'])} {litres}"],
+                         ["in", L(_SMS_REDIRECT, dial=DIAL)]]
     else:
         script["max"] = [["type", "BALANCE"], [
             "in", L("Your balance is {balance}", balance=M(balance))]]

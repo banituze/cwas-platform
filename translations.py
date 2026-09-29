@@ -1327,3 +1327,33 @@ _add([
     ("(no reply)", "(aucune réponse)", "(tsy misy valiny)"),
     ("Error", "Erreur", "Hadisoana"),
 ])
+
+
+# Read-only SMS safety guidance; all changes require PIN-protected USSD or the website.
+_add([
+    ("SMS is for inquiries only. Dial {dial} or use the website to make account or booking changes.",
+     "Les SMS servent uniquement aux consultations. Composez {dial} ou utilisez le site web pour modifier votre compte ou vos réservations.",
+     "Ho an'ny fanontaniana ihany ny SMS. Antsoy ny {dial} na ampiasao ny tranonkala hanovana kaonty na famandrihana."),
+    ("BALANCE, SOURCES, BOOKINGS, BOOKING <ref>, RECEIPT <ref>, NOTICES, PROFILE. Changes: dial {dial}.",
+     "BALANCE, SOURCES, BOOKINGS, BOOKING <ref>, RECEIPT <ref>, NOTICES, PROFILE. Modifications : composez {dial}.",
+     "BALANCE, SOURCES, BOOKINGS, BOOKING <ref>, RECEIPT <ref>, NOTICES, PROFILE. Raha hanova: antsoy ny {dial}."),
+    ("PENDING, SOURCES, BOOKING <ref>, NOTICES, PROFILE. Approvals and changes: dial {dial}.",
+     "PENDING, SOURCES, BOOKING <ref>, NOTICES, PROFILE. Validations et modifications : composez {dial}.",
+     "PENDING, SOURCES, BOOKING <ref>, NOTICES, PROFILE. Fankatoavana sy fanovana: antsoy ny {dial}."),
+    ("Dial {dial} to register or sign in.",
+     "Composez {dial} pour vous inscrire ou vous connecter.",
+     "Antsoy ny {dial} hisoratra anarana na hiditra."),
+    ("Coordinator phone: {phone}.", "Téléphone du coordinateur : {phone}.", "Telefaonin'ny mpandrindra: {phone}."),
+    ("Request a coordinator call through this menu.",
+     "Demandez un appel du coordinateur par ce menu.",
+     "Mangataha antso avy amin'ny mpandrindra amin'ity menio ity."),
+    ("SMS {sms}: PENDING and SOURCES only for inquiries.",
+     "SMS {sms} : PENDING et SOURCES, uniquement pour consulter.",
+     "SMS {sms}: PENDING sy SOURCES, ho an'ny fanontaniana ihany."),
+    ("Use PIN-protected USSD for approvals and registration.",
+     "Utilisez le service USSD protégé par code PIN pour les validations et les inscriptions.",
+     "Ampiasao ny USSD voaaro amin'ny PIN ho an'ny fankatoavana sy fisoratana anarana."),
+    ("Ask for a call here or use the Forgot PIN menu on USSD. A coordinator checks your details and resets your PIN.",
+     "Demandez un appel ici ou utilisez le menu Code PIN oublié par USSD. Un coordinateur vérifie vos informations et réinitialise votre PIN.",
+     "Mangataha antso eto na ampiasao ny menio PIN hadino amin'ny USSD. Hanamarina ny mombamomba anao sy hamerina ny PIN ny mpandrindra."),
+])

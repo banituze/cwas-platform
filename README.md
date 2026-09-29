@@ -93,7 +93,7 @@ python3 -m unittest tests.test_platform
 * **USSD and SMS**: Service code `*384*9411#`, shortcode `7380`. 
 
 ## Phones without data
-Dial `*384*9411#`: pick a language, and the menu opens with your first name. The PIN is asked only right before something that moves money or changes the account, and `0` at the PIN prompt starts Forgot PIN. Everyone sets a 6-digit recovery code at registration; without it, `PIN HELP` to 7380 asks a coordinator to call back, check your details and send a temporary PIN by SMS. SMS is kept for what matters: welcome, deposits, booking decisions, maintenance cancellations, PIN changes and announcements. 
+Dial `*384*9411#`: pick a language, and the menu opens with your first name. The PIN is asked only right before something that moves money or changes the account, and `0` at the PIN prompt starts Forgot PIN. Members set a 6-digit recovery code at registration; without it, the USSD Forgot PIN menu or website recovery form can request a coordinator callback to verify identity and help reset the PIN. Incoming SMS handles read-only inquiries (`HELP`, `BALANCE`, `SOURCES`, `BOOKINGS`, `BOOKING`, `RECEIPT`, `NOTICES`, `PROFILE` and staff `PENDING`) without modifying application records. SMS cannot register users, request PIN resets, change language, deposit money, book or cancel water, or approve, deny or collect a booking. Outgoing SMS still delivers welcome notices, deposit updates, booking decisions, maintenance cancellations, PIN changes and announcements. 
 
 ## Configuration
 

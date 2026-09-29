@@ -15,8 +15,7 @@
 </form>
 <div class="mt-6 border-t border-ink/10 pt-5">
   <h3 class="font-bold">{{ t('No recovery code?') }}</h3>
-  <p class="mt-1 text-sm text-mute">{{ t('Text PIN HELP to {sms} from your phone, or ask for a call here. A coordinator
-    checks your details and resets your PIN.', sms=SMS_CODE) }}</p>
+  <p class="mt-1 text-sm text-mute">{{ t('Ask for a call here or use the Forgot PIN menu on USSD. A coordinator checks your details and resets your PIN.') }}</p>
   <form method="post" class="mt-3 flex gap-2"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input
       type="hidden" name="action" value="help">
     <input class="field" name="phone" type="tel" inputmode="tel" required autocomplete="tel"
