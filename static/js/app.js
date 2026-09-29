@@ -63,6 +63,10 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
 
   /* ── toasts ── */
   const X = '<svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>';
+  const uiLabel = (key, fallback) => {
+    try { return JSON.parse((document.getElementById("cwas-ui-strings") || {}).textContent || "{}")[key] || fallback; }
+    catch (_) { return fallback; }
+  };
   const dismiss = el => { if (!el) return; el.style.transition = "opacity .35s, transform .35s"; el.style.opacity = "0"; el.style.transform = "translateY(-8px)"; setTimeout(() => el.remove(), 380); };
   const toast = (msg, kind = "ok", o = {}) => {
     const host = $("[data-toasts]"); if (!host) return;
@@ -70,7 +74,7 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
     const ico = kind === "err" ? "alert" : kind === "note" ? "bell" : "check";
     el.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-${ico}"/></svg>`;
     const t = document.createElement(o.href ? "a" : "span"); t.textContent = msg; if (o.href) { t.href = o.href; t.className = "no-underline"; } el.appendChild(t);
-    const b = document.createElement("button"); b.type = "button"; b.className = "toast-x"; b.setAttribute("aria-label", "Close"); b.innerHTML = X; el.appendChild(b);
+    const b = document.createElement("button"); b.type = "button"; b.className = "toast-x"; b.setAttribute("aria-label", uiLabel("close", "Close")); b.innerHTML = X; el.appendChild(b);
     host.appendChild(el); if (!o.sticky) setTimeout(() => dismiss(el), o.ms || 7000);
   };
   window.CWAS = { audio: Audio, toast, post, csrf, store, reduce };
@@ -194,6 +198,10 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
     });
   });
   prefetchLangs();
+  document.addEventListener("cwas:lang", () => {
+    $$(".vid-toggle").forEach(b => b.setAttribute("aria-label", uiLabel("videoToggle", "Pause or play video")));
+    $$(".flash .toast-x").forEach(b => b.setAttribute("aria-label", uiLabel("close", "Close")));
+  });
   const syncSound = () => $$("[data-sound-toggle]").forEach(b => { const on = Audio.on(); b.dataset.sound = on ? "on" : "off"; b.setAttribute("aria-pressed", on ? "true" : "false"); });
   syncSound();
   document.addEventListener("click", e => {
@@ -259,7 +267,7 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
   $$("video.vid").forEach(v => {
     v.muted = true; v.defaultMuted = true; v.setAttribute("playsinline", "");
     const wrap = v.parentElement; let paused = false, visible = true;
-    const btn = document.createElement("button"); btn.type = "button"; btn.className = "vid-toggle"; btn.setAttribute("aria-label", "Pause or play video");
+    const btn = document.createElement("button"); btn.type = "button"; btn.className = "vid-toggle"; btn.setAttribute("aria-label", uiLabel("videoToggle", "Pause or play video"));
     btn.innerHTML = '<svg class="icon" data-i="pause" aria-hidden="true"><use href="#i-pause"/></svg><svg class="icon" data-i="play" aria-hidden="true"><use href="#i-play"/></svg>';
     wrap.appendChild(btn);
     /* only a browser that refuses autoplay (NotAllowedError) leaves the film paused; an AbortError just means the off-screen
@@ -307,7 +315,7 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
       dlg.innerHTML = html; dlg.showModal();
       $$("[data-modal-close]", dlg).forEach(c => c.addEventListener("click", () => dlg.close()));
       const p = $("[data-printer]", dlg); if (p) initPrinter(p);
-    }).catch(() => toast("Receipt not available.", "err"));
+    }).catch(() => toast(uiLabel("receiptUnavailable", "Receipt not available."), "err"));
   });
 
   /* ── booking form: live price and slot refresh ── */

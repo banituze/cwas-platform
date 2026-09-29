@@ -81,6 +81,11 @@
   {% block footer %}{% include "partials/footer.html" %}{% endblock %}
   {% block scripts %}{% endblock %}
   {% include "partials/install.html" %}
+  <script type="application/json" id="cwas-ui-strings">{{ {
+    'close': t('Close'),
+    'receiptUnavailable': t('Receipt not available.'),
+    'videoToggle': t('Pause or play video')
+  }|tojson }}</script>
 </body>
 
 </html>

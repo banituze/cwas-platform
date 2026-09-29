@@ -12,6 +12,7 @@ THEMES = {  # the flag's three fields per theme: the same colours as the CSS cus
     "mena": {"label": "Red", "f1": "#7A0F0A", "f2": "#FC3D32", "f3": "#B8241B"},
 }
 MISSING = set()  # filled while the app runs so tests and tools/i18n_keys.py can list gaps
+_NORMALIZED = {" ".join(source.split()): value for source, value in TR.items()}
 _IDX = {"fr": 0, "mg": 1}
 
 
@@ -40,10 +41,14 @@ def tt(key, lang, **params):
     text = key
     if lang in _IDX:
         entry = TR.get(key)
-        if entry:
+        if entry is None:
+            # Line breaks and indentation inside Jinja t('...') calls are layout,
+            # not part of the English source string used in translations.py.
+            entry = _NORMALIZED.get(" ".join(key.split()))
+        if entry is not None:
             text = entry[_IDX[lang]]
         elif key and not key.startswith("{"):
-            MISSING.add(key)
+            MISSING.add(" ".join(key.split()))
     if params:
         try:
             text = text.format_map(_Safe({k: v for k, v in params.items()}))

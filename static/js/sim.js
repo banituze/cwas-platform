@@ -22,7 +22,7 @@
   /* a number as typed on a handset, in the lab's +261 form: 034 00 000 01 and 261340000001 both become +261340000001 */
   const normNum = v => { let s = String(v || "").replace(/[^\d+]/g, ""); if (/^0\d{9}$/.test(s)) s = "+261" + s.slice(1); else if (/^261\d{9}$/.test(s)) s = "+" + s; return s; };
   /* the handsets' contacts, who a number belongs to, and the round initial shown for anyone who is not CWAS */
-  const CONTACTS = () => [["CWAS USSD", DIAL], ["CWAS SMS", SHORT], [LB.coord, "+261340000001"], ...init.demo.map((p, i) => ["Household " + (i + 1), p])];
+  const CONTACTS = () => [["CWAS USSD", DIAL], ["CWAS SMS", SHORT], [LB.coord, "+261340000001"], ...init.demo.map((p, i) => [LB.household + " " + (i + 1), p])];
   const who = a => a === SHORT ? "CWAS" : (CONTACTS().find(c => normNum(c[1]) === a) || [a])[0];
   const avatarOf = a => `<span class="avatar" style="background:#7c8582">${esc(String(who(a)).replace(/^\+/, "")[0] || "#")}</span>`;
   /* the round plus in Messages can be dragged anywhere on the screen; a tap without a drag writes a new message. Where it
@@ -67,7 +67,7 @@
     async sms(phone, text) {
       const t0 = performance.now();
       const r = await C.post("/simulator/api/sms", { phone, text });
-      Net.log("SMS", "POST /api/sms/inbound", `from=${phone}\nto=7380\ntext=${text}`, (r.messages || []).map(m => m.body).join("\n---\n") || r.reply || "(no reply)", Math.round(performance.now() - t0));
+      Net.log("SMS", "POST /api/sms/inbound", `from=${phone}\nto=7380\ntext=${text}`, (r.messages || []).map(m => m.body).join("\n---\n") || r.reply || LB.noReply, Math.round(performance.now() - t0));
       return r;
     },
   };
@@ -175,7 +175,7 @@
     constructor(screen, phone, model) {
       this.screen = screen; this.phone = phone; this.model = model; this.stack = []; this.timers = [];
       screen.innerHTML = `<div class="os locked"><div class="os-wall"><i></i><i></i><i></i></div><div class="os-status"><span data-clk>${clock()}</span><span class="r">${sigBars}<span style="font-size:10px">4G</span><span class="batt"><b></b></span></span></div>
-        <div class="os-home" data-home></div><div class="dock" data-dock></div><button class="home-bar" data-bar aria-label="Home"></button>
+        <div class="os-home" data-home></div><div class="dock" data-dock></div><button class="home-bar" data-bar aria-label="${esc(LB.home)}"></button>
         <div class="os-lock" data-lock><div class="time" data-lt>${clock()}</div><div class="date">${esc(dateLong())}</div><div class="hint">${esc(LB.lock)}</div></div><div class="banner" data-banner></div></div><div class="glare"></div>`;
       this.$ = s => $(s, screen); this.os = this.$(".os");
       this.tick = setInterval(() => { this.$("[data-clk]").textContent = clock(); this.$("[data-lt]").textContent = clock(); this.$("[data-wt]").textContent = clock(); }, 10000); this.timers.push(this.tick);
@@ -226,8 +226,8 @@
       if (inp) { inp.addEventListener("keydown", e => { if (e.key === "Enter") go(); }); if (lab) inp.focus({ preventScroll: true }); }
     }
     call(num, name) {
-      if (/^\*[\d*]+#$/.test(num)) { if (num === DIAL) { this.phone.dial(); return; } this.sheet({ text: "Connection problem or invalid MMI code.", ended: true }); A.play("error"); return; }
-      const o = h("div", "ussd-sheet"); o.style.cssText = "background:#0d1512;flex-direction:column;color:#fff;text-align:center"; o.innerHTML = `<div style="margin-top:90px;font:700 26px 'Bricolage Grotesque Variable',system-ui">${esc(name || num)}</div><div style="opacity:.7;margin-top:6px" data-st>${esc(LB.calling)}</div><button class="callbtn" style="background:#e0483d;margin-top:auto;margin-bottom:60px" type="button" aria-label="End"><svg viewBox="0 0 24 24" style="transform:rotate(135deg)"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A15 15 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg></button>`;
+      if (/^\*[\d*]+#$/.test(num)) { if (num === DIAL) { this.phone.dial(); return; } this.sheet({ text: LB.connectionError, ended: true }); A.play("error"); return; }
+      const o = h("div", "ussd-sheet"); o.style.cssText = "background:#0d1512;flex-direction:column;color:#fff;text-align:center"; o.innerHTML = `<div style="margin-top:90px;font:700 26px 'Bricolage Grotesque Variable',system-ui">${esc(name || num)}</div><div style="opacity:.7;margin-top:6px" data-st>${esc(LB.calling)}</div><button class="callbtn" style="background:#e0483d;margin-top:auto;margin-bottom:60px" type="button" aria-label="${esc(LB.end)}"><svg viewBox="0 0 24 24" style="transform:rotate(135deg)"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A15 15 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg></button>`;
       this.os.appendChild(o); A.play("ring"); const ring = setInterval(() => A.play("ring"), 3000);
       const end = () => { clearInterval(ring); clearTimeout(to); o.remove(); A.play("poweroff"); }; $("button", o).addEventListener("click", end);
       const to = setTimeout(() => { $("[data-st]", o).textContent = LB.noanswer; setTimeout(end, 1400); }, 6500);
@@ -288,7 +288,7 @@
       v.appendChild(f); if (lab) setTimeout(() => $$("input", f)[to ? 1 : 0].focus({ preventScroll: true }), 420); return v;
     },
     contacts() {
-      const v = this.view(LB.contacts), me = this, rows = [["CWAS USSD", DIAL, "#25b35a"], ["CWAS SMS", "7380", "#2f7bff"], [LB.coord, "+261340000001", "#f59e0b"], ...init.demo.map((p, i) => ["Household " + (i + 1), p, "#7c8582"])];
+      const v = this.view(LB.contacts), me = this, rows = [["CWAS USSD", DIAL, "#25b35a"], ["CWAS SMS", "7380", "#2f7bff"], [LB.coord, "+261340000001", "#f59e0b"], ...init.demo.map((p, i) => [LB.household + " " + (i + 1), p, "#7c8582"])];
       v.appendChild(h("p", "", esc(LB.contactsHint))).style.cssText = "padding:0 16px 8px;font-size:12px;opacity:.6";
       rows.forEach(([n, p, c]) => { const b = h("button", "list-i", `${/^CWAS/.test(n) ? CWAS_LOGO : `<span class="avatar" style="background:${c}">${esc(n[0])}</span>`}<span><b>${esc(n)}</b><small>${esc(p)}</small></span>`); b.type = "button"; b.addEventListener("click", () => { if (p === SHORT) { me.close(); me.open("thread", null, SHORT); } else { me.close(); me.open("phone"); const pv = me.stack[me.stack.length - 1]; pv._set(p); setTimeout(() => me.call(p, n), 500); } }); v.appendChild(b); });
       v.style.overflowY = "auto"; return v;
@@ -499,7 +499,7 @@
       else if (id === "cwas") this.dialNow(DIAL);
     }
     dialNow(num, name) {
-      if (/^\*[\d*]+#$/.test(num)) { if (num === DIAL) { this.phone.dial(); } else { this.go("ussd"); this.ussd = { text: "Connection problem or invalid MMI code.", ended: true }; A.play("error"); } return; }
+      if (/^\*[\d*]+#$/.test(num)) { if (num === DIAL) { this.phone.dial(); } else { this.go("ussd"); this.ussd = { text: LB.connectionError, ended: true }; A.play("error"); } return; }
       this.lastDialled = num; this.go("calling"); this.callee = name || num; A.play("ring");
       const id = setTimeout(() => { if (this.state === "calling") { this.callee += "\n" + LB.noanswer; this.render(); setTimeout(() => { if (this.state === "calling") { this.go("home"); this.render(); } }, 1500); } }, 5000); this.render(); return id;
     }
@@ -510,7 +510,7 @@
       else if (opk) { if (c.op && !c.fresh) this.calcEval(); c.acc = c.cur; c.op = opk; c.fresh = true; }
       else if (k === "ok" || k === "sk1") { this.calcEval(); c.acc = null; c.op = null; c.fresh = true; }
     }
-    calcEval() { const c = this.calc; if (c.acc === null || !c.op) return; const a = parseFloat(c.acc), b = parseFloat(c.cur), r = { "+": a + b, "-": a - b, "*": a * b, "/": b === 0 ? NaN : a / b }[c.op]; c.cur = Number.isFinite(r) ? String(+r.toFixed(8)) : "Error"; }
+    calcEval() { const c = this.calc; if (c.acc === null || !c.op) return; const a = parseFloat(c.acc), b = parseFloat(c.cur), r = { "+": a + b, "-": a - b, "*": a * b, "/": b === 0 ? NaN : a / b }[c.op]; c.cur = Number.isFinite(r) ? String(+r.toFixed(8)) : LB.calcError; }
   }
 
   /* ── device shells ── */
@@ -524,12 +524,12 @@
   const frontFace = key => key === "lite"
     ? `<div class="body"></div><div class="lite-speaker"></div><div class="lite-screen"></div>
        <div class="softkeys"><button class="sk" data-k="sk1" type="button"></button><button class="sk" data-k="sk2" type="button"></button></div>
-       <div class="dpad"><button class="u" data-k="up" aria-label="Up" type="button">▲</button><button class="d" data-k="down" aria-label="Down" type="button">▼</button><button class="lf" data-k="left" aria-label="Left" type="button">◀</button><button class="rt" data-k="right" aria-label="Right" type="button">▶</button><button class="ok" data-k="ok" aria-label="OK" type="button"></button></div>
-       <button class="k call" data-k="call" style="position:absolute;left:24px;top:322px;width:64px" aria-label="Call" type="button">✆</button><button class="k end" data-k="end" style="position:absolute;right:24px;top:322px;width:64px" aria-label="End" type="button">✕</button>
+       <div class="dpad"><button class="u" data-k="up" aria-label="${esc(LB.directionUp)}" type="button">▲</button><button class="d" data-k="down" aria-label="${esc(LB.directionDown)}" type="button">▼</button><button class="lf" data-k="left" aria-label="${esc(LB.directionLeft)}" type="button">◀</button><button class="rt" data-k="right" aria-label="${esc(LB.directionRight)}" type="button">▶</button><button class="ok" data-k="ok" aria-label="OK" type="button"></button></div>
+       <button class="k call" data-k="call" style="position:absolute;left:24px;top:322px;width:64px" aria-label="${esc(LB.call)}" type="button">✆</button><button class="k end" data-k="end" style="position:absolute;right:24px;top:322px;width:64px" aria-label="${esc(LB.end)}" type="button">✕</button>
        <div class="keys">${"123456789*0#".split("").map(k => `<button class="k" data-k="${k}" type="button">${k}<small>${LETTERS[k] || ""}</small></button>`).join("")}</div>
-       <button class="hw l" data-vol="1" style="top:120px;height:44px" aria-label="Volume up" type="button"></button><button class="hw l" data-vol="-1" style="top:174px;height:44px" aria-label="Volume down" type="button"></button>`
+       <button class="hw l" data-vol="1" style="top:120px;height:44px" aria-label="${esc(LB.volumeUp)}" type="button"></button><button class="hw l" data-vol="-1" style="top:174px;height:44px" aria-label="${esc(LB.volumeDown)}" type="button"></button>`
     : `<div class="body"></div><div class="bezel"></div><div class="screen" data-screen></div>${key === "nova" ? '<div class="notch"></div>' : '<div class="punch"></div>'}
-       <button class="hw l" data-vol="1" style="top:150px;height:52px" aria-label="Volume up" type="button"></button><button class="hw l" data-vol="-1" style="top:212px;height:52px" aria-label="Volume down" type="button"></button><button class="hw r" data-power style="top:190px;height:78px" aria-label="Power" type="button"></button>`;
+       <button class="hw l" data-vol="1" style="top:150px;height:52px" aria-label="${esc(LB.volumeUp)}" type="button"></button><button class="hw l" data-vol="-1" style="top:212px;height:52px" aria-label="${esc(LB.volumeDown)}" type="button"></button><button class="hw r" data-power style="top:190px;height:78px" aria-label="${esc(LB.power)}" type="button"></button>`;
   if (lab) {
     function fit() { const d = DEVICES[model], s = Math.min(1.1, (stage.clientHeight - 50) / d.h, (stage.clientWidth - 30) / d.w); rig.style.setProperty("--s", Math.max(.45, s).toFixed(3)); }
     function mount() {
@@ -593,6 +593,11 @@
       await sleep(1200); if (tok === tourToken) C.toast(LB.tourDone, "ok");
     }));
 
+    document.addEventListener("cwas:lang", () => {
+      init = readInit();
+      LB = init.labels;
+      if (ui && ui.render) ui.render();
+    });
     mount();
     if (model !== "lite") setTimeout(() => { if (ui.wake) ui.on = true; }, 0);
   }

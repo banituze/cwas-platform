@@ -3,7 +3,7 @@
   "use strict";
   const root = document.querySelector("[data-chat]"); if (!root) return;
   const $ = (s, r = root) => r.querySelector(s), $$ = (s, r = root) => Array.from(r.querySelectorAll(s));
-  const init = JSON.parse(document.getElementById("chat-init").textContent), L = init.labels;
+  let init = JSON.parse(document.getElementById("chat-init").textContent), L = init.labels;
   const C = window.CWAS, log = $("[data-log]"), form = $("[data-form]"), ta = $("textarea"), fileIn = $("[data-file]"), pendingEl = $("[data-pending]");
   const threadsEl = $("[data-threads]"), titleEl = $("[data-title]");
   let threadId = init.active || null, pending = [], busy = false;
@@ -12,7 +12,7 @@
 
   /* read replies aloud */
   const ttsBox = $("[data-tts]", document), tts = "speechSynthesis" in window;
-  const lang = { mg: "fr-FR", fr: "fr-FR", en: "en-US" }[root.dataset.lang] || "en-US";
+  let lang = { mg: "fr-FR", fr: "fr-FR", en: "en-US" }[root.dataset.lang] || "en-US";
   ttsBox.checked = tts && C.store.get("cwas_tts", "0") === "1"; ttsBox.disabled = !tts;
   ttsBox.addEventListener("change", () => { C.store.set("cwas_tts", ttsBox.checked ? "1" : "0"); if (!ttsBox.checked && tts) speechSynthesis.cancel(); C.audio.play("tap"); });
   const speak = text => { if (!tts) return; speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text.replace(/[-•*_#]/g, " ")); u.lang = lang; const v = speechSynthesis.getVoices().find(x => x.lang.toLowerCase().startsWith(lang.slice(0, 2))); if (v) u.voice = v; speechSynthesis.speak(u); };
@@ -80,7 +80,7 @@
   /* attachments */
   const drawPending = () => {
     pendingEl.innerHTML = "";
-    pending.forEach((f, i) => { const d = el("div", "", `${f.name} (${Math.max(1, Math.round(f.size / 1024))} KB)`); const x = el("button", "toast-x"); x.type = "button"; x.innerHTML = ico("x"); x.setAttribute("aria-label", "Remove"); x.addEventListener("click", () => { pending.splice(i, 1); drawPending(); }); d.appendChild(x); pendingEl.appendChild(d); });
+    pending.forEach((f, i) => { const d = el("div", "", `${f.name} (${Math.max(1, Math.round(f.size / 1024))} KB)`); const x = el("button", "toast-x"); x.type = "button"; x.innerHTML = ico("x"); x.setAttribute("aria-label", L.remove); x.addEventListener("click", () => { pending.splice(i, 1); drawPending(); }); d.appendChild(x); pendingEl.appendChild(d); });
   };
   $("[data-attach]").addEventListener("click", () => fileIn.click());
   fileIn.addEventListener("change", () => { Array.from(fileIn.files).slice(0, 5 - pending.length).forEach(f => { if (f.size > 10 * 1024 * 1024) C.toast(L.big, "err"); else pending.push(f); }); fileIn.value = ""; drawPending(); C.audio.play("tap"); });
@@ -117,6 +117,19 @@
   $("[data-del-all]").addEventListener("click", () => { if (!confirm(L.delAll)) return; fetch("/api/assistant/threads/delete-all", { method: "POST", credentials: "same-origin", headers: { "X-CSRFToken": C.csrf() } }).then(() => { threadsEl.innerHTML = ""; $("[data-del-all]").classList.add("hidden"); fresh(); C.audio.play("tap"); }); });
   $("[data-rename]").addEventListener("click", () => { if (!threadId) return; const t = prompt(L.rename, titleEl.textContent); if (t) C.post(`/api/assistant/threads/${threadId}/rename`, { title: t }).then(d => { setTitle(d.title); upsertThread(d); }); });
 
+  document.addEventListener("cwas:lang", () => {
+    init = JSON.parse(document.getElementById("chat-init").textContent);
+    L = init.labels;
+    lang = { mg: "fr-FR", fr: "fr-FR", en: "en-US" }[document.documentElement.lang] || "en-US";
+    if (!SR) voiceBox.closest("label").title = L.noMic;
+    $$('[data-pending] .toast-x').forEach(b => b.setAttribute("aria-label", L.remove));
+    $$('[data-threads] [data-del]').forEach(b => b.setAttribute("aria-label", L.del));
+    $$('[data-log] .msg .mini').forEach(b => {
+      const spoken = !!b.querySelector('use[href="#i-speaker"]');
+      b.setAttribute("aria-label", spoken ? L.read : L.copy);
+      b.title = spoken ? L.read : L.copy;
+    });
+  });
   init.messages.forEach(addMsg);
   setTitle(init.active ? (init.threads.find(t => t.id === init.active) || {}).title : ""); exportLink();
 })();

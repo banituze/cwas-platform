@@ -1303,3 +1303,27 @@ _add([
     ("You are logged out.", "Vous êtes déconnecté.", "Efa nivoaka ianao."),
     ("No users found.", "Aucun utilisateur trouvé.", "Tsy misy mpampiasa hita."),
 ])
+
+
+# Interface strings emitted by client-side JavaScript, plus the offline title.
+_add([
+    ("Offline", "Hors ligne", "Tsy misy fifandraisana"),
+    ("Receipt not available.", "Reçu indisponible.", "Tsy misy ny rosia."),
+    ("Pause or play video", "Mettre la vidéo en pause ou la lire", "Atsaharo na alefaso ny horonan-tsary"),
+    ("Remove", "Retirer", "Esory"),
+    ("Connection problem or invalid MMI code.", "Problème de connexion ou code MMI invalide.", "Olana amin'ny fifandraisana na kaody MMI tsy mety."),
+    ("End", "Terminer", "Farano"),
+])
+
+# Accessible names of the simulator's physical controls.
+_add([
+    ("Up", "Haut", "Ambony"),
+    ("Down", "Bas", "Ambany"),
+    ("Left", "Gauche", "Havia"),
+    ("Right", "Droite", "Havanana"),
+    ("Volume up", "Augmenter le volume", "Ampitomboy ny feo"),
+    ("Volume down", "Baisser le volume", "Ahena ny feo"),
+    ("Power", "Marche/Arrêt", "Famonoana sy fampandehanana"),
+    ("(no reply)", "(aucune réponse)", "(tsy misy valiny)"),
+    ("Error", "Erreur", "Hadisoana"),
+])
