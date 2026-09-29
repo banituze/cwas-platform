@@ -1305,7 +1305,6 @@ _add([
 ])
 
 
-# Interface strings emitted by client-side JavaScript, plus the offline title.
 _add([
     ("Offline", "Hors ligne", "Tsy misy fifandraisana"),
     ("Receipt not available.", "Reçu indisponible.", "Tsy misy ny rosia."),
@@ -1315,7 +1314,6 @@ _add([
     ("End", "Terminer", "Farano"),
 ])
 
-# Accessible names of the simulator's physical controls.
 _add([
     ("Up", "Haut", "Ambony"),
     ("Down", "Bas", "Ambany"),

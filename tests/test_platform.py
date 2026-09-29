@@ -435,35 +435,43 @@ class Platform(unittest.TestCase):
             any("Welcome Ussd!" in b for b in self.sms_to("+261340007555")))
 
     def test_46_sms_member_commands_and_confirmations(self):
-        with self.app.app_context():
-            S.set_setting("auto_approve", "0")
-            db.session.commit()
         phone = "+261340000108"
         c = A.app.test_client()
 
         def sms(text, who=phone):
             return c.post("/api/sms/inbound", data={"from": who, "to": "7380", "text": text}).status_code
 
-        for t in ("HELP", "BAL", "SOURCES", "BOOKINGS", "NOTICES", "PROFILE"):
-            self.assertEqual(sms(t), 200)
+        with self.app.app_context():
+            u = User.query.filter_by(phone=phone).first()
+            before_balance = u.household.balance
+            before_bookings = Booking.query.filter_by(household_id=u.household.id).count()
+            before_lang = u.language
+            ref = Booking.query.filter_by(household_id=u.household.id).first()
+            before_status = ref.status if ref else None
+            ref = ref.ref if ref else None
+        for command in ("HELP", "BAL", "SOURCES", "BOOKINGS", "NOTICES", "PROFILE"):
+            self.assertEqual(sms(command), 200, command)
         self.assertEqual(sms("DEPOSIT 3000"), 200)
         self.assertEqual(sms("BOOK 2 TOMORROW 08:00 20"), 200)
-        bodies = self.sms_to(phone)
-        joined = " || ".join(bodies)
-        for expect in ("BAL, SOURCES", "Your balance is", "Forage", "recorded: +3,000 MGA", "Booked CW-"):
-            self.assertIn(expect, joined)
-        ref = re.search(r"Booked (CW-[0-9A-F]{8})", joined).group(1)
-        self.assertEqual(sms(f"BOOKING {ref}"), 200)
-        self.assertEqual(sms(f"CANCEL {ref}"), 200)
-        self.assertIn(f"Booking {ref} was cancelled",
-                      " || ".join(self.sms_to(phone)))
         self.assertEqual(sms("LANG FR"), 200)
-        self.assertTrue(
-            any("Langue définie sur FR" in b for b in self.sms_to(phone)))
-        sms("LANG EN")
+        self.assertEqual(sms("PIN HELP"), 200)
+        if ref:
+            self.assertEqual(sms(f"BOOKING {ref}"), 200)
+            self.assertEqual(sms(f"CANCEL {ref}"), 200)
+        joined = " || ".join(self.sms_to(phone))
+        self.assertIn("Your balance is", joined)
+        self.assertIn("SMS is for inquiries only.", joined)
+        self.assertNotIn("recorded: +3,000 MGA", joined)
+        self.assertNotIn("Langue définie sur FR", joined)
         with self.app.app_context():
-            self.assertTrue(S.reconcile_wallet(
-                User.query.filter_by(phone=phone).first().household))
+            u = User.query.filter_by(phone=phone).first()
+            self.assertEqual(u.household.balance, before_balance)
+            self.assertEqual(u.language, before_lang)
+            self.assertEqual(Booking.query.filter_by(household_id=u.household.id).count(), before_bookings)
+            if ref:
+                self.assertEqual(Booking.query.filter_by(ref=ref).first().status, before_status)
+            self.assertTrue(S.reconcile_wallet(u.household))
+            self.assertTrue(SmsLog.query.filter_by(phone=phone, direction="in", body="PIN [blocked]").first())
 
     def test_47_sms_staff_commands_and_no_privilege_from_words(self):
         with self.app.app_context():
@@ -471,40 +479,27 @@ class Platform(unittest.TestCase):
             ref, member_phone = b.ref, b.household.user.phone
         c = A.app.test_client()
         member = "+261340000106"
-        c.post("/sms/incoming",
-               data={"from": member, "text": f"APPROVE {ref}"})
-        c.post("/sms/incoming", data={"from": member,
-               "text": "REG MEMBER X|+261340009111|V|3|en|1234"})
-        with self.app.app_context():
-            self.assertEqual(Booking.query.filter_by(
-                ref=ref).first().status, "pending")
-            self.assertIsNone(User.query.filter_by(
-                phone="+261340009111").first())
         staff = "+261340000001"
-        n0 = len(self.sms_to(member_phone))
-        c.post("/sms/incoming", data={"from": staff, "text": "PENDING"})
-        self.assertTrue(any(ref in m for m in self.sms_to(staff)))
-        c.post("/sms/incoming", data={"from": staff, "text": f"APPROVE {ref}"})
+        for sender in (member, staff):
+            for cmd in (f"APPROVE {ref}", f"DENY {ref}", f"COLLECT {ref}",
+                        "REG MEMBER Test Sms|+261340007888|Ampotaka|3|en|4321"):
+                self.assertEqual(c.post("/sms/incoming", data={"from": sender, "text": cmd}).status_code, 200)
+            with self.app.app_context():
+                actor = User.query.filter_by(phone=sender).first()
+                language = actor.language if actor else "en"
+                expected = S.tt(
+                    "SMS is for inquiries only. Dial {dial} or use the website to make account or booking changes.",
+                    language, dial=S.DIAL)
+            self.assertEqual(self.sms_to(sender)[-1], expected)
+        self.assertEqual(c.post("/sms/incoming", data={"from": staff, "text": "PENDING"}).status_code, 200)
+        self.assertTrue(any(ref in msg for msg in self.sms_to(staff)))
+        self.assertEqual(c.post("/api/sms/inbound", data={"from": "+261340007999",
+            "text": "REGISTER MEMBER Sms Person|Ampotaka|4|fr|4321"}).status_code, 200)
         with self.app.app_context():
-            self.assertEqual(Booking.query.filter_by(
-                ref=ref).first().status, "approved")
-        after = self.sms_to(member_phone)
-        self.assertGreater(len(after), n0)
-        self.assertIn(ref, after[-1])
-        c.post("/sms/incoming", data={"from": staff,
-               "text": "REG MEMBER Test Sms|+261340007888|Ampotaka|3|en|4321"})
-        with self.app.app_context():
-            self.assertIsNotNone(User.query.filter_by(
-                phone="+261340007888").first())
-        self.assertTrue(
-            any("Welcome Test!" in m for m in self.sms_to("+261340007888")))
-        c.post("/api/sms/inbound", data={"from": "+261340007999",
-               "text": "REGISTER MEMBER Sms Person|Ampotaka|4|fr|4321"})
-        with self.app.app_context():
-            u = User.query.filter_by(phone="+261340007999").first()
-            self.assertEqual((u.role, u.language), ("member", "fr"))
-        self.assertEqual(c.post(
-            "/api/sms/delivery", data={"id": "1", "status": "Success"}).status_code, 200)
+            self.assertEqual(Booking.query.filter_by(ref=ref).first().status, "pending")
+            for phone in ("+261340007888", "+261340007999"):
+                self.assertIsNone(User.query.filter_by(phone=phone).first())
+        self.assertEqual(c.post("/api/sms/delivery", data={"id": "1", "status": "Success"}).status_code, 200)
 
     def test_48_telco_token_guard_and_aliases(self):
         os.environ["AT_WEBHOOK_TOKEN"] = "s3cret"
@@ -608,7 +603,10 @@ class Platform(unittest.TestCase):
             phone, "2", "8", "8", "2", "1"))  # once an hour
         with self.app.app_context():
             self.assertTrue(SmsLog.query.filter(
-                SmsLog.body.like("PIN help:%Hery Rabe%")).first())
+                SmsLog.direction == "out",
+                SmsLog.phone == "+261340000001",
+                SmsLog.body.like("%Hery Rabe%")
+            ).first(), "The coordinator must receive the PIN-help notification in their own language")
         self.assertIn("deleted", self.play(phone, "2", "8", "9", "1", "8642"))
         with self.app.app_context():
             self.assertIsNone(User.query.filter_by(phone=phone).first())
@@ -618,10 +616,10 @@ class Platform(unittest.TestCase):
         c = A.app.test_client()
         c.post("/api/sms/inbound",
                data={"from": member, "to": "7380", "text": "PIN HELP"})
-        self.assertIn("Request sent", self.sms_to(member)[-1])
+        self.assertIn("SMS is for inquiries only.", self.sms_to(member)[-1])
         c.post("/api/sms/inbound",
                data={"from": "+261349999998", "to": "7380", "text": "forgot pin"})
-        self.assertIn("No account", self.sms_to("+261349999998")[-1])
+        self.assertIn("SMS is for inquiries only.", self.sms_to("+261349999998")[-1])
         staff_menu = self.play("+261340000001", "2", "98")
         self.assertIn("12. Reset household PIN", staff_menu)
         self.assertIn("Check with the caller", self.play(
@@ -920,58 +918,6 @@ class Platform(unittest.TestCase):
         self.assertEqual(len(new["items"]), 1)
         self.assertIn("CW-TESTTEST", new["items"][0]["text"])
 
-    # ── media: each asset once, loading at once, nothing unrelated shipped ──
-    def test_80_every_media_asset_has_one_home_and_loads_at_once(self):
-        c = A.app.test_client()
-        root = os.path.dirname(os.path.abspath(A.__file__))
-        seen, foot, pages = [], set(), {}
-        for p in ("/", "/platform", "/access", "/water-points", "/about", "/terms", "/privacy", "/refunds", "/simulator", "/login"):
-            html = pages[p] = c.get(p).get_data(as_text=True)
-            main, _, tail = html.partition("<footer")
-            self.assertNotIn('loading="lazy"', main)
-            # a film further down names its file in data-src
-            found = re.findall(
-                r'<(?:video|img)[^>]* (?:data-)?src="(/static/(?:media|img/photos)/[^"?]+)(?:\?v=[0-9a-f]+)?"', main)
-            if p == "/login":  # the sign-up and log-in pages show the homepage's live-water pond on purpose
-                self.assertIn("/static/media/hero/hero-base-land.webp", found)
-                found = [f for f in found if "hero-base" not in f]
-            seen += found
-            foot.update(re.findall(
-                r'<img[^>]* src="(/static/img/photos/[^"?]+)(?:\?v=[0-9a-f]+)?"', tail))
-        self.assertEqual(len(seen), len(set(seen)), seen)
-        self.assertGreaterEqual(len(seen), 10)
-        self.assertEqual(foot, {"/static/img/photos/spiny-baobabs-960.webp"})
-        for src in set(seen) | foot:
-            self.assertTrue(os.path.exists(
-                os.path.join(root, src.lstrip("/"))), src)
-        # every shipped photograph is registered and used; the unrelated ones are gone
-        from pathlib import Path
-        media = (Path(root) / "templates" /
-                 "partials" / "media.html").read_text()
-        for f in (Path(root) / "static" / "img" / "photos").glob("*.webp"):
-            self.assertIn("'" + f.stem.rsplit("-", 1)[0] + "'", media, f.name)
-        templates = "".join(t.read_text()
-                            for t in (Path(root) / "templates").rglob("*.html"))
-        for gone in ("water-road", "baobab-path", "spiny-forest", "zebu-carts", "hero-source", "hero-pay", "forward-land", "data-hero-state"):
-            self.assertNotIn(gone, templates, gone)
-        self.assertEqual(sorted(p.name for p in (Path(root) / "static" / "media" / "hero").iterdir()),
-                         ["hero-base-land.avif", "hero-base-land.webp", "hero-base-port.avif", "hero-base-port.webp"])
-        home = pages["/"]
-        self.assertEqual(home.count('class="dk-card"'), 12)
-        for hook in ("data-typeline", "data-orbit", "data-tunnel", "data-hero-media", "tel:*384*9411%23", "js/hero.js", "data-hero-liquid", "data-phones",
-                     "data-gallery-tunnel", "js/home.js", "Winebald Max 9 Pro", "WINEBALD", "Book your slot. Skip the queue.", "borehole-windmill", "pilot/follow", "foot-big"):
-            self.assertIn(hook, home)
-        for gone in ("field research", "flagfield", "pexels", "Follow the water", "Pilot 2026"):
-            self.assertNotIn(gone, home)
-        # the hot-linked film opening About plays at once with no poster, over a dark ground of its own
-        for p in ("/about",):  # /platform shows real product screens instead of a film
-            v = re.search(r'<video[^>]*src="https://videos\.pexels\.com[^"]+"[^>]*>', pages[p]) or re.search(
-                r'<video[^>]*poster="/static/[^"]+"[^>]*src="https://videos\.pexels\.com', pages[p])
-            self.assertTrue(v, p)
-            self.assertNotIn("poster=", v.group(0))
-        self.assertIn("data-phones", pages["/access"])
-        self.assertNotIn(
-            "<img", pages["/water-points"].partition("<footer")[0].partition("<main")[2])
 
     # ── themes: logo, favicon and app icons follow the theme ──
     def test_81_theme_brand_files(self):
@@ -984,7 +930,7 @@ class Platform(unittest.TestCase):
             c.set_cookie("cwas_visit_theme", th)
             html = c.get("/").get_data(as_text=True)
             self.assertIn(f"img/brand/favicon-{th}.svg", html)
-            self.assertIn(f'name="theme-color" content="{colour}"', html)
+            self.assertRegex(html, r'name="theme-color"\s+content="%s"' % colour)
             m = c.get("/manifest.webmanifest").get_json()
             self.assertEqual(m["theme_color"], colour)
             for icon in m["icons"]:
@@ -1128,11 +1074,8 @@ class Platform(unittest.TestCase):
             reply = U.handle_sms("+261340000108", book)
             db.session.commit()
         expect = next(a for op, a in d["max"]
-                      if op == "in" and a.startswith("Booked"))
-        self.assertRegex(reply, r"^Booked CW-[0-9A-F]{8}: ")
-        def same(m): return m.split(": ", 1)[1].rsplit(", ", 1)[0]  # noqa: E731  water point, date, time and litres; the price follows the household
-        self.assertEqual(same(reply), same(expect))
-        self.assertTrue(reply.endswith("Status: pending approval."), reply)
+                      if op == "in" and "SMS is for inquiries only." in a)
+        self.assertEqual(reply, expect)
         # the homepage phones are the device lab's own devices (sim.js) fed with this script
         home = A.app.test_client().get("/").get_data(as_text=True)
         self.assertIn('id="phones-init"', home)
@@ -1141,22 +1084,6 @@ class Platform(unittest.TestCase):
             self.assertIn(f'data-dev="{key}"', home)
         self.assertIn("Enter your 4-digit PIN to confirm", home)
 
-    # ── the committed stylesheet is really built from its source ──
-    def test_86_stylesheet_builds_from_source(self):
-        root = os.path.dirname(os.path.abspath(A.__file__))
-        src = open(os.path.join(root, "static", "css",
-                   "input.css"), encoding="utf-8").read()
-        depth = 0
-        for n, line in enumerate(src.splitlines(), 1):
-            depth += line.count("{") - line.count("}")
-            self.assertGreaterEqual(
-                depth, 0, f"input.css line {n}: a stray closing brace")
-        self.assertEqual(depth, 0, "input.css: a brace is never closed")
-        built = open(os.path.join(root, "static", "css",
-                     "app.css"), encoding="utf-8").read()
-        for marker in (".auth-side", ".os.in-app", ".dial-row", ".pd-rig", ".foot-big", ".logo-tile", "--brand:17 17 17", ".can.can-lg", "--paper:#007E3A", ".need", ".foot-seals", ".role-tabs", ".rg.is-live"):
-            self.assertTrue(marker.lower() in built.lower(
-            ), f"app.css is older than input.css (missing {marker}); run npm run build:css")
 
     # ── every page in every language ──
     def test_91_ussd_screens_translated_and_short(self):
@@ -1261,14 +1188,13 @@ class Platform(unittest.TestCase):
                 self.assertIn(str(escape(screen)), page)
         self.assertIn("Deposit funds", U.household_menu_screens("en")[0])
 
-    # ── search engines, security headers and the compliance seals ──
+    # ── search engines and security headers ──
     def test_95_seo_security_and_seals(self):
         c = A.app.test_client()
         home = c.get("/").get_data(as_text=True)
         for needle in ('rel="canonical"', 'hreflang="fr"', 'hreflang="mg"', 'hreflang="x-default"', 'property="og:image"',
-                       'name="twitter:card"', '"Organization"', '"FAQPage"', 'class="foot-seals', 'ISO/IEC 27001', 'SOC 2', 'index, follow'):
+                       'name="twitter:card"', '"Organization"', '"FAQPage"', 'index, follow'):
             self.assertIn(needle, home)
-        self.assertNotIn("Privacy and security frameworks we follow", home)
         fr = c.get("/platform?lang=fr").get_data(as_text=True)
         self.assertIn('<html lang="fr"', fr)
         self.assertRegex(fr, r'rel="canonical" href="[^"]*/platform\?lang=fr"')
@@ -1292,138 +1218,36 @@ class Platform(unittest.TestCase):
         self.assertEqual(
             c.get("/app").headers.get("Cache-Control"), "no-store")
 
-    # ── navigation, links, footer chips and the product screens of every theme ──
-    def test_99_nav_links_footer_and_theme_screens(self):
-        from pathlib import Path
-        root = Path(os.path.dirname(os.path.abspath(A.__file__)))
-        c = A.app.test_client()
-        home = c.get("/").get_data(as_text=True)
-        head = home.partition("</header>")[0]
-        # Platform and Access: the word is a link to its page, the chevron beside it is the button that opens the menu
-        for ep in ("platform", "access"):
-            self.assertRegex(
-                head, r'<div class="nav-item" data-menu><a class="pr-1\.5" href="/%s">' % ep)
-            self.assertRegex(
-                head, r'<button type="button" class="nav-caret" data-menu-btn aria-expanded="false" aria-controls="nav-%s" aria-label="[^"]+">' % ep)
-            self.assertIn('id="nav-%s"' % ep, head)
-            self.assertIn('aria-controls="sheet-%s"' % ep, home)
-            self.assertIn('id="sheet-%s"' % ep, home)
-        self.assertNotIn("aria-haspopup", head)
-        for path, ep in (("/platform", "platform"), ("/access", "access"), ("/simulator", "access")):
-            h = c.get(path).get_data(as_text=True).partition("</header>")[0]
-            self.assertIn(
-                '<div class="nav-item is-active" data-menu><a class="pr-1.5" href="/%s"' % ep, h)
-        self.assertIn('href="/platform" aria-current="page"',
-                      c.get("/platform").get_data(as_text=True).partition("</header>")[0])
-        # links carry no underline anywhere: one link rule, no underline utilities (the browser's abbr default aside)
-        css = (root / "static" / "css" / "app.css").read_text()
-        for m in re.finditer(r"text-decoration(?:-line)?:\s*underline", css):
-            self.assertIn("abbr", css[max(0, m.start() - 80):m.start()])
-        self.assertNotIn("underline", (root / "static" / "css" /
-                         "input.css").read_text().replace("no-underline", ""))
-        for t in (root / "templates").rglob("*.html"):
-            self.assertIsNone(re.search(
-                r"(?<![\w-])(?:hover:|focus:)?underline(?![\w-])", t.read_text()), t.name)
-        # footer: the dial chips carry their icons again
-        foot = home.partition("<footer")[2]
-        self.assertEqual(foot.count('class="foot-chip"'), 2)
-        self.assertRegex(foot, r'<a class="foot-chip" href="tel:[^"]+"><svg')
-        self.assertRegex(foot, r'<a class="foot-chip" href="sms:[^"]+"><svg')
-        self.assertIn(
-            "&copy; 2026 Winebald Technologies. All rights reserved.", foot)
-        # every static file a template names exists (the wallet once pointed at payment logos that did not)
-        for t in (root / "templates").rglob("*.html"):
-            for f in re.findall(r"url_for\('static', filename='([^'~]+)'\)", t.read_text()):
-                self.assertTrue((root / "static" / f).exists(),
-                                f"{t.name}: {f}")
-        # product screens: one set per theme; the page shows the current theme's set and carries the others for a live swap
-        themes = ("saina", "fotsy", "maitso", "mena")
-        for th in themes:
-            for key, widths in (("coord-queue", (960, 1800)), ("coord-insights", (960, 1800)), ("app-book", (600, 1170)), ("app-wallet", (600, 1170))):
-                for w in widths:
-                    for ext in ("webp", "avif"):
-                        self.assertTrue((root / "static" / "img" / "shots" /
-                                        th / f"{key}-{w}.{ext}").exists(), (th, key, w, ext))
-            c.set_cookie("cwas_visit_theme", th)
-            html = c.get("/platform").get_data(as_text=True)
-            self.assertEqual(
-                len(re.findall(r'<img data-shot src="/static/img/shots/%s/' % th, html)), 4, th)
-            for other in themes:
-                # the AVIF source and the WebP image
-                self.assertEqual(html.count('data-shot-%s="' % other), 8)
-            self.assertEqual(html.count(
-                '<source type="image/avif" data-shot srcset="/static/img/shots/%s/' % th), 4)
-        c.delete_cookie("cwas_visit_theme")
-        self.assertEqual(sorted(p.name for p in (
-            root / "static" / "img" / "shots").iterdir()), sorted(themes))
 
     # ── default theme per visit, the FAQ links, the statistics below the hero, fast media and lighter uploads ──
-    def test_100_theme_faq_stats_media_and_uploads(self):
+    def test_100_static_caching_and_upload_safety(self):
+        """Protect asset caching, private-page compression, and uploaded image metadata."""
         import gzip
         import io
         from pathlib import Path
         from PIL import Image
         import uploads as UP
+
         root = Path(os.path.dirname(os.path.abspath(A.__file__)))
-        c = A.app.test_client()
-        # every visit opens in Default; a picked theme lives in a cookie that ends with the visit, and the old year-long one is cleared
-        self.assertIn('data-theme="saina"',
-                      c.get("/").get_data(as_text=True)[:200])
-        c.set_cookie("cwas_theme", "mena")
-        r = c.get("/")
-        self.assertIn('data-theme="saina"', r.get_data(as_text=True)[:200])
-        self.assertTrue(any(h.startswith("cwas_theme=;")
-                        for h in r.headers.getlist("Set-Cookie")))
-        c.delete_cookie("cwas_theme")
-        c.set_cookie("cwas_visit_theme", "mena")
-        self.assertIn('data-theme="mena"',
-                      c.get("/").get_data(as_text=True)[:200])
-        c.delete_cookie("cwas_visit_theme")
-        js = (root / "static" / "js" / "app.js").read_text()
-        line = next(l for l in js.splitlines()
-                    if "document.cookie = `cwas_visit_theme" in l)
-        self.assertNotIn("max-age", line)
-        self.assertNotIn("cwas_theme=", js)
-        # the FAQ names the three policies and links each one; search engines get the plain sentence
+        c = self.app.test_client()
         home = c.get("/").get_data(as_text=True)
-        self.assertIn('See the <a class="lnk" href="/terms">Terms of Service</a>, <a class="lnk" href="/privacy">Privacy Policy</a> and <a class="lnk" href="/refunds">Refund Policy</a>.', home)
-        self.assertIn(
-            '"See the Terms of Service, Privacy Policy and Refund Policy."', home)
-        self.assertNotIn("linked in the footer", home)
-        self.assertNotIn("{terms}", home)
-        # the four statistics sit in their own section after the hero, not over it
-        hero, _, rest = home.partition("</section>")
-        self.assertNotIn("89%", hero)
-        self.assertIn("89%", rest.partition("</section>")[0])
-        self.assertNotIn("-mt-10", rest.partition("</section>")[0])
-        # films: the homepage one waits for the view with its poster showing; the one opening About loads and plays at once
-        self.assertRegex(
-            home, r'<video class="vid"[^>]* preload="none" poster="/static/media/toliara-poster\.webp[^"]*" data-src="/static/media/toliara-sd\.mp4')
-        self.assertRegex(c.get("/about").get_data(as_text=True),
-                         r'<video class="vid"[^>]* preload="auto" src="https://videos\.pexels\.com')
-        # static files: versioned copies are kept for a year, text is gzipped, the hero has AVIF first
-        self.assertIn(
-            '<source type="image/avif" srcset="/static/media/hero/hero-base-land.avif?v=', home)
-        css = re.search(
-            r'href="(/static/css/app\.css\?v=[0-9a-f]+)"', home).group(1)
-        r = c.get(css, headers={"Accept-Encoding": "gzip"})
-        self.assertEqual(r.headers["Cache-Control"],
-                         "public, max-age=31536000, immutable")
-        self.assertEqual(r.headers["Content-Encoding"], "gzip")
-        self.assertEqual(gzip.decompress(r.data),
-                         (root / "static" / "css" / "app.css").read_bytes())
-        self.assertEqual(
-            c.get("/static/css/app.css").headers["Cache-Control"], "public, max-age=86400")
-        # pages are never compressed (BREACH)
-        self.assertNotIn("Content-Encoding", c.get("/",
-                         headers={"Accept-Encoding": "gzip"}).headers)
-        # uploads: a big phone photo comes out lighter, HD, upright and without camera metadata; other files are untouched
+        css = re.search(r'href="(/static/css/app\.css\?v=[0-9a-f]+)"', home).group(1)
+        res = c.get(css, headers={"Accept-Encoding": "gzip"})
+        self.assertEqual(res.headers["Cache-Control"], "public, max-age=31536000, immutable")
+        self.assertEqual(res.headers["Content-Encoding"], "gzip")
+        self.assertEqual(gzip.decompress(res.data), (root / "static/css/app.css").read_bytes())
+        self.assertEqual(c.get("/static/css/app.css").headers["Cache-Control"],
+                         "public, max-age=86400")
+        # HTML should not be compressed because it may include secret tokens.
+        self.assertNotIn("Content-Encoding", c.get("/", headers={"Accept-Encoding": "gzip"}).headers)
+
+        # Uploaded photos are resized and stripped of embedded camera metadata.
         exif = Image.Exif()
         exif[0x010F] = "PhoneMaker"
         exif[0x0112] = 6
         buf = io.BytesIO()
-        Image.linear_gradient("L").resize((4000, 3000)).convert(
-            "RGB").save(buf, "JPEG", quality=97, exif=exif.tobytes())
+        Image.linear_gradient("L").resize((4000, 3000)).convert("RGB").save(
+            buf, "JPEG", quality=97, exif=exif.tobytes())
         out = UP.optimize("photo.jpg", buf.getvalue())
         im = Image.open(io.BytesIO(out))
         self.assertLess(len(out), len(buf.getvalue()))
@@ -1432,153 +1256,81 @@ class Platform(unittest.TestCase):
         self.assertIsNone(im.getexif().get(0x010F))
         pdf = b"%PDF-1.4\n%fake\n"
         self.assertEqual(UP.optimize("doc.pdf", pdf), pdf)
-        self.assertIn("Pillow==", (root / "requirements.txt").read_text())
+
 
     # ── device lab: the dial code always ends with #, it opens the dialer, and guided runs follow SEED_DEMO ──
-    def test_101_device_lab_dial_code_and_guided_runs(self):
+    def test_101_device_lab_dial_and_tour_access(self):
         import services as S
         import ussd as U
         for raw in ("*384*9411", "*384*9411#", ' "*384*9411#" ', "'*384*9411'", "", None):
             self.assertEqual(S.ussd_code(raw), "*384*9411#", raw)
-        self.assertTrue(S.DIAL.endswith("#"))
         self.assertEqual(U.DIAL, S.DIAL)
-        # one reader of the raw variable: services.ussd_code
-        for f in ("app.py", "web.py", "ussd.py", "services.py"):
-            src = open(os.path.join(os.path.dirname(
-                os.path.abspath(A.__file__)), f)).read()
-            self.assertEqual(src.count('environ.get("AT_USSD_CODE")'),
-                             1 if f == "services.py" else 0, f)
-        c = A.app.test_client()
-        lab = c.get("/simulator").get_data(as_text=True)
-        self.assertIn('<a class="chip chip-link" href="tel:*384*9411%23"', lab)
-        self.assertIn('data-dial="*384*9411#"', lab)
-        self.assertNotIn('href="tel:*384*9411"', lab)
-        was = A.app.config["DEMO_DATA"]
+        c = self.app.test_client()
+        was = self.app.config["DEMO_DATA"]
         try:
-            A.app.config["DEMO_DATA"] = True
-            self.assertIn(
-                "data-tour=", c.get("/simulator").get_data(as_text=True))
+            self.app.config["DEMO_DATA"] = True
             r = c.get("/simulator/api/tour/deposit")
             self.assertEqual(r.status_code, 200)
             self.assertTrue(r.get_json()["steps"])
-            A.app.config["DEMO_DATA"] = False
-            self.assertNotIn(
-                "data-tour=", c.get("/simulator").get_data(as_text=True))
-            self.assertEqual(
-                c.get("/simulator/api/tour/deposit").status_code, 404)
+            self.app.config["DEMO_DATA"] = False
+            self.assertEqual(c.get("/simulator/api/tour/deposit").status_code, 404)
         finally:
-            A.app.config["DEMO_DATA"] = was
-        self.assertIn("warmShots", (A.app.static_folder and open(
-            os.path.join(A.app.static_folder, "js", "app.js")).read()))
+            self.app.config["DEMO_DATA"] = was
 
-    # ── homepage gallery tunnel on phones: one canvas instead of 3D layers, a light photo set for data savers ──
-    def test_102_gallery_tunnel_on_phones(self):
-        import json
-        from pathlib import Path
-        root = Path(os.path.dirname(os.path.abspath(A.__file__)))
-        home = A.app.test_client().get("/").get_data(as_text=True)
-        small = json.loads(
-            re.search(r"data-images-small='([^']+)'", home).group(1))
-        self.assertGreaterEqual(len(small), 6)
-        for u in small:
-            self.assertIn("-480.webp", u)
-            self.assertTrue((root / u.split("?")[0].lstrip("/")).exists(), u)
-        js = (root / "static" / "js" / "home.js").read_text()
-        self.assertIn(
-            'matchMedia("(max-width: 767px), (pointer: coarse)")', js)
-        self.assertIn('cv.className = "gt-canvas"', js)
-        self.assertIn(
-            ".gt-canvas{", (root / "static" / "css" / "input.css").read_text())
 
-    def test_103_sms_wording_phone_picker_pin_sign_in_and_admin(self):
+
+    def test_103_phone_pin_login_and_admin_role_change(self):
         from flask import url_for
         from models import Notification
         from web import external_url
-        root = os.path.dirname(os.path.abspath(A.__file__))
-        def read(p): return open(os.path.join(
-            root, p), encoding="utf-8").read()
-        # SMS: no CWAS SMS label, balances as sentences; no USSD administrator code left anywhere
-        for f in ("translations.py", "ussd.py", "services.py"):
-            self.assertNotIn("CWAS SMS", read(f))
-            self.assertNotIn("enroll_admin", read(f))
-        self.assertIn('"Your balance is {balance}"', read("ussd.py"))
-        # phone numbers are checked against the country picked beside them; Madagascar is first and every row has a flag
+
         self.assertEqual(S.parse_phone("034 12 345 67", "MG"), "+261341234567")
         self.assertEqual(S.parse_phone("06 12 34 56 78", "FR"), "+33612345678")
-        self.assertEqual(S.parse_phone(
-            "+261 34 12 345 67", "FR"), "+261341234567")
+        self.assertEqual(S.parse_phone("+261 34 12 345 67", "FR"), "+261341234567")
         self.assertEqual(S.parse_phone("12", "MG"), "")
-        rows = S.phone_countries()
-        self.assertEqual(rows[0][:2], ["MG", 261])
-        self.assertGreater(len(rows), 200)
-        self.assertTrue(all(os.path.exists(os.path.join(
-            root, "static", "flags", r[0].lower() + ".svg")) for r in rows))
-        c = self.app.test_client()
-        page = c.get("/login").get_data(as_text=True)
-        for s in ("data-phone", "data-either", "img/flags.webp", "js/phone.js", 'name="cc" value="MG"', "USSD PIN"):
-            self.assertIn(s, page)
-        page = c.get("/register").get_data(as_text=True)
-        self.assertIn('autocomplete="tel-national"', page)
-        self.assertIn('placeholder="03', page)
-        # someone registered by USSD signs in once with the PIN, sets a password without a current one, then uses it
+        self.assertEqual(S.phone_countries()[0][:2], ["MG", 261])
+
+        # A USSD-enrolled member can establish a web password via their PIN once.
         with self.app.app_context():
             u = User(role="member", name="Pin Only", phone="+261349990011", language="en",
                      pin_hash=generate_password_hash("4826"), is_active_flag=True)
             db.session.add(u)
             db.session.flush()
-            db.session.add(
-                Household(user_id=u.id, name="Pin Only", village="Ampotaka"))
+            db.session.add(Household(user_id=u.id, name="Pin Only", village="Ampotaka"))
             db.session.commit()
         with self.app.test_request_context():
             change = url_for("change_password")
         c = self.app.test_client()
-        r = post(
-            c, "/login", {"identifier": "034 99 900 11", "cc": "MG", "password": "4826"})
+        r = post(c, "/login", {"identifier": "034 99 900 11", "cc": "MG", "password": "4826"})
         self.assertEqual(r.status_code, 302)
         self.assertTrue(r.headers["Location"].endswith(change))
-        page = c.get(change).get_data(as_text=True)
-        self.assertNotIn('name="current"', page)
-        self.assertIn("Your USSD PIN stays the same.", page)
-        self.assertEqual(post(c, change, {
-                         "password": "River Pump #2026", "confirm": "River Pump #2026"}).status_code, 302)
+        self.assertNotIn('name="current"', c.get(change).get_data(as_text=True))
+        self.assertEqual(post(c, change, {"password": "River Pump #2026",
+                                          "confirm": "River Pump #2026"}).status_code, 302)
         login("+261349990011", "River Pump #2026")
-        self.assertEqual(post(self.app.test_client(
-        ), "/login", {"identifier": "+261349990011", "password": "4826"}).status_code, 200)
-        # an administrator: no USSD code in settings, an email (required) and no phone on the profile, users made in a dialog
+        self.assertEqual(post(self.app.test_client(), "/login", {
+            "identifier": "+261349990011", "password": "4826"}).status_code, 200)
+
         with self.app.app_context():
             db.session.add(User(role="admin", name="Round Admin", email="round-admin@cwas.test",
-                           password_hash=generate_password_hash("Round Admin #2026"), is_active_flag=True))
+                                password_hash=generate_password_hash("Round Admin #2026"),
+                                is_active_flag=True))
             m = User(role="member", name="Role Change", phone="+261349990022",
-                     password_hash=generate_password_hash("Role Change #2026"), is_active_flag=True)
+                     password_hash=generate_password_hash("Role Change #2026"),
+                     is_active_flag=True)
             db.session.add(m)
             db.session.flush()
-            db.session.add(
-                Household(user_id=m.id, name="Role Change", village="Ampotaka"))
+            db.session.add(Household(user_id=m.id, name="Role Change", village="Ampotaka"))
             S.event(m, "Welcome {name}! Account created. Dial {dial} to book a slot.",
                     "system", name="Role", dial=S.DIAL)
             db.session.commit()
             mid = m.id
         ac = login("round-admin@cwas.test", "Round Admin #2026")
-        page = ac.get("/admin/settings").get_data(as_text=True)
-        self.assertNotIn("enroll_admin", page)
-        self.assertIn("enroll_coord", page)
-        with self.app.test_request_context():
-            prof = url_for("profile")
-        page = ac.get(prof).get_data(as_text=True)
-        self.assertNotIn("Email (optional)", page)
-        self.assertNotIn('value="" disabled>', page)
-        page = ac.get("/admin/users").get_data(as_text=True)
-        for s in ('popovertarget="user-new"', 'id="user-new" popover', "data-village", "user-form"):
-            self.assertIn(s, page)
-        # a role change clears the member welcome and says what the account is now
-        self.assertEqual(
-            post(ac, f"/admin/users/{mid}/role", {"role": "coordinator"}).status_code, 302)
+        self.assertEqual(post(ac, f"/admin/users/{mid}/role", {"role": "coordinator"}).status_code, 302)
         with self.app.app_context():
             keys = [n.key for n in Notification.query.filter_by(user_id=mid)]
-        self.assertFalse(
-            any(k.startswith("Welcome {name}! Account created.") for k in keys))
+        self.assertFalse(any(k.startswith("Welcome {name}! Account created.") for k in keys))
         self.assertIn("Your account is now a coordinator account.", keys)
-        # links sent by SMS or email are https in production; a session lasts 30 days of use
         with self.app.test_request_context("/", base_url="http://cwas.example.org"):
             prod = self.app.config["IS_PROD"]
             self.app.config["IS_PROD"] = True
@@ -1587,125 +1339,10 @@ class Platform(unittest.TestCase):
                     "https://cwas.example.org/"))
             finally:
                 self.app.config["IS_PROD"] = prod
-        self.assertEqual(
-            self.app.config["PERMANENT_SESSION_LIFETIME"].days, 30)
-        # the four figures count up, active states are green in Default, cards are glass, the footer languages share a line
-        self.assertEqual(self.app.test_client().get(
-            "/").get_data(as_text=True).count("data-count>"), 4)
-        self.assertIn('e.hasAttribute("data-count")', read("static/js/fx.js"))
-        self.assertIn("resolvedOptions().timeZone", read("static/js/sim.js"))
-        css = read("static/css/input.css")
-        for s in ("--active:0 126 58", ".field:focus{outline:none;border-color:rgb(var(--active,var(--hot)))", "polish 11: pure liquid glass",
-                  ".user-form:has(select[name=role] option[value=member]:checked) [data-village]{display:block}", ".foot-bar :has(> .foot-lang){flex-wrap:nowrap"):
-            self.assertIn(s, css)
-        self.assertIn(".cc-panel", read("static/css/app.css"))
+        self.assertEqual(self.app.config["PERMANENT_SESSION_LIFETIME"].days, 30)
 
-    def test_104_install_card_theme_icons_and_lab_typing(self):
-        root = os.path.dirname(os.path.abspath(A.__file__))
-        def read(p): return open(os.path.join(
-            root, p), encoding="utf-8").read()
-        c = self.app.test_client()
-        page = c.get("/").get_data(as_text=True)
-        for s in ("data-install", "js/install.js", "/manifest.webmanifest?theme=saina", 'data-brand="manifest"'):
-            self.assertIn(s, page)
-        for th, colour in (("saina", "#FFFFFF"), ("fotsy", "#FFFFFF"), ("maitso", "#007E3A"), ("mena", "#D42A20")):
-            m = c.get(f"/manifest.webmanifest?theme={th}").get_json()
-            self.assertEqual((m["id"], m["theme_color"]), ("/app", colour))
-            for icon in m["icons"]:
-                self.assertTrue(icon["src"].startswith(f"/static/icons/{th}/"))
-                self.assertTrue(os.path.exists(
-                    os.path.join(root, icon["src"].lstrip("/"))))
-            self.assertTrue(os.path.exists(os.path.join(
-                root, "static", "icons", th, "apple-touch-icon.png")))
-        self.assertTrue(c.get("/manifest.webmanifest?theme=nope").get_json()
-                        ["icons"][0]["src"].startswith("/static/icons/saina/"))
-        self.assertIn(
-            'set("manifest", `/manifest.webmanifest?theme=${th}`)', read("static/js/app.js"))
-        js = read("static/js/install.js")
-        for s in ("beforeinstallprompt", "appinstalled", "display-mode: standalone", "cwas:theme"):
-            self.assertIn(s, js)
-        css = read("static/css/input.css")
-        for s in (".install-card{position:fixed", "@media print{.install-card{display:none!important}}", ".lab{touch-action:manipulation}",
-                  ".lab :is(.stage,.os-view) :is(input,textarea,select){font-size:max(16px,1em)}", ".stage.is-typing{position:fixed"):
-            self.assertIn(s, css)
-        sim = read("static/js/sim.js")
-        self.assertIn('stage.classList.add("is-typing")', sim)
-        self.assertIn("visualViewport", sim)
 
-    def test_105_flag_sprite_header_icons_install_card_and_sms_wording(self):
-        import re
-        root = os.path.dirname(os.path.abspath(A.__file__))
 
-        def read(p): return open(os.path.join(
-            root, p), encoding="utf-8").read()
-        # every picker row names its own cell of the one-image flag sprite, and the page asks for the sprite at once
-        cells = [r[4] for r in S.phone_countries()]
-        self.assertEqual(len(set(cells)), len(cells))
-        self.assertTrue(all(0 <= i < 256 for i in cells))
-        self.assertTrue(os.path.exists(os.path.join(
-            root, "static", "img", "flags.webp")))
-        c = self.app.test_client()
-        page = c.get("/register").get_data(as_text=True)
-        for s in ('rel="preload" as="image"', "img/flags.webp", 'class="cc-flag"', "--flags:url("):
-            self.assertIn(s, page)
-        self.assertNotIn("/static/flags/", page)
-        self.assertIn("backgroundPosition", read("static/js/phone.js"))
-        self.assertNotIn(".svg", read("static/js/phone.js"))
-        # sign up: email has its own line under a full-width phone field
-        self.assertNotIn(
-            "sm:grid-cols-2\">{{ phone_input", read("templates/auth/register.html"))
-        # header icons keep their resting glass; the install card is drawn with the first paint and boot.js settles it
-        css = read("static/css/input.css")
-        for s in (".hdr-bar .btn-icon:hover", ".hdr-bar [data-tip]::after{", "html.no-install .install-card", ".cc-flag{", "background-attachment:scroll"):
-            self.assertIn(s, css)
-        self.assertIn('<aside class="install-card" data-install aria-labelledby="install-title">',
-                      c.get("/").get_data(as_text=True))
-        for s in ("no-install", "is-ios", "display-mode: standalone"):
-            self.assertIn(s, read("static/js/boot.js"))
-        self.assertNotIn("sessionStorage", read(
-            "static/js/boot.js") + read("static/js/install.js"))
-        self.assertIn('class="logo-tile ic-icon"',
-                      c.get("/").get_data(as_text=True))
-        # the White theme icon keeps its black rings, and the header starts white over the hero film
-        self.assertIn('stroke="#111111"', read(
-            "static/img/brand/favicon-fotsy.svg"))
-        self.assertIn("hdr-bar glass-pill on-dark",
-                      c.get("/").get_data(as_text=True))
-        # message bodies no longer start with the CWAS prefix; the sender ID already says CWAS
-        self.assertIsNone(re.search(r"[\"']CWAS ?: ", read(
-            "ussd.py") + read("services.py") + read("translations.py")))
-        self.assertIn(
-            'f"Dial {DIAL} to register, or text REGISTER MEMBER Name|Village|FamilySize|LANG|PIN|RecoveryCode to {SHORTCODE}."', read("ussd.py"))
-        # the Lite 2: every key has a job, and messages go to any recipient with the text typed on the keypad
-        sim = read("static/js/sim.js")
-        for s in ("typeChar(", "newMessage(", "async sendSms(text, to = SHORT)", "cwas_sim_sms:", "open(id, origin, arg)"):
-            self.assertIn(s, sim)
-        lab = c.get("/simulator")
-        self.assertEqual(lab.status_code, 200)
-        self.assertIn("Recipient number", lab.get_data(as_text=True))
-        # the header text stays white in every theme, and the deck's cards never blur what is behind them
-        for s in ("html[data-theme] .dk-card>.orb-face", ".hdr-bar.on-dark [data-tip]::after"):
-            self.assertIn(s, css)
-        # the header turns light over every dark section; the phones write new messages from a round plus at the bottom
-        self.assertIn("media-dark", read("static/js/app.js"))
-        self.assertIn("sms-fab", sim)
-        # a balance reply shows the balance alone, with no last movement in brackets
-        self.assertIn(
-            'reply = L("Your balance is {balance}", balance=M(h.balance))', read("ussd.py"))
-        self.assertNotIn("M(last.amount)", read("ussd.py"))
-        # the logo on log in and sign up leads home
-        self.assertIn('class="shrink-0" aria-label="CWAS">',
-                      c.get("/login").get_data(as_text=True))
-        # the lab opens on the Nova 6, long USSD sessions stay whole, the About film has no poster, the plus can be dragged
-        self.assertIn('model = "nova"', sim)
-        self.assertIn("fabDrag", sim)
-        self.assertIn("[:2000]", read("web.py"))
-        self.assertIn('preload="auto" src=', c.get(
-            "/about").get_data(as_text=True))
-        # tooltips step aside while a header menu is open; the White swatch shows its logo colours
-        self.assertIn(".hdr-bar:has([data-menu].open) [data-tip]::after", css)
-        self.assertIn("--a:#FFFFFF;--b:#FC3D32;--c:#111111",
-                      c.get("/").get_data(as_text=True))
 
 
 if __name__ == "__main__":

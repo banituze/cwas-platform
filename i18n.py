@@ -42,8 +42,6 @@ def tt(key, lang, **params):
     if lang in _IDX:
         entry = TR.get(key)
         if entry is None:
-            # Line breaks and indentation inside Jinja t('...') calls are layout,
-            # not part of the English source string used in translations.py.
             entry = _NORMALIZED.get(" ".join(key.split()))
         if entry is not None:
             text = entry[_IDX[lang]]
