@@ -1,5 +1,5 @@
 """Demo people and history so every screen, report and forecast has something to show.
-Runs only when SEED_DEMO=1 (the default outside production). Names below are invented."""
+Runs only when CWAS_ENV=sandbox and SEED_DEMO=1. Names below are invented."""
 import random
 from datetime import timedelta
 

@@ -16,7 +16,17 @@
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || "Indian/Antananarivo", /* the visitor's own time zone, no location asked */ locale = () => ({ mg: "mg-MG", fr: "fr-FR", en: "en-GB" }[document.documentElement.lang] || "en-GB");
   const clock = () => new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: TZ }).format(new Date());
-  const dateLong = () => new Intl.DateTimeFormat(locale(), { weekday: "long", day: "numeric", month: "long", timeZone: TZ }).format(new Date());
+  const dateLong = () => {
+    const now = new Date();
+    if (document.documentElement.lang === "mg" && !Intl.DateTimeFormat.supportedLocalesOf(["mg-MG"]).length) {
+      const parts = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "numeric", timeZone: TZ }).formatToParts(now);
+      const part = key => parts.find(p => p.type === key).value;
+      const weekdays = { Sun: "Alahady", Mon: "Alatsinainy", Tue: "Talata", Wed: "Alarobia", Thu: "Alakamisy", Fri: "Zoma", Sat: "Asabotsy" };
+      const months = ["Janoary", "Febroary", "Martsa", "Aprily", "Mey", "Jona", "Jolay", "Aogositra", "Septambra", "Oktobra", "Novambra", "Desambra"];
+      return `${weekdays[part("weekday")]} ${part("day")} ${months[Number(part("month")) - 1]}`;
+    }
+    return new Intl.DateTimeFormat(locale(), { weekday: "long", day: "numeric", month: "long", timeZone: TZ }).format(now);
+  };
   const LETTERS = { 2: "ABC", 3: "DEF", 4: "GHI", 5: "JKL", 6: "MNO", 7: "PQRS", 8: "TUV", 9: "WXYZ", 0: "+" };
   const SHORT = "7380";   // the CWAS SMS shortcode
   /* a number as typed on a handset, in the lab's +261 form: 034 00 000 01 and 261340000001 both become +261340000001 */
@@ -192,7 +202,7 @@
         <div class="os-home" data-home></div><div class="dock" data-dock></div><button class="home-bar" data-bar aria-label="${esc(LB.home)}"></button>
         <div class="os-lock" data-lock><div class="time" data-lt>${clock()}</div><div class="date">${esc(dateLong())}</div><div class="hint">${esc(LB.lock)}</div></div><div class="banner" data-banner></div></div><div class="glare"></div>`;
       this.$ = s => $(s, screen); this.os = this.$(".os");
-      this.tick = setInterval(() => { this.$("[data-clk]").textContent = clock(); this.$("[data-lt]").textContent = clock(); this.$("[data-wt]").textContent = clock(); }, 10000); this.timers.push(this.tick);
+      this.tick = setInterval(() => { this.$("[data-clk]").textContent = clock(); this.$("[data-lt]").textContent = clock(); this.$("[data-wt]").textContent = clock(); this.refreshLocale(); }, 10000); this.timers.push(this.tick);
       const home = this.$("[data-home]");
       home.appendChild(h("div", "os-widget", `<b data-wt>${clock()}</b><span>${esc(dateLong())}</span>`));
       ["phone", "messages", "contacts", "cwas"].forEach(id => this.$("[data-dock]").appendChild(this.appBtn(id)));
@@ -203,6 +213,33 @@
     }
     appBtn(id) { const b = h("button", "app", icon(id) + `<span>${esc(LB[id] || id)}</span>`); b.type = "button"; b.dataset.app = id; if (id === "messages") { const dot = h("span"); dot.dataset.dot = ""; dot.style.cssText = "position:absolute;top:-4px;right:6px;min-width:18px;height:18px;border-radius:9px;background:#ef4444;color:#fff;font:700 11px/18px system-ui;text-align:center;display:none;padding:0 4px"; b.style.position = "relative"; b.firstChild.style.position = "relative"; b.appendChild(dot); } b.addEventListener("click", () => this.open(id, b)); return b; }
     destroy() { this.phone.subs.delete(this.onPhone); this.timers.forEach(clearInterval); this.stack.forEach(v => v._end && v._end()); }
+    refreshLocale() {
+      const date = dateLong();
+      this.$(".os-lock .date").textContent = date;
+      this.$(".os-widget span").textContent = date;
+      this.$(".os-lock .hint").textContent = LB.lock;
+      this.$("[data-bar]").setAttribute("aria-label", LB.home);
+      $$("[data-dock] [data-app]", this.screen).forEach(b => { if (b.children[1]) b.children[1].textContent = LB[b.dataset.app] || b.dataset.app; });
+      const titles = { phone: "phone", cwas: "phone", messages: "messages", thread: "messages", compose: "newMsg", contacts: "contacts" };
+      this.stack.forEach(v => {
+        const key = titles[v.dataset.simApp];
+        const title = $(".app-head > span", v);
+        if (title && key) title.textContent = LB[key];
+        const back = $(".app-head .bk", v);
+        if (back) back.setAttribute("aria-label", LB.back);
+        const input = $(".compose input", v);
+        if (input) { input.placeholder = LB.typeMsg; input.setAttribute("aria-label", LB.typeMsg); }
+        const send = $(".compose button", v);
+        if (send) send.setAttribute("aria-label", LB.send);
+      });
+      const sheet = this.$(".ussd-card");
+      if (sheet) {
+        const input = $("input", sheet), ok = $("[data-ok]", sheet), cancel = $("[data-x]", sheet);
+        if (input) input.setAttribute("aria-label", LB.send);
+        if (ok) ok.textContent = input ? LB.send : LB.ok;
+        if (cancel) cancel.textContent = LB.cancel;
+      }
+    }
     setBadge() { const d = this.$("[data-dot]"); if (d) { d.textContent = this.phone.unread; d.style.display = this.phone.unread ? "block" : "none"; } }
     unlock() { if (!this.locked) return; this.locked = false; this.$("[data-lock]").classList.add("gone"); this.$(".os").classList.remove("locked"); A.play("connect"); }
     wake() { this.on = true; this.screen.classList.remove("off"); this.locked = true; this.$(".os").classList.add("locked"); this.$("[data-lock]").classList.remove("gone"); A.play("poweron"); }
@@ -232,7 +269,7 @@
     }
     open(id, origin, arg) {
       if (this.locked) return;
-      const v = this.apps[id].call(this, arg); v.classList.add("away");
+      const v = this.apps[id].call(this, arg); v.dataset.simApp = id; v.classList.add("away");
       if (origin) { const r = origin.getBoundingClientRect(), s = this.screen.getBoundingClientRect(); v.style.setProperty("--ox", (r.left + r.width / 2 - s.left) + "px"); v.style.setProperty("--oy", (r.top + r.height / 2 - s.top) + "px"); }
       this.os.appendChild(v); requestAnimationFrame(() => requestAnimationFrame(() => v.classList.remove("away"))); this.stack.push(v); this.os.classList.add("in-app"); A.play("tap"); if (id === "messages" || id === "thread") { this.phone.markRead(); this.setBadge(); }
     }
@@ -639,6 +676,11 @@
         if (phone && phone.active) phone.cancel();
         ui.lock(); ui.unlock();
       }
+      previewPlan = null;
+      phoneIn.value = init.accountPhone || "";
+      if (phone) { phone.destroy(); phone = null; }
+      mount();
+      if (model !== "lite") ui.unlock();
       if (completed) C.toast(LB.tourDone, "ok");
     }));
 
@@ -646,7 +688,7 @@
       init = readInit();
       LB = init.labels;
       if (previewPlan) { previewPlan = null; phoneIn.value = init.accountPhone || ""; if (phone) { phone.destroy(); phone = null; } mount(); }
-      else if (ui && ui.render) ui.render();
+      else if (ui) { if (ui.render) ui.render(); if (ui.refreshLocale) ui.refreshLocale(); }
     });
     mount();
     if (model !== "lite") setTimeout(() => { if (ui.wake) ui.on = true; }, 0);

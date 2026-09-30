@@ -7371,6 +7371,7 @@ html[data-theme="saina"] .p-body::before {
 }
 
 :is(.lab, [data-phones]) .ussd-card input {
+  font-size: 15px;
   font-weight: 400;
   border-radius: 0;
   box-shadow: none;
