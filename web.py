@@ -274,13 +274,19 @@ def register_routes(app):
 
     @app.post("/logout")
     def logout():
+        language = None
         if current_user.is_authenticated:
+            language = current_user.language
             S.audit("auth.logout", "user", current_user.id)
             db.session.commit()
         logout_user()
         session.clear()
         say("You are logged out.")
-        return redirect(url_for("index"))
+        resp = redirect(url_for("index"))
+        if language in LANGS:
+            resp.set_cookie("cwas_lang", language, max_age=31536000,
+                            samesite="Lax", secure=current_app.config["IS_PROD"])
+        return resp
 
     @app.route("/register", methods=["GET", "POST"])
     @limiter.limit("10 per hour", methods=["POST"])

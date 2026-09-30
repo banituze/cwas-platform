@@ -787,6 +787,21 @@ class Platform(unittest.TestCase):
         self.assertIn("Tongasoa eto amin\\u0027ny CWAS/Welcome to CWAS/Bienvenue sur CWAS",
                       # the phones show the real welcome
                       c.get("/").get_data(as_text=True))
+        with self.app.app_context():
+            u = User.query.filter_by(phone="+261340000106").first()
+            uid, previous_language = u.id, u.language
+            u.language = "fr"
+            db.session.commit()
+        try:
+            self.assertIn('lang="fr"', cc.get("/app").get_data(as_text=True))
+            response = post(cc, "/logout")
+            self.assertEqual(response.status_code, 302)
+            self.assertIn("cwas_lang=fr", response.headers.get("Set-Cookie", ""))
+            self.assertIn('lang="fr"', cc.get("/").get_data(as_text=True))
+        finally:
+            with self.app.app_context():
+                db.session.get(User, uid).language = previous_language
+                db.session.commit()
 
     # ── legal, consent, account deletion ──
     def test_60_legal_pages_exist_and_registration_needs_consent(self):

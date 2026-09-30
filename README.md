@@ -49,27 +49,19 @@ python3 app.py
 
 On Windows use `python app.py`. Keep this terminal open; the server runs until you press Ctrl+C.
 
-**6. Open http://localhost:5000.** With no `DATABASE_URL`, CWAS uses SQLite in `instance/cwas.db`. On first start it creates an administrator if none exists and sample water points if none exist. Set `ADMIN_EMAIL` and a strong `ADMIN_PASSWORD` **before the first start**; the new administrator must change the password on first sign-in. Ordinary local and production starts do not create demo households.
+**6. Open http://localhost:5000.** On first start CWAS creates its SQLite database, an administrator and sample water points. Ordinary local and production runs do not seed demo accounts.
 
-**7. Sign in** using your administrator account or an account you registered. The demo household and coordinator accounts exist only after demo seeding in a separate sandbox. Their test credentials are defined in `seed_demo.py`, not in the live login screen.
+**7. Sign in** with your administrator credentials or an account you registered. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` before the first start; a new administrator must change the password at first sign-in.
 
-**8. Try the phone channels.** Open http://localhost:5000/simulator. The three handsets and visual guided runs are available without signing in when `SIMULATOR_PUBLIC=1`. For live account USSD/SMS requests, sign in first; the simulator uses only your own registered phone number, and USSD asks for a PIN before sensitive actions. After a guided run finishes, its temporary number is cleared and the handset returns to its home screen. Visitors attempting a live call are prompted to sign in.
+**8. Try the phone channels.** Open http://localhost:5000/simulator and choose a phone. Guided runs are visual-only in an ordinary deployment. Sign in to access live USSD and SMS requests for your own account.
 
-To test transaction-enabled guided runs locally, **stop the main server** and use an isolated SQLite database, not your real PostgreSQL database:
-
-```bash
-CWAS_ENV=sandbox SEED_DEMO=1 CWAS_INSTANCE=instance-sandbox DATABASE_URL= PAYMENT_MODE=simulation python3 app.py
-```
-
-This creates sample sandbox accounts, uses predefined *test-only* PINs, and keeps simulated transactions away from real data. With the default `SMS_ENABLED=0`, outbound SMS is recorded instead of sent. `CWAS_INSTANCE` selects the local instance folder; it does **not** override a nonempty `DATABASE_URL`, which is why the command explicitly clears it.
-
-**9. Run the tests** (optional). They use a temporary database:
+**9. Run the tests** (optional). They use a temporary database.
 
 ```bash
-python3 -m unittest discover -s tests -v
+python3 -m unittest tests.test_platform
 ```
 
-**Start again with a clean local database:** stop the server, remove only the relevant local instance folder (`instance` or `instance-sandbox`), and restart. Never remove a production database.
+**Start again from a clean database:** stop the server, delete the `instance` folder, start it again.
 
 **If something goes wrong:**
 
@@ -90,9 +82,9 @@ python3 -m unittest discover -s tests -v
 * **Administrator console**: users and roles, settings (prices, subsidies, **enrollment codes for USSD**), audit log with chain verification, backup and restore, channel logs.
 * **Registration** asks the same questions on the web, by USSD and when a coordinator registers a household: household size, needs (tick boxes), distance to water and the water point used most. Self-reported needs count for priority at once; the subsidy waits for a coordinator's check.
 * **Pilot news**: an email-only "Follow the pilot" list in the footer, with a one-click leave link and an export in Admin > overview.
-* **Themes**: Default (Flag), White, Green and Red. Default uses black phone and receipt-printer shells; the other themes keep their own cover colours. The handsets, printer and interface respond to theme changes.
-* **Demo phones** on the homepage and `/access` are the device lab's own handsets (`static/js/sim.js`), using example screens rendered by the USSD engine (`ussd.demo_script`). These public demonstrations are silent and do not submit account transactions.
-* **Device lab** (`/simulator`): three Winebald handsets (Lite 2 keypad phone, Nova 6, Max 9 Pro) with front and back, physical buttons, lock and home screens, Phone, Messages, Contacts and CWAS apps, SMS banners, guided runs (visual-only on the main deployment; transaction-enabled only in a separate sandbox), and a network console for authenticated account requests. Dates and phone app names update immediately when the language changes. Guided runs use the selected language and reset the temporary phone number when finished. Login returns the user to `/simulator`.
+* **Themes**: Flag, the default, puts the three flag colours together: a white page on a light flag field, deep-green text, green buttons and a red call to action. White, Green and Red each dominate their theme (page, buttons, logo tile, favicon, app icons, phone and printer covers). Default uses black phone and printer shells. Every glass surface uses one liquid-glass recipe.
+* **Demo phones** on the homepage and `/access` are the device lab's own handsets (`static/js/sim.js`), playing example screens rendered by the USSD engine (`ussd.demo_script`). They are silent and do not submit transactions.
+* **Device lab** (`/simulator`): three Winebald handsets (Lite 2 keypad phone, Nova 6, Max 9 Pro) with front and back, physical buttons, lock and home screens, and the Phone, Messages, Contacts and CWAS apps in the dock (the CWAS app opens the dialer with the service code ready), incoming SMS banners, guided runs and a **network console** for authenticated account requests. Phone labels update when the language changes; guided runs return the device to its home screen.
 * **USSD and SMS**: Service code `*384*9411#`, shortcode `7380`. 
 
 ## Phones without data
@@ -109,16 +101,12 @@ Everything is optional. Copy `.env.example` to `.env` for local use, or set vari
 | `SITE_URL` | Public address, for example `https://cwas.winebald.tech`. Used for canonical links, the sitemap and link previews. Without it, the address of each request is used. |
 | `SECURITY_CONTACT` | Email or URL published in `/.well-known/security.txt` for vulnerability reports. Defaults to `ADMIN_EMAIL`. |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | First administrator, used only when none exists. Password change is forced at first sign-in. |
-| `SIMULATOR_PUBLIC` | Show the phone interface to visitors; live simulator APIs always require sign-in and only allow the signed-in phone number. Set `0` to hide the page from visitors. |
-| `CWAS_ENV=sandbox`, `SEED_DEMO=1` | Enable guided runs with demo PINs only in a separately deployed sandbox with its own database and no real accounts. Never enable demo seeding on the production database. |
-
+| `SEED_DEMO`, `SIMULATOR_PUBLIC` | Visitors can view the devices; live account requests require sign-in. Transaction-enabled demo runs require `CWAS_ENV=sandbox` and `SEED_DEMO=1` in a separate database. |
 | `SMS_ENABLED`, `AT_USERNAME`, `AT_API_KEY`, `AT_SENDER_ID`, `AT_USSD_CODE`, `AT_SHORTCODE` | Africa's Talking. With `SMS_ENABLED=0` SMS is recorded as simulated. |
 | `AT_WEBHOOK_TOKEN` | Shared token for the telco callbacks. Set it before going live. |
 | `PAYMENT_MODE` | `simulation` posts deposits at once (default locally). `live` keeps them pending until the provider or a coordinator confirms (default in production, so money can never be minted by accident). |
 | `PAYMENT_WEBHOOK_SECRET` | HMAC-SHA256 secret for `/webhooks/payments/<orange|airtel>`. Without it no deposit is confirmed by webhook. |
 | `SMTP_*` | Optional email for password resets. SMS is used when the account has a phone. |
-
-For the main Railway deployment, keep `CWAS_ENV=production` and `SEED_DEMO=0`. `SIMULATOR_PUBLIC=1` leaves the visual devices open to visitors, but all live simulator APIs require a signed-in account and match its phone number. The existing USSD engine still checks the user's PIN for sensitive actions. Visual guided walkthroughs remain available in production without creating transactions. For transaction-enabled guided runs, deploy a separate `CWAS_ENV=sandbox`, `SEED_DEMO=1`, `PAYMENT_MODE=simulation` instance with its **own database and credentials**; do not reuse the live `DATABASE_URL`. If older deployments already seeded demo accounts in the production database, review and deactivate those accounts separately; these settings do not delete existing users.
 
 The coordinator enrollment code lives in **Admin > Settings**. Administrators are created on the web, in **Admin > Users**.
 
