@@ -49,16 +49,16 @@ python3 app.py
 
 On Windows use `python app.py`. Keep this terminal open; the server runs until you press Ctrl+C.
 
-**6. Open http://localhost:5000.** On the first start CWAS creates the SQLite database in `instance/cwas.db`, seeds a super administrator and loads demo data, so every screen has something to show. No settings are needed for a local run.
+**6. Open http://localhost:5000.** On first start CWAS creates its SQLite database, a first administrator and sample water points. Demo users are not seeded on the main deployment. For local guided-run testing, use a separate database: `CWAS_ENV=sandbox SEED_DEMO=1 CWAS_INSTANCE=instance-sandbox python3 app.py`.
 
-**7. Sign in** with one of these accounts:
+**7. Sign in** with an account you created. Only when running the separate demo sandbox, these sample accounts are available:
 
 | Who | Sign in | Notes |
 |---|---|---|
 | Demo coordinator | `coordinator@cwas.demo` or `+261340000001` / `Demo Water @2026` | USSD PIN `2468` |
 | Demo households | `+261340000101` to `+261340000108` / `Demo Water @2026` | USSD PIN `1234` |
 
-**8. Try the phone channels.** Open http://localhost:5000/simulator, pick a demo phone, dial `*384*9411#` or text `BALANCE` to `7380`. The simulator drives the real USSD and SMS code; messages are recorded instead of sent until Africa's Talking keys are set.
+**8. Try the phone channels.** Open http://localhost:5000/simulator. Signed-in users can use their own phone number; the USSD engine asks for a PIN before sensitive actions. In the separate sandbox, guided runs use test accounts. Messages are recorded instead of sent until Africa's Talking keys are set.
 
 **9. Run the tests** (optional). They use a throwaway database and take about 20 seconds.
 
@@ -89,7 +89,7 @@ python3 -m unittest tests.test_platform
 * **Pilot news**: an email-only "Follow the pilot" list in the footer, with a one-click leave link and an export in Admin > overview.
 * **Themes**: Flag, the default, puts the three flag colours together: a white page on a light flag field, deep-green text, green buttons and a red call to action. White, Green and Red each dominate their theme (page, buttons, logo tile, favicon, app icons, phone and printer covers). Every glass surface uses one liquid-glass recipe.
 * **Demo phones** on the homepage and `/access` are the device lab's own handsets (`static/js/sim.js`), playing screens rendered by the USSD engine (`ussd.demo_script`), so they match a real call exactly.
-* **Device lab** (`/simulator`): three Winebald handsets (Lite 2 keypad phone, Nova 6, Max 9 Pro) with front and back, physical buttons, lock screen, and the Phone, Messages, Contacts and CWAS apps in the dock (the CWAS app opens the dialer with the service code ready), synthesised sounds, incoming SMS banners, guided runs and a live **network console** showing each request to `/api/ussd`.
+* **Device lab** (`/simulator`): three Winebald handsets (Lite 2 keypad phone, Nova 6, Max 9 Pro) with front and back, physical buttons, lock screen, and the Phone, Messages, Contacts and CWAS apps in the dock (the CWAS app opens the dialer with the service code ready), incoming SMS banners, guided walkthroughs (visual-only in production and transaction-enabled only in a separate sandbox), and a live **network console** for account requests.
 * **USSD and SMS**: Service code `*384*9411#`, shortcode `7380`. 
 
 ## Phones without data
@@ -106,7 +106,10 @@ Everything is optional. Copy `.env.example` to `.env` for local use, or set vari
 | `SITE_URL` | Public address, for example `https://cwas.winebald.tech. Used for canonical links, the sitemap and link previews. Without it, the address of each request is used. |
 | `SECURITY_CONTACT` | Email or URL published in `/.well-known/security.txt` for vulnerability reports. Defaults to `ADMIN_EMAIL`. |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | First administrator, used only when none exists. Password change is forced at first sign-in. |
-| `SEED_DEMO`, `SIMULATOR_PUBLIC` | Override the demo-data and device-lab defaults. |
+| `SIMULATOR_PUBLIC` | Show the phone interface to visitors; live simulator APIs always require sign-in and only allow the signed-in phone number. Set `0` to hide the page from visitors. |
+| `CWAS_ENV=sandbox`, `SEED_DEMO=1` | Enable guided runs with demo PINs only in a separately deployed sandbox with its own database and no real accounts. Never enable demo seeding on the production database. |
+
+For the main Railway deployment, keep `CWAS_ENV=production` and `SEED_DEMO=0`. `SIMULATOR_PUBLIC=1` leaves the visual devices open to visitors, but all live simulator APIs require a signed-in account and match its phone number. The existing USSD engine still checks the user's PIN for sensitive actions. Visual guided walkthroughs remain available in production without creating transactions. For transaction-enabled guided runs, deploy a separate `CWAS_ENV=sandbox`, `SEED_DEMO=1`, `PAYMENT_MODE=simulation` instance with its **own database and credentials**; do not reuse the live `DATABASE_URL`. If older deployments already seeded demo accounts in the production database, review and deactivate those accounts separately; these settings do not delete existing users.
 | `SMS_ENABLED`, `AT_USERNAME`, `AT_API_KEY`, `AT_SENDER_ID`, `AT_USSD_CODE`, `AT_SHORTCODE` | Africa's Talking. With `SMS_ENABLED=0` SMS is recorded as simulated. |
 | `AT_WEBHOOK_TOKEN` | Shared token for the telco callbacks. Set it before going live. |
 | `PAYMENT_MODE` | `simulation` posts deposits at once (default locally). `live` keeps them pending until the provider or a coordinator confirms (default in production, so money can never be minted by accident). |

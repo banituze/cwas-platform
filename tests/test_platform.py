@@ -8,7 +8,7 @@ import unittest
 
 _TMP = tempfile.mkdtemp(prefix="cwas-test-")
 os.environ.update(CWAS_INSTANCE=_TMP, CWAS_NO_SWEEPER="1", CWAS_NO_LIMITS="1",
-                  SEED_DEMO="1", ADMIN_EMAIL="info@winebald.tech", ADMIN_PASSWORD="Winebald @123")
+                  CWAS_ENV="sandbox", SEED_DEMO="1", ADMIN_EMAIL="info@winebald.tech", ADMIN_PASSWORD="Winebald @123")
 os.environ.pop("DATABASE_URL", None)
 
 import app as A  # noqa: E402
@@ -558,6 +558,28 @@ class Platform(unittest.TestCase):
 
     def test_51_simulator_api(self):
         c = A.app.test_client()
+        original_sandbox, original_demo = self.app.config["SIMULATOR_SANDBOX"], self.app.config["DEMO_DATA"]
+        try:
+            self.app.config.update(SIMULATOR_SANDBOX=False, DEMO_DATA=False)
+            payload = {"phone": "+261340000101", "session": "abc", "text": ""}
+            self.assertEqual(c.post("/simulator/api/ussd", json=payload, headers={"X-CSRFToken": token(c)}).status_code, 403)
+            self.assertEqual(c.post("/simulator/api/sms", json={"phone": payload["phone"], "text": "BAL"}, headers={"X-CSRFToken": token(c)}).status_code, 403)
+            self.assertEqual(c.get("/simulator/api/inbox?phone=%2B261340000101&after=0").status_code, 403)
+            self.assertEqual(c.get("/simulator/api/tour/book").status_code, 404)
+            self.assertNotIn('data-pick="+261340000101"', c.get("/simulator").get_data(as_text=True))
+            self.assertIn("next=/simulator", c.get("/simulator").get_data(as_text=True))
+            return_client = A.app.test_client()
+            r = post(return_client, "/login", {"identifier": "+261340000101", "password": DEMO_PW, "next": "/simulator"})
+            self.assertEqual(r.headers["Location"], "/simulator")
+            self.assertEqual(return_client.get("/simulator").status_code, 200)
+            self.assertIn('href="/simulator"', return_client.get("/app").get_data(as_text=True))
+            signed = login("+261340000101", DEMO_PW)
+            self.assertEqual(signed.post("/simulator/api/ussd", json={"phone": "+261340000102", "session": "a", "text": ""}, headers={"X-CSRFToken": token(signed)}).status_code, 403)
+            self.assertEqual(signed.get("/simulator/api/inbox?phone=%2B261340000102&after=0").status_code, 403)
+            self.assertEqual(signed.post("/simulator/api/sms", json={"phone": "+261340000102", "text": "BAL"}, headers={"X-CSRFToken": token(signed)}).status_code, 403)
+            self.assertEqual(signed.post("/simulator/api/ussd", json=payload, headers={"X-CSRFToken": token(signed)}).status_code, 200)
+        finally:
+            self.app.config.update(SIMULATOR_SANDBOX=original_sandbox, DEMO_DATA=original_demo)
         r = c.post("/simulator/api/ussd", json={"phone": "+261340000101",
                    "session": "abc", "text": ""}, headers={"X-CSRFToken": token(c)})
         self.assertEqual(r.status_code, 200)

@@ -1,5 +1,6 @@
 {% from "partials/macros.html" import icon, flag, logo, logo_tile with context %}
 {% set in_app = current_user.is_authenticated and request.path.startswith(('/app','/coord','/admin','/account')) %}
+{% set login_href = url_for('login', next=url_for('simulator')) if request.endpoint == 'simulator' else url_for('login') %}
 <header class="hdr">
   {# pages that open on a hero film (home and about) draw the header light-on-dark from the first paint, so it never
   flashes
@@ -107,7 +108,7 @@
       {% if not in_app %}<a class="btn btn-primary hidden sm:inline-flex" href="{{ home_url }}">{{ t('Open app')
         }}</a>{% endif %}
       {% else %}
-      <a class="btn btn-ghost hidden sm:inline-flex" href="{{ url_for('login') }}">{{ t('Log in') }}</a>
+      <a class="btn btn-ghost hidden sm:inline-flex" href="{{ login_href }}">{{ t('Log in') }}</a>
       <a class="btn btn-primary hidden sm:inline-flex" href="{{ url_for('register') }}">{{ t('Get started') }}</a>
       {% endif %}
       {% if not in_app %}<button type="button" class="btn-icon lg:hidden" data-sheet-open
@@ -136,7 +137,7 @@
     </div>{% endfor %}
   </nav>
   <div class="mt-6 flex gap-2">{% if current_user.is_authenticated %}<a class="btn btn-primary" href="{{ home_url }}">{{
-      t('Open app') }}</a>{% else %}<a class="btn btn-ghost" href="{{ url_for('login') }}">{{ t('Log in') }}</a><a
+      t('Open app') }}</a>{% else %}<a class="btn btn-ghost" href="{{ login_href }}">{{ t('Log in') }}</a><a
       class="btn btn-primary" href="{{ url_for('register') }}">{{ t('Get started') }}</a>{% endif %}</div>
 </div>
 {% endif %}

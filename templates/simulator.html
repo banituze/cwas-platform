@@ -13,8 +13,14 @@
     <a class="chip chip-link" href="tel:{{ USSD_CODE|replace('#', '%23') }}"
       aria-label="{{ t('Dial') }} {{ USSD_CODE }}">{{ icon('phone') }}<b>{{ USSD_CODE }}</b></a>
   </header>
+  {% if not sandbox and not own %}
+  <div class="glass-strong mb-5 flex flex-wrap items-center justify-between gap-3 p-4">
+    <p class="text-sm font-semibold">{{ t('Sign in to access your account in the simulator.') if not authenticated else t('A phone number is required to use the simulator.') }}</p>
+    {% if not authenticated %}<a class="btn btn-primary btn-sm" href="{{ url_for('login', next=url_for('simulator')) }}">{{ t('Log in') }}</a>{% endif %}
+  </div>
+  {% endif %}
   <div class="lab" data-lab data-dial="{{ USSD_CODE }}" data-own="{{ own }}"
-    data-default="{{ own or (demo[0].phone if demo else '+261340000999') }}">
+    data-default="{{ own or (demo[0].phone if demo else '') }}">
     <aside class="space-y-4">
       <section class="glass-strong p-4">
         <h2 class="mb-3 text-sm font-bold uppercase tracking-wide text-mute">{{ t('Choose a device') }}</h2>
@@ -30,21 +36,22 @@
       </section>
       <section class="glass-strong p-4"><label class="label" for="sim-phone">{{ t('Phone number') }}</label>
         <input class="field font-mono" id="sim-phone" data-phone
-          value="{{ own or (demo[0].phone if demo else '+261340000999') }}" inputmode="tel" autocomplete="off">
-        {% if demo %}<p class="hint mt-3">{{ t('Demo households (PIN 1234) and coordinator (PIN 2468):') }}</p>
+          value="{{ own or (demo[0].phone if demo else '') }}" inputmode="tel" autocomplete="off" {{ '' if sandbox else 'readonly' }}>
+        {% if demo %}
         <div class="mt-2 flex flex-wrap gap-2">{% for u in demo %}<button type="button" class="pick !py-1.5 !text-xs"
             data-pick="{{ u.phone }}">{{ u.name.split(' ')[0] }}</button>{% endfor %}<button type="button"
             class="pick !py-1.5 !text-xs" data-pick="+261340000001">{{ t('Coordinator') }}</button><button type="button"
             class="pick !py-1.5 !text-xs" data-pick="new">{{ t('New number') }}</button></div>{% endif %}
       </section>
-      {% if demo %}<section class="glass-strong p-4">
+      {% if demo or guides %}<section class="glass-strong p-4">
         <h2 class="mb-3 text-sm font-bold uppercase tracking-wide text-mute">{{ t('Guided runs') }}</h2>
+        {% if guides %}<p class="mb-3 text-xs text-mute">{{ t('Visual walkthrough only. No account changes are made.') }}</p>{% endif %}
         <div class="grid gap-2">{% for key, label, ico in (('register','Register a household','user'),('deposit','Add
           money','wallet'),('book','Book a slot','calendar'),('approve','Approve the queue','check')) %}<button
             type="button" class="btn btn-ghost btn-sm !justify-start" data-tour="{{ key }}">{{ icon(ico) }}{{ t(label)
             }}</button>{% endfor %}</div>
       </section>{% endif %}
-      <section class="glass-strong p-4 text-sm">
+      <section class="glass-strong p-4 text-sm" data-key-guide>
         <h2 class="mb-2 text-sm font-bold uppercase tracking-wide text-mute">{{ t('Keys') }}</h2>
         <ul class="space-y-1.5 text-mute">{% for k, d in (('97','Back'),('00','Main menu'),('99','End session')) %}<li
             class="flex items-center gap-3"><span
@@ -67,14 +74,13 @@
         <h2 class="text-sm font-bold uppercase tracking-wide text-mute">{{ t('Network console') }}</h2><button
           type="button" class="btn btn-ghost btn-sm" data-clear>{{ t('Clear') }}</button>
       </div>
-      <p class="mt-1 text-xs text-mute">{{ t('Each key press is a real request to /api/ussd. SMS goes to
-        /api/sms/inbound.') }}</p>
+      <p class="mt-1 text-xs text-mute">{{ t('Each key press is a real request to /api/ussd. SMS goes to /api/sms/inbound.') if sandbox else t('Live requests appear here. Guided runs do not send requests.') }}</p>
       <ol class="mt-3 flex-1 space-y-2 overflow-y-auto font-mono text-[11px]" data-console></ol>
     </aside>
   </div>
 </div>
 <script type="application/json"
-  id="sim-init">{{ {'labels': LB, 'demo': demo|map(attribute='phone')|list, 'prod': prod}|tojson }}</script>
+  id="sim-init">{{ {'labels': LB, 'demo': demo|map(attribute='phone')|list, 'guides': guides, 'prod': prod, 'sandbox': sandbox, 'authenticated': authenticated, 'accountPhone': own}|tojson }}</script>
 {% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/sim.js') }}" defer></script>{% endblock %}

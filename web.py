@@ -202,13 +202,18 @@ def register_routes(app):
         say(note or ("Welcome, {name}." if first else "Welcome back, {name}."), name=(
             # a closable toast on the next page
             (user.name or "").split() or [""])[0])
+        if user.must_change_password:
+            target = safe_next(nxt)
+            if target and target != url_for("change_password"):
+                session["auth_next"] = target
+            return redirect(url_for("change_password"))
         return redirect(safe_next(nxt) or home_for(user))
 
     @app.route("/login", methods=["GET", "POST"])
     @limiter.limit("10 per minute", methods=["POST"])
     def login():
         if current_user.is_authenticated:
-            return redirect(home_for(current_user))
+            return redirect(safe_next(request.args.get("next")) or home_for(current_user))
         if request.method == "POST":
             ident = S.clean_text(request.form.get("identifier"), 190).lower()
             pw = request.form.get("password", "")
@@ -235,7 +240,7 @@ def register_routes(app):
                     say("This account is not active yet. Ask the administrator to activate it.", "err")
                 else:
                     user.must_change_password = True
-                    return finish_login(user, url_for("change_password"))
+                    return finish_login(user, request.form.get("next"))
             else:
                 check_password_hash(DUMMY_HASH, pw)
                 if user:
@@ -247,7 +252,7 @@ def register_routes(app):
                                 "5 failed sign-ins", actor=user)
                     db.session.commit()
                 say("Wrong email, phone or password.", "err")
-        return render_template("auth/login.html", nxt=safe_next(request.args.get("next")) or "")
+        return render_template("auth/login.html", nxt=safe_next(request.form.get("next") or request.args.get("next")) or "")
 
     @app.route("/login/mfa", methods=["GET", "POST"])
     @limiter.limit("10 per minute", methods=["POST"])
@@ -489,7 +494,7 @@ def register_routes(app):
                 say("Password changed.")
                 if current_user.role == "admin" and not current_user.mfa_enabled:
                     say("Add a second sign-in step under Security to protect this account.")
-                return redirect(home_for(current_user))
+                return redirect(safe_next(session.pop("auth_next", None)) or home_for(current_user))
         return render_template("auth/password.html")
 
     @app.route("/account/security", methods=["GET", "POST"])
@@ -1721,27 +1726,32 @@ def register_routes(app):
         return User.query.filter(User.phone.like("+2613400%"), User.role == "member").order_by(User.id).limit(3).all()
 
     def sim_allowed(phone):
-        if current_app.config["SIMULATOR_PUBLIC"]:
-            return True
-        if not current_user.is_authenticated:
-            return False
-        return current_user.is_staff or S.norm_phone(phone) == current_user.phone
+        if (current_app.config["SIMULATOR_SANDBOX"] and current_app.config["DEMO_DATA"]
+                and (current_app.config["SIMULATOR_PUBLIC"] or current_user.is_authenticated)):
+            return bool(re.fullmatch(r"\+261340000(?:00[1-9]|1\d{2}|9\d{3})", phone))
+        return (current_user.is_authenticated and bool(current_user.phone)
+                and S.norm_phone(phone) == S.norm_phone(current_user.phone))
 
     @app.get("/simulator")
     def simulator():
         if not current_app.config["SIMULATOR_PUBLIC"] and not current_user.is_authenticated:
             return redirect(url_for("login", next=url_for("simulator")))
-        demo = demo_households() if current_app.config["DEMO_DATA"] else []
-        return render_template("simulator.html", own=current_user.phone if current_user.is_authenticated else "", demo=demo, prod=current_app.config["IS_PROD"])
+        sandbox = current_app.config["SIMULATOR_SANDBOX"] and current_app.config["DEMO_DATA"]
+        demo = demo_households() if sandbox else []
+        own = current_user.phone if current_user.is_authenticated else ""
+        return render_template("simulator.html", own=own or "", demo=demo, guides={} if sandbox else U.preview_tours(g.lang), prod=current_app.config["IS_PROD"], sandbox=sandbox, authenticated=current_user.is_authenticated)
 
     @app.get("/simulator/api/tour/<kind>")
     @limiter.limit("30 per minute")
     def sim_tour(kind):
         """A guided run for the device lab, planned against the live data so it can finish every time: a household with a
         free day and the money to book, and the coordinator's approval only when something waits. Only while demo data is on (SEED_DEMO)."""
+        if not (current_app.config["SIMULATOR_SANDBOX"] and current_app.config["DEMO_DATA"]):
+            abort(404)
         if not current_app.config["SIMULATOR_PUBLIC"] and not current_user.is_authenticated:
             abort(403)
-        homes = demo_households() if current_app.config["DEMO_DATA"] else []
+        homes = demo_households()
+        code = {"mg": "1", "en": "2", "fr": "3"}.get(request.args.get("lang"), "2")
         if kind not in ("register", "deposit", "book", "approve") or not homes:
             abort(404)
         if kind == "register":
@@ -1749,16 +1759,17 @@ def register_routes(app):
                           if not User.query.filter_by(phone=p).first()), None)
             if not phone:
                 abort(503)
-            return jsonify(phone=phone, steps=["2", "1", "Winebald", "Ampotaka", "5", "0", "2", "1", "1234", "1234", "246810", "246810"])
+            choice = "1" if S.operational_sources() else "2"
+            return jsonify(phone=phone, steps=[code, "1", "Winebald Banituze", "Ampotaka", "5", "0", "2", choice, "1234", "1234", "246810", "246810"])
         if kind == "deposit":
-            return jsonify(phone=homes[0].phone, steps=["2", "1", "1", "3", "1", "1234"])
+            return jsonify(phone=homes[0].phone, steps=[code, "1", "1", "3", "1", "1234"])
         if kind == "approve":
             coord = User.query.filter(User.phone.like(
                 "+2613400%"), User.role == "coordinator").order_by(User.id).first()
             if not coord:
                 abort(404)
             waiting = Booking.query.filter_by(status="pending").first()
-            return jsonify(phone=coord.phone, steps=["2", "2", "1", "1", "2468"] if waiting else ["2", "1"])
+            return jsonify(phone=coord.phone, steps=[code, "2", "1", "1", "2468"] if waiting else [code, "1"])
         srcs, days = S.operational_sources()[:5], S.booking_days()
         for d_i in range(1, len(days)):  # from tomorrow: some of today's slots may be over
             for u in homes:
@@ -1768,8 +1779,8 @@ def register_routes(app):
                 for s_i, src in enumerate(srcs):
                     opts = S.litre_options(src)
                     if opts and h.balance >= S.price_quote(h, src, opts[0])[0] and S.slot_list(src, days[d_i], only_open=True):
-                        return jsonify(phone=u.phone, steps=["2", "2", str(s_i + 1), str(d_i + 1), "1", "1", "1", "1234"])
-        return jsonify(phone=homes[0].phone, steps=["2", "2", "1", "2", "1", "1", "1", "1234"])
+                        return jsonify(phone=u.phone, steps=[code, "2", str(s_i + 1), str(d_i + 1), "1", "1", "1", "1234"])
+        return jsonify(phone=homes[0].phone, steps=[code, "2", "1", "2", "1", "1", "1", "1234"])
 
     @app.post("/simulator/api/ussd")
     @limiter.limit("90 per minute")
@@ -1778,6 +1789,8 @@ def register_routes(app):
         phone = S.norm_phone(d.get("phone", ""))
         if not phone or not sim_allowed(phone):
             return jsonify(error="phone"), 403
+        if current_app.config["SIMULATOR_SANDBOX"] and current_app.config["DEMO_DATA"]:
+            g.simulator_language = d.get("lang") if d.get("lang") in LANGS else g.lang
         sid = "SIM-" + \
             hashlib.sha256((str(d.get("session", "")) +
                            phone).encode()).hexdigest()[:24]
@@ -1793,9 +1806,10 @@ def register_routes(app):
         phone = S.norm_phone(d.get("phone", ""))
         if not phone or not sim_allowed(phone):
             return jsonify(error="phone"), 403
+        lang = (d.get("lang") if d.get("lang") in LANGS else g.lang) if current_app.config["SIMULATOR_SANDBOX"] and current_app.config["DEMO_DATA"] else None
         before = db.session.query(db.func.coalesce(
             db.func.max(SmsLog.id), 0)).scalar()
-        reply = U.handle_sms(phone, str(d.get("text", ""))[:200])
+        reply = U.handle_sms(phone, str(d.get("text", ""))[:200], lang=lang)
         if reply:
             S.send_sms(phone, reply, live=False)
         db.session.commit()

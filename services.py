@@ -18,7 +18,7 @@ import urllib.request
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from flask import has_request_context, request
+from flask import current_app, g, has_request_context, request
 from sqlalchemy import func
 
 from i18n import tt
@@ -401,7 +401,10 @@ def send_sms_bulk(phones, body, live=True):
 
 def sms_user(user, template, **params):
     if user and user.phone:
-        send_sms(user.phone, tt(template, user.language, **params), user)
+        lang = g.simulator_language if (has_request_context() and request.path.startswith("/simulator/api/")
+                and current_app.config.get("SIMULATOR_SANDBOX") and current_app.config.get("DEMO_DATA")
+                and getattr(g, "simulator_language", None) in ("mg", "fr", "en")) else user.language
+        send_sms(user.phone, tt(template, lang, **params), user)
 
 
 def event(user, template, kind="system", sms=False, **params):

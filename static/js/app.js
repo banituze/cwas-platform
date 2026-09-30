@@ -55,7 +55,7 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
     };
     return {
       on, ensure,
-      play(name, ...a) { if (!on() || !ensure()) return; try { sounds[name](...a); } catch (e) { /* audio is optional */ } },
+      play(name, ...a) { if (document.body.dataset.page === "index" || !on() || !ensure()) return; try { sounds[name](...a); } catch (e) { /* audio is optional */ } },
       set(v) { store.set("cwas_sound", v ? "1" : "0"); },
       unlock() { if (on()) ensure(); },  // browsers start audio only inside a gesture
     };
@@ -288,13 +288,14 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
   /* ── receipt printer (metal thermal printer) ── */
   const initPrinter = p => {
     const paper = $(".paper", p), lcd = $("[data-lcd]", p), d = p.dataset;
+    const play = document.body.dataset.page === "index" ? () => {} : name => Audio.play(name);
     const say = k => { if (lcd) lcd.textContent = d[k] || ""; };
     const set = s => { p.dataset.state = s; say({ idle: "lReady", printing: "lPrint", done: "lTear", torn: "lTorn" }[s]); };
-    const start = () => { if (p.dataset.state === "printing") return; set("idle"); void p.offsetWidth; if (reduce) { set("done"); return; } set("printing"); Audio.play("print"); };
-    paper.addEventListener("animationend", () => { set("done"); Audio.play("success"); });
+    const start = () => { if (p.dataset.state === "printing") return; set("idle"); void p.offsetWidth; if (reduce) { set("done"); return; } set("printing"); play("print"); };
+    paper.addEventListener("animationend", () => { set("done"); play("success"); });
     const scope = p.closest("[data-printer-scope]") || document;
     $$("[data-print-start]", scope).forEach(b => b.addEventListener("click", start));
-    $$("[data-tear]", scope).forEach(b => b.addEventListener("click", () => { if (p.dataset.state === "done") { set("torn"); Audio.play("tear"); } }));
+    $$("[data-tear]", scope).forEach(b => b.addEventListener("click", () => { if (p.dataset.state === "done") { set("torn"); play("tear"); } }));
     $$("[data-window-print]", scope).forEach(b => b.addEventListener("click", () => { set("done"); setTimeout(() => window.print(), 50); }));
     set("idle");
     if (p.hasAttribute("data-autoprint")) {

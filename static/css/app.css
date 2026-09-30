@@ -6358,7 +6358,7 @@ form:has(select[name=home_source] option[value=other]:checked) .other-src {
 
 [data-theme=saina] .dev-max .wb-mark,
 [data-theme=saina] .dev-nova .wb-mark {
-    color: rgba(0, 0, 0, .28)
+    color: rgba(255, 255, 255, .72)
 }
 
 .ltw {
@@ -8863,10 +8863,10 @@ html[data-theme=saina] {
     --bc-panel: transparent;
     --gt-ink: #15291c;
     --wall-ink: #15291c;
-    --phone-body: #fff;
-    --phone-edge: #d9e3dd;
-    --phone-accent: #007e3a;
-    --phone-ink: #15291c;
+    --phone-body: #101313;
+    --phone-edge: #070909;
+    --phone-accent: #e8f3ed;
+    --phone-ink: #f1f4f2;
     --paper: #fff;
     --paper-ink: #15291c;
     --paper-mute: #5e6e64;
@@ -9699,4 +9699,87 @@ html[data-theme=saina] .ps .gd-phone .gd-frame,
 html:not([data-theme]) .ps .gd-phone .gd-frame {
   background: #101313;
   border-color: #070909;
+}
+
+html[data-theme="saina"] {
+  --pb: #14171b;
+  --pb-line: rgba(255, 255, 255, .18);
+  --pc-ink: #f4f7f5;
+  --pc4: #14171b;
+  --pc-edge: #07090c;
+}
+
+html[data-theme="saina"] .p-body {
+  background: linear-gradient(180deg, #33383e, #16191d 42%, #080a0d);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, .22), inset 0 -10px 24px -14px rgba(0, 0, 0, .5), 0 30px 60px -28px rgba(0, 0, 0, .45);
+}
+
+html[data-theme="saina"] .p-body::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .12), transparent);
+}
+
+.lab > aside:first-child > section.glass-strong {
+  box-shadow: inset 0 1px 1px var(--rim-hi);
+}
+.lab .btn-ghost[data-tour],
+.lab .btn-ghost[data-tour]:hover,
+.lab .btn-ghost[data-tour]:active {
+  box-shadow: none;
+}
+.lab > aside:first-child > section.glass-strong[data-key-guide],
+.lab [data-key-guide] .bg-brand {
+  box-shadow: none;
+  filter: none;
+  text-shadow: none;
+}
+
+.lab [data-key-guide],
+.lab [data-key-guide] *,
+.lab .btn-ghost[data-tour],
+.lab .btn-ghost[data-tour]:hover,
+.lab .btn-ghost[data-tour]:active,
+.lab .btn-ghost[data-tour]:focus,
+.lab .btn-ghost[data-tour]:focus-visible {
+  box-shadow: none;
+  filter: none;
+  text-shadow: none;
+}
+.lab .callbtn,
+.lab .callbtn:hover,
+.lab .callbtn:active,
+.lab .callbtn:focus {
+  box-shadow: none;
+  filter: none;
+}
+.lab .dpad {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), 0 4px 8px rgba(0, 0, 0, .3);
+}
+.lab .dpad button:focus-visible,
+.lab .sk:focus-visible,
+.lab .k:focus-visible {
+  box-shadow: none;
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+
+:is(.lab, [data-phones]) .ussd-card input {
+  font-weight: 400;
+  border-radius: 0;
+  box-shadow: none;
+  appearance: none;
+}
+:is(.lab, [data-phones]) .ussd-card input:focus,
+:is(.lab, [data-phones]) .ussd-card input:focus-visible {
+  border-radius: 0;
+  box-shadow: none;
+  outline: none;
+}
+@media (max-width: 639px) {
+  .access-phones {
+    margin-inline: -1rem;
+    padding-inline: 0;
+  }
+  .access-phones .pd-row.is-swipe {
+    margin-inline: 0;
+  }
 }

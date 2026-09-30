@@ -1,4 +1,4 @@
-{% from "partials/macros.html" import icon, flag, logo_tile with context %}{% from "partials/media.html" import photo
+{% from "partials/macros.html" import icon, flag, logo_tile with context %}{% set login_href = url_for('login', next=url_for('simulator')) if request.endpoint == 'simulator' else url_for('login') %}{% from "partials/media.html" import photo
 with context %}
 {# Site footer: the call to action, pilot news and a liquid-glass card over a full-bleed photograph of the south. #}
 <footer class="site-foot media-dark relative isolate mt-16 overflow-hidden text-white">
@@ -15,7 +15,7 @@ with context %}
           icon('home') }}{{ t('Open my dashboard') }}</a>
         {% else %}<a class="btn foot-cta !px-6 !py-3.5 !text-base" href="{{ url_for('register') }}">{{ icon('user') }}{{
           t('Register your household') }}</a>
-        <a class="btn btn-ghost !px-6 !py-3.5 !text-base" href="{{ url_for('login') }}">{{ t('Log in') }}</a>{% endif %}
+        <a class="btn btn-ghost !px-6 !py-3.5 !text-base" href="{{ login_href }}">{{ t('Log in') }}</a>{% endif %}
       </div>
       <p class="mt-10 font-mono text-[11px] font-semibold uppercase tracking-[.22em] text-white/80">{{ t('Follow the
         pilot') }}</p>
@@ -63,7 +63,7 @@ with context %}
           <ul class="foot-links">
             <li><a href="{{ url_for('access') }}#ussd">USSD</a></li>
             <li><a href="{{ url_for('access') }}#sms">SMS</a></li>
-            <li><a href="{{ url_for('login') }}">{{ t('Log in') }}</a></li>
+            <li><a href="{{ login_href }}">{{ t('Log in') }}</a></li>
             <li><a href="{{ url_for('register') }}">{{ t('Get started') }}</a></li>
           </ul>
         </nav>

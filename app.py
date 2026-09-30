@@ -150,10 +150,9 @@ def create_app(test_config=None):
         SESSION_COOKIE_NAME="__Host-cwas" if IS_PROD else "session",
         WTF_CSRF_TIME_LIMIT=None, MAX_CONTENT_LENGTH=40 * 1024 * 1024, JSON_SORT_KEYS=False, IS_PROD=IS_PROD, INSTANCE_DIR=str(instance),
         RATELIMIT_ENABLED=os.environ.get("CWAS_NO_LIMITS") != "1",
-        SIMULATOR_PUBLIC=os.environ.get(
-            "SIMULATOR_PUBLIC", "0" if IS_PROD else "1") == "1",
-        # demo households and guided runs in the device lab
-        DEMO_DATA=os.environ.get("SEED_DEMO", "0" if IS_PROD else "1") == "1",
+        SIMULATOR_PUBLIC=os.environ.get("SIMULATOR_PUBLIC", "1") == "1",
+        SIMULATOR_SANDBOX=os.environ.get("CWAS_ENV") == "sandbox",
+        DEMO_DATA=os.environ.get("CWAS_ENV") == "sandbox" and os.environ.get("SEED_DEMO", "0") == "1",
     )
     if test_config:
         app.config.update(test_config)
@@ -465,7 +464,7 @@ def seed(app):
                 S.set_setting(key, f"AMP-{label}-" +
                               secrets.token_hex(4).upper())
     db.session.commit()
-    if os.environ.get("SEED_DEMO", "0" if IS_PROD else "1") == "1" and not User.query.filter_by(role="coordinator").first():
+    if app.config["DEMO_DATA"] and not User.query.filter_by(role="coordinator").first():
         from seed_demo import seed_demo
         seed_demo()
 

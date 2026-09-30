@@ -10,7 +10,7 @@ including registering, booking, paying, cancelling and reading receipts. SMS ans
       quick answers.', code=USSD_CODE, sms=SMS_CODE) }}</p>
     <a class="btn btn-primary mt-6" href="{{ url_for('simulator') }}">{{ icon('play') }}{{ t('Try the simulator') }}</a>
   </header>
-  <section class="glass-strong overflow-hidden p-4 md:p-8">{% include "partials/phones.html" %}</section>
+  <section class="access-phones glass-strong overflow-hidden p-4 md:p-8">{% include "partials/phones.html" %}</section>
 
   <section id="ussd" class="grid gap-8 lg:grid-cols-2">
     <div class="glass-strong p-7">

@@ -1355,3 +1355,14 @@ _add([
      "Demandez un appel ici ou utilisez le menu Code PIN oublié par USSD. Un coordinateur vérifie vos informations et réinitialise votre PIN.",
      "Mangataha antso eto na ampiasao ny menio PIN hadino amin'ny USSD. Hanamarina ny mombamomba anao sy hamerina ny PIN ny mpandrindra."),
 ])
+
+_add([
+    ("Sign in to use the simulator.", "Connectez-vous pour utiliser le simulateur.", "Midira raha hampiasa ny simulatora."),
+    ("A phone number is required to use the simulator.", "Un numéro de téléphone est nécessaire pour utiliser le simulateur.", "Ilaina ny laharan-telefaona hampiasana ny simulatora."),
+])
+
+_add([
+    ("Sign in to access your account in the simulator.", "Connectez-vous pour accéder à votre compte dans le simulateur.", "Midira raha hijery ny kaontinao ao amin'ny simulator."),
+    ("Visual walkthrough only. No account changes are made.", "Démonstration visuelle uniquement. Aucune modification de compte.", "Fampisehoana fotsiny. Tsy misy fanovana atao amin'ny kaonty."),
+    ("Live requests appear here. Guided runs do not send requests.", "Les requêtes réelles apparaissent ici. Les démonstrations guidées n'en envoient pas.", "Eto no miseho ny fangatahana tena izy. Tsy mandefa fangatahana ny fampisehoana tari-dalana."),
+])

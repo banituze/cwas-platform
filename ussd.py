@@ -1143,7 +1143,7 @@ _SMS_HELP_MEMBER = "BALANCE, SOURCES, BOOKINGS, BOOKING <ref>, RECEIPT <ref>, NO
 _SMS_HELP_STAFF = "PENDING, SOURCES, BOOKING <ref>, NOTICES, PROFILE. Approvals and changes: dial {dial}."
 
 
-def handle_sms(phone, text):
+def handle_sms(phone, text, lang=None):
     """Answer read-only SMS inquiries; no SMS command may change an account, booking or payment.
 
     Sender ID and telco webhook authentication do not authenticate individual actions. Never request or
@@ -1159,7 +1159,7 @@ def handle_sms(phone, text):
     db.session.add(SmsLog(direction="in", phone=phone or "?",
                           body=(f"{cmd} [blocked]" if blocked else body)[:600], status="received"))
     user = User.query.filter_by(phone=phone, is_active_flag=True).first() if phone else None
-    lang = user.language if user else "en"
+    lang = lang if lang in ("mg", "fr", "en") else (user.language if user else "en")
 
     def L(message, **kw):
         return tt(message, lang, **kw)
@@ -1273,3 +1273,94 @@ def demo_script(lang):
             "in", L("Your balance is {balance}", balance=M(balance))]]
     script["nova"] = nova
     return script
+
+
+def preview_tours(lang):
+    from types import SimpleNamespace
+
+    ctx = Ctx(lang=lang)
+    L = ctx.L
+    sources = S.operational_sources()
+    first = lambda gen: next(gen)[4:]
+    welcome = first(session_flow(Ctx(lang=lang)))
+    code = {"mg": "1", "en": "2", "fr": "3"}.get(lang, "2")
+    home = first(menu(ctx, L("Hello {name}", name="Rasoa"), [L(x) for x in MEMBER_MENU], root=True))
+    staff = first(menu(ctx, L("Hello {name}", name="Kevin"), [L(x) for x in (
+        "Pending queue", "Approve", "Deny", "Mark collected", "Water points", "Register household",
+        "Operations summary", "My profile", "Help", "Cash deposit", "Announcement", "Reset household PIN")], root=True))
+    pin = first(require_pin(ctx, SimpleNamespace(pin_locked_until=None)))
+    def step(text, value, secret=False):
+        return (text, value, secret)
+    def pack(rows, number):
+        return {"phone": number, "steps": [item[1] for item in rows[:-1]], "screens": [
+            {"text": item[0], "secret": item[2], "end": i == len(rows) - 1}
+            for i, item in enumerate(rows)]}
+    reg = [
+        step(welcome, code),
+        step(first(menu(ctx, L("Register as:"), [L("Household member"), L("Community coordinator"), L("Help")])), "1"),
+        step(first(entry(ctx, L("Enter full name"), v_text(2, 40))), "Rasoa Rakoto"),
+        step(first(entry(ctx, L("Enter village / area"), v_text(2, 40))), "Ampotaka"),
+        step(first(entry(ctx, L("Enter household size (number)"), v_int(1, 40))), "5"),
+        step(first(household_needs(ctx)), "0"),
+        step(first(menu(ctx, L("How far is your water point?"), [L(x) for _, x in S.DISTANCE])), "1"),
+        step(first(menu(ctx, L("Which water point do you use most?"), [short(s.name, 22) for s in sources] + [L("Other"), L("Not sure")])), "1" if sources else "2"),
+        step(first(entry(ctx, L("Create 4-digit PIN"), v_pin, secret=True)), "1234", True),
+        step(first(entry(ctx, L("Confirm PIN"), v_pin, secret=True)), "1234", True),
+        step(first(entry(ctx, L("Create a 6-digit recovery code") + "\n" + L("It resets a forgotten PIN. Keep it private."), v_recovery, secret=True)), "246810", True),
+        step(first(entry(ctx, L("Confirm recovery code"), v_recovery, secret=True)), "246810", True),
+        step(END(ctx, L("Welcome {name}!", name="Rasoa"), L("Dial {dial} to book a slot.", dial=DIAL))[4:], "")
+    ]
+    deposit = [
+        step(welcome, code), step(home, "1"),
+        step(first(menu(ctx, L("Deposit funds"), [L("Orange Money"), L("Airtel Money")])), "1"),
+        step(first(menu(ctx, L("Choose amount"), [M(a) for a in (1000, 2000, 5000, 10000, 20000, 50000)] + [L("Other amount")])), "3"),
+        step(first(confirm(ctx, L("Deposit {amount}", amount=M(5000)), L("via {provider}", provider="Orange Money"))), "1"),
+        step(pin, "1234", True),
+        step(END(ctx, L("Deposit recorded"), "Orange Money", "+" + M(5000), L("Your balance is {balance}", balance=M(17500)))[4:], "")
+    ]
+    book = [step(welcome, code), step(home, "2")]
+    if not sources:
+        book.append(step(END(ctx, L("No water point is open now."))[4:], ""))
+    else:
+        days = S.booking_days()
+        choice = None
+        for day_no, day in enumerate(days):
+            for source_no, source in enumerate(sources[:3]):
+                open_slots = S.slot_list(source, day, only_open=True)
+                if open_slots:
+                    choice = (source_no, day_no, open_slots)
+                    break
+            if choice:
+                break
+        i, j, slots = choice if choice else (0, 0, [])
+        source = sources[i]
+        book.append(step(first(menu(ctx, L("Select water point:"), [short(s.name, 22) for s in sources])), str(i + 1)))
+        book.append(step(first(menu(ctx, L("Select day:"), [_day_label(ctx, day, n) for n, day in enumerate(days)])), str(j + 1)))
+        if not slots:
+            book.append(step(END(ctx, L("No free slot that day."))[4:], ""))
+        else:
+            litres = S.litre_options(source)
+            amounts = [S.price_quote(SimpleNamespace(priority_level="standard"), source, n)[0] for n in litres]
+            quantity, price = litres[0], amounts[0]
+            balance = max(12500, price + 5000)
+            slot = slots[0]
+            book += [
+                step(first(menu(ctx, L("Select slot:"), [f"{s['label']} ({s['free']})" for s in slots])), "1"),
+                step(first(menu(ctx, L("Quantity:"), [f"{n} L ({M(a)})" for n, a in zip(litres, amounts)])), "1"),
+                step(first(confirm(ctx, L("Confirm booking"), short(source.name, 20),
+                                   f"{days[j]:%Y-%m-%d} {slot['label']}", f"{quantity} L - {M(price)}",
+                                   L("Wallet: {balance}", balance=M(balance)), yes="Pay from wallet")), "1"),
+                step(pin, "1234", True),
+                step(END(ctx, L("Booked!"), "Ref: DEMO", short(source.name, 18),
+                         f"{days[j]:%Y-%m-%d} {slot['label']}", f"{quantity} L - {M(price)}",
+                         L("Status: {status}", status=L("pending approval")))[4:], "")
+            ]
+    approve = [
+        step(welcome, code), step(staff, "2"),
+        step(first(menu(ctx, L("Approve which?"), ["CW-4F7A9C21 Rasoa 60 L"])), "1"),
+        step(first(confirm(ctx, L("Approve {ref}?", ref="CW-4F7A9C21"), "Rasoa 60 L")), "1"),
+        step(pin, "2468", True),
+        step(END(ctx, L("Approved {ref}.", ref="CW-4F7A9C21"))[4:], "")
+    ]
+    return {"register": pack(reg, "+261340000000"), "deposit": pack(deposit, "+261340000000"),
+            "book": pack(book, "+261340000000"), "approve": pack(approve, "+261340000000")}
