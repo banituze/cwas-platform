@@ -9,10 +9,9 @@
   let init = readInit(), LB = init.labels, demoOn = true;
   const restricted = !!lab && !init.sandbox && !init.accountPhone;
   const DIAL = lab ? lab.dataset.dial : init.dial;
-  const homeDemo = !lab && document.body.dataset.page === "index";
-  /* Demo phones keep their original sounds off-screen. On the homepage only incoming message audio is kept; /access keeps the full handset sound set. */
+  /* Homepage and /access demo phones stay quiet except for incoming message chimes. The full /simulator lab keeps every handset sound. */
   const A = lab ? C.audio : {
-    play: (...a) => { if (demoOn && !document.hidden && (!homeDemo || a[0] === "sms")) C.audio.play(...a); },
+    play: (...a) => { if (demoOn && !document.hidden && a[0] === "sms") C.audio.play(...a); },
     on: () => C.audio.on(),
     set: v => C.audio.set(v),
   };

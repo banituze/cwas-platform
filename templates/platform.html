@@ -5,7 +5,7 @@ shot with context %}
 collects water.') }}{% endblock %}
 {% block content %}
 <header class="mx-auto max-w-page px-4 pt-36">
-  <h1 class="max-w-3xl text-5xl font-extrabold md:text-7xl">{{ t('Everything a shared water point needs, in one place.')
+  <h1 class="max-w-3xl text-5xl font-extrabold md:text-7xl" data-type data-liquid>{{ t('Everything a shared water point needs, in one place.')
     }}</h1>
   <p class="mt-5 max-w-xl text-lg text-mute">{{ t('Booking, payment, approval, maintenance, reports and audit, built
     around how Ampotaka actually collects water.') }}</p>
@@ -43,7 +43,7 @@ collects water.') }}{% endblock %}
 <div class="mx-auto max-w-page space-y-28 px-4 pt-20">
   <section id="booking" class="grid items-start gap-10 lg:grid-cols-[1fr_1.1fr]">
     <div>
-      <h2 class="text-4xl font-extrabold">{{ t('Book and pay') }}</h2>
+      <h2 class="text-4xl font-extrabold" data-type data-liquid>{{ t('Book and pay') }}</h2>
       <p class="mt-4 text-lg leading-relaxed text-mute">{{ t('Slots come from each water point\'s opening hours, slot
         length, per-slot capacity and daily capacity. The final confirmation rechecks everything, keeps one active
         booking per household per day, works out the tariff and subsidy, and takes the money from the wallet in the same
@@ -75,7 +75,7 @@ collects water.') }}{% endblock %}
       </div>{% endfor %}
     </div>
     <div class="order-1 lg:order-2">
-      <h2 class="text-4xl font-extrabold">{{ t('Approvals and sources') }}</h2>
+      <h2 class="text-4xl font-extrabold" data-type data-liquid>{{ t('Approvals and sources') }}</h2>
       <p class="mt-4 text-lg leading-relaxed text-mute">{{ t('Coordinators stop keeping paper lists. They see who is
         asking, whether the wallet covers it and how full the slot is, then approve or deny with a reason. The household
         is told either way.') }}</p>
@@ -83,7 +83,7 @@ collects water.') }}{% endblock %}
   </section>
 
   <section id="ai" class="glass-strong p-8 md:p-12">
-    <h2 class="text-4xl font-extrabold">{{ t('Explainable AI') }}</h2>
+    <h2 class="text-4xl font-extrabold" data-type data-liquid>{{ t('Explainable AI') }}</h2>
     <p class="mt-4 max-w-3xl text-lg leading-relaxed text-mute">{{ t('The pilot engine is rules-based on purpose, so a
       coordinator can always say why. Models trained on pilot data come later; the checks below already run today.') }}
     </p>
@@ -102,7 +102,7 @@ collects water.') }}{% endblock %}
 
   <section class="grid items-start gap-10 lg:grid-cols-2">
     <div>
-      <h2 class="text-4xl font-extrabold">{{ t('Built to be trusted') }}</h2>
+      <h2 class="text-4xl font-extrabold" data-type data-liquid>{{ t('Built to be trusted') }}</h2>
       <p class="mt-4 text-lg leading-relaxed text-mute">{{ t('Roles limit each person to their own functions. Every
         important action is written to an audit trail where each line depends on the one before it, so edits show up.
         Wallet changes run in single transactions.') }}</p>

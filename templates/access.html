@@ -5,7 +5,7 @@ including registering, booking, paying, cancelling and reading receipts. SMS ans
 {% block content %}
 <div class="mx-auto max-w-page space-y-16 px-4 pt-36">
   <header class="max-w-3xl">
-    <h1 class="text-5xl font-extrabold md:text-7xl">{{ t('One number for every phone.') }}</h1>
+    <h1 class="text-5xl font-extrabold md:text-7xl" data-type data-liquid>{{ t('One number for every phone.') }}</h1>
     <p class="mt-5 text-lg leading-relaxed text-mute">{{ t('Dial {code} for the full service. Send SMS to {sms} for
       quick answers.', code=USSD_CODE, sms=SMS_CODE) }}</p>
     <a class="btn btn-primary mt-6" href="{{ url_for('simulator') }}">{{ icon('play') }}{{ t('Try the simulator') }}</a>

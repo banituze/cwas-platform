@@ -3,11 +3,15 @@ photo, video with context %}
 {% block title %}{{ t('Our story') }}{% endblock %}
 {% block desc %}{{ t('CWAS gives every household in Ampotaka a fair, recorded time to collect water, on a smartphone, a
 basic phone or through a coordinator.') }}{% endblock %}
+{% block head %}
+<link rel="preload" as="image" href="{{ url_for('static', filename='img/photos/catchment-full-1600.webp') }}" fetchpriority="high">
+{% endblock %}
 {% block content %}
-<section data-hero class="media-dark relative isolate overflow-hidden bg-[#0b1510] pt-36 text-white">
-  {{ video('well', eager=True, poster=False) }}<div class="scrim"></div>
+<section data-hero class="media-dark relative isolate overflow-hidden bg-black pt-36 text-white"
+  style="background-image:url('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABcQERQRDhcUEhQaGBcbIjklIh8fIkYyNSk5UkhXVVFIUE5bZoNvW2F8Yk5QcptzfIeLkpSSWG2grJ+OqoOPko3/2wBDARgaGiIeIkMlJUONXlBejY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY3/wAARCAAbADADASIAAhEBAxEB/8QAGQAAAgMBAAAAAAAAAAAAAAAAAgQAAQMF/8QAJhAAAgEEAgECBwAAAAAAAAAAAQIAAwQRIRIxQSIyBRMjNGGBkf/EABcBAQEBAQAAAAAAAAAAAAAAAAABAwL/xAAbEQACAgMBAAAAAAAAAAAAAAAAAQIRAxITIf/aAAwDAQACEQMRAD8Aw+G3nKoUrsOJGQSeo8l3bvcNS9QCj341OettTpUMinyYHoE7mtLk+SoNIsdE9yLLJKkc87HVvLViwX5mjj2nctr2kvALSrOG74odROnaOxxUfQORgmPoOIIBOznuXrMc0Spe0lUfTrPrQCYgpe+n7WupPjEPP5P9k1G8y6RFWYIuif1M7d+VTY8eZmwAAYDcdrALWQKAMpk4EwXhqTMvMGSWwFmUWlQTFij/2Q==');background-position:center;background-size:cover">
+  {{ video('well', eager=True) }}<div class="scrim"></div>
   <div class="relative mx-auto max-w-page px-5 pb-24 pt-10">
-    <h1 class="max-w-3xl text-5xl font-extrabold md:text-7xl">{{ t('Fifty thousand people, about twenty working water
+    <h1 class="max-w-3xl text-5xl font-extrabold md:text-7xl" data-type data-liquid>{{ t('Fifty thousand people, about twenty working water
       points.') }}</h1>
   </div>
 </section>
