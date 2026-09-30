@@ -5719,6 +5719,11 @@ input:checked+.slot {
     bottom: 34px
 }
 
+html[data-theme="saina"] .os-lock .hint,
+html[data-theme="fotsy"] .os-lock .hint {
+    color: #fff
+}
+
 .os.locked .dock,
 .os.locked .home-bar,
 .os.locked .os-home {
