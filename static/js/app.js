@@ -46,16 +46,16 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
       error: () => { tone(220, .16, "sawtooth", .08); tone(170, .22, "sawtooth", .08, .15); },
       sms: () => { tone(1319, .12, "sine", .18); tone(1568, .12, "sine", .18, .13); tone(2093, .24, "sine", .18, .26); },
       notify: () => { tone(988, .14, "sine", .16); tone(1319, .28, "sine", .16, .14); },
-      success: () => { tone(523, .1, "triangle", .16); tone(659, .1, "triangle", .16, .1); tone(784, .2, "triangle", .16, .2); },
+      success: (scale = 1) => { tone(523, .1, "triangle", .16 * scale); tone(659, .1, "triangle", .16 * scale, .1); tone(784, .2, "triangle", .16 * scale, .2); },
       poweron: () => { tone(392, .12, "sine", .14); tone(523, .12, "sine", .14, .1); tone(784, .24, "sine", .14, .2); },
       poweroff: () => { tone(784, .12, "sine", .14); tone(523, .12, "sine", .14, .1); tone(330, .26, "sine", .14, .2); },
       vol: () => tone(1200, .05, "triangle", .12),
-      print: () => { for (let i = 0; i < 24; i++) { noise(.05, .1, i * .15, i % 2 ? 900 : 1500); tone(180, .04, "square", .03, i * .15); } },
-      tear: () => noise(.22, .18, 0, 3200),
+      print: (scale = 1) => { for (let i = 0; i < 24; i++) { noise(.05, .1 * scale, i * .15, i % 2 ? 900 : 1500); tone(180, .04, "square", .03 * scale, i * .15); } },
+      tear: (scale = 1) => noise(.22, .18 * scale, 0, 3200),
     };
     return {
       on, ensure,
-      play(name, ...a) { if (document.body.dataset.page === "index" || !on() || !ensure()) return; try { sounds[name](...a); } catch (e) { /* audio is optional */ } },
+      play(name, ...a) { if (!on() || !ensure()) return; try { sounds[name](...a); } catch (e) { /* audio is optional */ } },
       set(v) { store.set("cwas_sound", v ? "1" : "0"); },
       unlock() { if (on()) ensure(); },  // browsers start audio only inside a gesture
     };
@@ -81,6 +81,7 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
   /* the first tap or key press opens the audio output, so every later sound plays at once */
   ["pointerdown", "keydown"].forEach(t => document.addEventListener(t, () => Audio.unlock(), { once: true, capture: true, passive: true }));
   $$("[data-flash]").forEach(f => { if (!f.querySelector(".select-all")) setTimeout(() => dismiss(f), 7000); });
+  if (Audio.on() && $$("[data-flash]:not(.flash-err)").length) { const c = Audio.ensure(); if (c && c.state === "running") Audio.play("notify"); }
 
   /* ── theme, favicon, sound toggle, menus ── */
   /* favicon and browser colour follow the theme: the CWAS mark on a tile of the theme's colour */
@@ -288,17 +289,38 @@ window.CWAS_SERVER_NODES = new WeakSet(document.body ? document.body.querySelect
   /* ── receipt printer (metal thermal printer) ── */
   const initPrinter = p => {
     const paper = $(".paper", p), lcd = $("[data-lcd]", p), d = p.dataset;
-    const play = document.body.dataset.page === "index" ? () => {} : name => Audio.play(name);
+    const play = name => Audio.play(name, .34);
+    let pendingPrintSound = false;
     const say = k => { if (lcd) lcd.textContent = d[k] || ""; };
     const set = s => { p.dataset.state = s; say({ idle: "lReady", printing: "lPrint", done: "lTear", torn: "lTorn" }[s]); };
-    const start = () => { if (p.dataset.state === "printing") return; set("idle"); void p.offsetWidth; if (reduce) { set("done"); return; } set("printing"); play("print"); };
-    paper.addEventListener("animationend", () => { set("done"); play("success"); });
+    const playPrint = () => {
+      const c = Audio.ensure();
+      if (!c) return;
+      if (c.state === "running") { pendingPrintSound = false; play("print"); return; }
+      pendingPrintSound = true;
+      c.resume().then(() => {
+        if (pendingPrintSound && p.dataset.state === "printing" && c.state === "running") { pendingPrintSound = false; play("print"); }
+      }).catch(() => { });
+    };
+    const wakePrintSound = () => {
+      if (!pendingPrintSound || p.dataset.state !== "printing") return;
+      const c = Audio.ensure(); if (!c) return;
+      const ready = c.state === "running" ? Promise.resolve() : c.resume();
+      Promise.resolve(ready).then(() => {
+        if (pendingPrintSound && p.dataset.state === "printing" && c.state === "running") { pendingPrintSound = false; play("print"); }
+      }).catch(() => { });
+    };
+    const start = () => { if (p.dataset.state === "printing") return; set("idle"); void p.offsetWidth; if (reduce) { set("done"); return; } set("printing"); playPrint(); };
+    paper.addEventListener("animationend", () => { pendingPrintSound = false; set("done"); play("success"); });
+    ["pointerdown", "keydown"].forEach(ev => document.addEventListener(ev, wakePrintSound, { capture: true, passive: true }));
     const scope = p.closest("[data-printer-scope]") || document;
     $$("[data-print-start]", scope).forEach(b => b.addEventListener("click", start));
     $$("[data-tear]", scope).forEach(b => b.addEventListener("click", () => { if (p.dataset.state === "done") { set("torn"); play("tear"); } }));
     $$("[data-window-print]", scope).forEach(b => b.addEventListener("click", () => { set("done"); setTimeout(() => window.print(), 50); }));
     set("idle");
     if (p.hasAttribute("data-autoprint")) {
+      const r = p.getBoundingClientRect(), visible = r.top < innerHeight && r.bottom > 0;
+      if (visible) return requestAnimationFrame(start);
       if (!("IntersectionObserver" in window)) return start();
       const o = new IntersectionObserver(es => { if (es[0].isIntersecting) { start(); o.disconnect(); } }, { threshold: .4 }); o.observe(p);
     }

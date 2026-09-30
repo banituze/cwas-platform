@@ -4007,7 +4007,7 @@ html[data-theme="saina"] {
     inset: 0;
     z-index: -2;
     overflow: hidden;
-    background: #243322
+    background: #111111
   }
 
   .hm-still {
@@ -5664,12 +5664,6 @@ body {
     display: none
   }
 
-  /* footer: "Dial *384*9411#" in the theme's colour */
-  .foot-dialh,
-  .foot-dialh .foot-code {
-    color: var(--big)
-  }
-
   /* registration: the name field appears when the water point is Other */
   .other-src {
     display: none
@@ -6918,7 +6912,7 @@ html[data-theme="saina"] {
 }
 
 .lt-big {
-  font-size: 18px
+  font-size: 12px
 }
 
 .lt-row {
@@ -7371,7 +7365,7 @@ html[data-theme="saina"] .p-body::before {
 }
 
 :is(.lab, [data-phones]) .ussd-card input {
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 400;
   border-radius: 0;
   box-shadow: none;
@@ -7392,3 +7386,10 @@ html[data-theme="saina"] .p-body::before {
     margin-inline: 0;
   }
 }
+
+  .tn-head [data-liquid],
+  .gt-copy [data-liquid] {
+    pointer-events: auto;
+    touch-action: pan-y
+  }
+

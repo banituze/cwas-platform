@@ -2,11 +2,17 @@
 {% from "partials/macros.html" import icon, flag, status, printer, logo with context %}
 {% from "partials/media.html" import video, photo with context %}
 {% block title %}{{ t('Water on a schedule everyone can trust') }}{% endblock %}
+{% block head %}
+<link rel="preload" as="image" type="image/avif" media="(max-aspect-ratio: 4/5)"
+  href="{{ url_for('static', filename='media/hero/hero-base-port.avif') }}">
+<link rel="preload" as="image" type="image/avif" media="(min-aspect-ratio: 4/5)"
+  href="{{ url_for('static', filename='media/hero/hero-base-land.avif') }}">
+{% endblock %}
 {% block content %}
 
 <section data-hero class="media-dark relative isolate flex min-h-[100svh] items-end overflow-hidden text-white">
 
-  <div class="hero-media" data-hero-media aria-hidden="true">
+  <div class="hero-media" data-hero-media aria-hidden="true" style="background-image:url('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABcQERQRDhcUEhQaGBcbIjklIh8fIkYyNSk5UkhXVVFIUE5bZoNvW2F8Yk5QcptzfIeLkpSSWG2grJ+OqoOPko3/2wBDARgaGiIeIkMlJUONXlBejY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY3/wAARCAAbADADASIAAhEBAxEB/8QAGQAAAgMBAAAAAAAAAAAAAAAAAwQAAgUB/8QAIxAAAgEDBAMAAwAAAAAAAAAAAQIAAwQREhMhUSIxQWFxkf/EABgBAAMBAQAAAAAAAAAAAAAAAAABAgQD/8QAGxEAAgIDAQAAAAAAAAAAAAAAAAEREwIEURT/2gAMAwEAAhEDEQA/ANBTT3tnPnjOIbaA9zH012fcBRWP0GEqC7YLiohx2Yeh8OdLNXak2YnbVLhMNUZWIGByeIyt5U41Kh7wZS2EFLLGjKNQzOvc1WwUCAdEwbXNfSfFM/I1sIKcgaWA0c5Zv4Jx7dqQH38ARiiTj3DKSSZkk1wJIpPGnH7Em1UByCselcnVGo4KH0BTpa280xjrkQhtqZByAp7EG7t3B1GbPuIo/9k=');background-position:center;background-size:cover">
     <picture>
       <source type="image/avif" media="(max-aspect-ratio: 4/5)"
         srcset="{{ url_for('static', filename='media/hero/hero-base-port.avif') }}">
@@ -127,7 +133,7 @@
 <section class="tunnel mt-28" data-tunnel aria-label="{{ t('Follow one booking, from tap to tap.') }}">
   <div class="tn-stick">
     <div class="tn-head">
-      <h2 class="text-3xl font-extrabold md:text-5xl" data-type>{{ t('Follow one booking, from tap to tap.') }}</h2>
+      <h2 class="text-3xl font-extrabold md:text-5xl" data-type data-liquid>{{ t('Follow one booking, from tap to tap.') }}</h2>
       <p class="mt-2 text-sm text-mute">{{ t('Scroll to travel through the steps.') }}</p>
     </div>
     <div class="tn-scene">
@@ -154,7 +160,7 @@
 
 
 <section class="mx-auto mt-28 max-w-page px-4">
-  <h2 class="typeline" data-typeline><span data-type>{{ t('Every drop') }}</span> <span class="tl-frame"
+  <h2 class="typeline" data-typeline data-liquid><span data-type>{{ t('Every drop') }}</span> <span class="tl-frame"
       aria-hidden="true">{{ photo('jerrycan-bw', '', '(max-width: 768px) 40vw, 320px') }}</span> <span data-type>{{
       t('counted, booked and paid.') }}</span></h2>
 </section>
@@ -239,7 +245,7 @@
 <section class="deck mt-28" data-griddeck aria-label="{{ t('Twelve tools, dealt from one deck.') }}">
   <div class="dk-stick">
     <div class="tn-head">
-      <h2 class="text-3xl font-extrabold md:text-5xl" data-type>{{ t('Twelve tools, dealt from one deck.') }}</h2>
+      <h2 class="text-3xl font-extrabold md:text-5xl" data-type data-liquid>{{ t('Twelve tools, dealt from one deck.') }}</h2>
       <p class="mt-2 text-sm text-mute">{{ t('Scroll to deal the deck and dive in.') }}</p>
     </div>
     <div class="dk-scene">
@@ -393,7 +399,7 @@ Policy'))}}) %}{% endfor %}
       data-words='{{ ["06:30", "60 L", USSD_CODE, SMS_CODE, "Rano", "Eau", "Water", "Ampotaka", "Atsimo-Andrefana", "MGA"]|tojson }}'>
     </div>
     <div class="gt-copy glass-strong">
-      <h2 id="gt-title" class="text-3xl font-extrabold md:text-5xl">{{ t('Ampotaka and the south, in pictures') }}</h2>
+      <h2 id="gt-title" class="text-3xl font-extrabold md:text-5xl" data-type data-liquid>{{ t('Ampotaka and the south, in pictures') }}</h2>
       <p class="mt-3 text-lg text-mute">{{ t('Scroll through the south of Madagascar, where CWAS begins.') }}</p>
     </div>
     <div class="gt-fallback mx-auto w-full max-w-page px-4"></div>

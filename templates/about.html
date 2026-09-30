@@ -45,7 +45,7 @@ Without a script, or with reduced motion, it stays the plain mosaic. #}
 <section class="rg mt-24" data-gallery-rise aria-labelledby="rg-title">
   <div class="rg-stick">
     <div class="rg-field mx-auto w-full max-w-page px-4">
-      <h2 id="rg-title" class="text-3xl font-extrabold md:text-4xl">{{ t('Ampotaka and the south, in pictures') }}</h2>
+      <h2 id="rg-title" class="text-3xl font-extrabold md:text-4xl" data-type data-liquid>{{ t('Ampotaka and the south, in pictures') }}</h2>
       <div class="mosaic rg-grid mt-8">{% for k, cls in (('porteuses', ''), ('lamba-portrait', 'tall'), ('pump-repair',
         'tall'), ('zebu-pond', ''), ('catchment-full', 'wide'), ('borehole-tower', '')) %}
         <figure class="mosaic-item rg-item {{ cls }}">{{ photo(k, 'h-full w-full object-cover', '(max-width: 768px)

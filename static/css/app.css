@@ -4606,7 +4606,7 @@ a:hover .lt {
 .hero-media {
     z-index: -2;
     overflow: hidden;
-    background: #243322
+    background: #111111
 }
 
 .hero-media,
@@ -6137,10 +6137,6 @@ select.field option {
     display: none
 }
 
-.foot-dialh,
-.foot-dialh .foot-code {
-    color: var(--big)
-}
 
 .other-src {
     display: none
@@ -9037,7 +9033,7 @@ html[data-theme=saina] {
 }
 
 .lt-big {
-    font-size: 18px
+    font-size: 12px
 }
 
 .lt-row {
@@ -9763,7 +9759,7 @@ html[data-theme="saina"] .p-body::before {
 }
 
 :is(.lab, [data-phones]) .ussd-card input {
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 400;
   border-radius: 0;
   box-shadow: none;
@@ -9784,3 +9780,10 @@ html[data-theme="saina"] .p-body::before {
     margin-inline: 0;
   }
 }
+
+  .tn-head [data-liquid],
+  .gt-copy [data-liquid] {
+    pointer-events: auto;
+    touch-action: pan-y
+  }
+

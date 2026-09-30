@@ -6,10 +6,10 @@ with context %}
   <div class="relative mx-auto max-w-page px-4 pb-28 pt-24 md:pt-32 lg:pb-12">
     <div class="foot-top mx-auto max-w-3xl text-center">
       <h2 class="foot-dialh font-display font-extrabold leading-[.92] tracking-tight"
-        style="font-size:clamp(52px,8.6vw,128px)">{{ t('Dial') }}<br><a class="foot-code"
+        style="font-size:clamp(52px,8.6vw,128px)"><span data-type data-liquid>{{ t('Dial') }}</span><br><a class="foot-code" data-type data-liquid
           href="tel:{{ USSD_CODE|replace('#', '%23') }}">{{ USSD_CODE }}</a></h2>
-      <p class="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-white/85">{{ t('Or register on the web in two
-        minutes. Your household, your wallet, your time at the water point.') }}</p>
+      <p class="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-white/85">{{ t('Or register on the web in one
+        minute. Your household, your wallet, your time at the water point.') }}</p>
       <div class="mt-8 flex flex-wrap justify-center gap-3">
         {% if current_user.is_authenticated %}<a class="btn foot-cta !px-6 !py-3.5 !text-base" href="{{ home_url }}">{{
           icon('home') }}{{ t('Open my dashboard') }}</a>

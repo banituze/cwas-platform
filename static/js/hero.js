@@ -6,8 +6,7 @@
   if (!root) return;
   const section = root.closest("[data-hero],[data-live-water]") || root.parentElement;  /* the homepage hero or the sign-up panel */
   const canvas = root.querySelector("[data-hero-liquid]");
-  const conn = navigator.connection || {};
-  const lite = matchMedia("(prefers-reduced-motion: reduce)").matches || conn.saveData || /2g/.test(conn.effectiveType || "");
+  const lite = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let inView = true;
 
   /* ── live water: a height field of ripples displaces the photograph ── */

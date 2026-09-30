@@ -63,9 +63,15 @@
       raf = requestAnimationFrame(step);
     };
     $$("[data-liquid]").forEach(el => {
-      el.addEventListener("pointerenter", () => { if (active && active !== el) active.classList.remove("is-liquid"); active = el; el.classList.add("is-liquid"); target = 34; if (!raf) raf = requestAnimationFrame(step); });
-      el.addEventListener("pointermove", e => { const r = el.getBoundingClientRect(); target = 26 + 30 * Math.abs((e.clientX - r.left) / r.width - .5) * 2; });
-      el.addEventListener("pointerleave", () => { target = 0; if (!raf) raf = requestAnimationFrame(step); });
+      const activate = () => { if (active && active !== el) active.classList.remove("is-liquid"); active = el; el.classList.add("is-liquid"); target = 34; if (!raf) raf = requestAnimationFrame(step); };
+      el.addEventListener("pointerenter", e => { if (e.pointerType === "mouse") activate(); });
+      el.addEventListener("pointermove", e => { if (e.pointerType !== "mouse") return; const r = el.getBoundingClientRect(); target = 26 + 30 * Math.abs((e.clientX - r.left) / r.width - .5) * 2; });
+      el.addEventListener("pointerleave", e => { if (e.pointerType !== "mouse") return; target = 0; if (!raf) raf = requestAnimationFrame(step); });
+      el.addEventListener("pointerdown", e => {
+        if (e.pointerType === "mouse") return;
+        activate();
+        setTimeout(() => { if (active === el) { target = 0; if (!raf) raf = requestAnimationFrame(step); } }, 450);
+      });
     });
   }
 
@@ -110,7 +116,7 @@
     if (reduce) { el.classList.add("live"); paint(1, 0); return; }
     io(es => es.forEach(en => {
       vis = en.isIntersecting;
-      if (vis) { if (!started) { started = true; t0 = performance.now(); el.classList.add("live"); A().play("success"); } last = performance.now(); if (!raf) raf = requestAnimationFrame(loop); }
+      if (vis) { if (!started) { started = true; t0 = performance.now(); el.classList.add("live"); if (document.body.dataset.page !== "index") A().play("success"); } last = performance.now(); if (!raf) raf = requestAnimationFrame(loop); }
     }), { threshold: .25 }).observe(el);
     paint(0, 0);
   }
