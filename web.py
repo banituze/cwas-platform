@@ -1093,7 +1093,8 @@ def register_routes(app):
             {"collected": S.mark_collected, "no_show": S.mark_no_show}.get(
                 action, lambda *a: abort(404))(b, current_user)
             db.session.commit()
-            say("Saved.")
+            say("Booking {ref} marked as collected. The household was notified." if action == "collected" else
+                "Booking {ref} marked as not collected. The household was notified.", ref=b.ref)
         except S.ServiceError as e:
             db.session.rollback()
             say_error(e)
@@ -1229,7 +1230,7 @@ def register_routes(app):
                 S.notify(
                     h.user, "Your priority level was set to {level} by the coordinator.", "system", level=h.priority_level)
                 db.session.commit()
-                say("Saved.")
+                say("Priority details updated for {name}.", name=h.name)
             elif section == "pin_reset":
                 if not f.get("checked"):
                     say("Confirm that you checked the person's details first.", "err")
@@ -1263,13 +1264,15 @@ def register_routes(app):
             txn = db.session.get(WalletTxn, int_arg(
                 "id", 0, 0, 10 ** 9)) or abort(404)
             try:
-                if request.form.get("action") == "confirm":
+                action = request.form.get("action")
+                if action == "confirm":
                     S.confirm_pending_deposit(txn, current_user)
                 else:
                     S.reject_pending_deposit(
                         txn, current_user, "web", request.form.get("reason", ""))
                 db.session.commit()
-                say("Saved.")
+                say("Deposit {ref} confirmed. The household was notified." if action == "confirm" else
+                    "Deposit {ref} rejected. The household was notified.", ref=txn.reference)
             except S.ServiceError as e:
                 db.session.rollback()
                 say_error(e)

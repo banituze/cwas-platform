@@ -718,7 +718,7 @@ def _save_profile(ctx, user, shown, apply):
             "ussd", actor=user, channel="ussd")
     S.notify(user, "Your profile was updated.", "system")
     db.session.commit()
-    return END(ctx, ctx.L("Saved."), shown)
+    return END(ctx, ctx.L("Profile updated."), shown)
 
 
 def change_name(ctx, user, h=None):
@@ -873,7 +873,8 @@ def collect_flow(ctx, user):
         db.session.commit()
     except S.ServiceError as e:
         return _err(ctx, e)
-    return END(ctx, ctx.L("Saved."))
+    return END(ctx, ctx.L("Booking {ref} marked as collected.", ref=b.ref) if i == 0 else
+               ctx.L("Booking {ref} marked as not collected.", ref=b.ref))
 
 
 def staff_sources_flow(ctx, user):

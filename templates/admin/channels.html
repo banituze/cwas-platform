@@ -38,7 +38,7 @@
                 <tbody>{% for m in sms %}<tr>
                         <td class="font-mono text-xs">{{ m.phone[:-3] ~ '***' }}</td>
                         <td class="text-xs">{{ m.direction }}</td>
-                        <td class="max-w-[240px] truncate text-xs">{{ m.body }}</td>
+                        <td class="max-w-[240px] text-xs">{{ m.body }}</td>
                         <td class="text-xs text-mute">{{ m.status }}</td>
                     </tr>{% else %}<tr>
                         <td colspan="4" class="py-6 text-center text-mute">{{ t('No messages yet.') }}</td>

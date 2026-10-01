@@ -15,7 +15,8 @@ _add([
     ("Action", "Action", "Hetsika"), ("Activate", "Activer", "Alefaso"), ("Address",
                                                                           "Adresse", "Adiresy"), ("Administrator", "Administrateur", "Mpitantana"),
     ("Administrators", "Administrateurs", "Mpitantana"), ("All", "Tous",
-                                                          "Rehetra"), ("Amount", "Montant", "Vola"), ("Ampotaka", "Ampotaka", "Ampotaka"),
+                                                          "Rehetra"), ("All statuses", "Tous les statuts", "Toe-javatra rehetra"),
+    ("Amount", "Montant", "Vola"), ("Ampotaka", "Ampotaka", "Ampotaka"),
     ("Announcement", "Annonce", "Fanamarihana"), ("Announcements", "Annonces",
                                                   "Fanamarihana"), ("Approve", "Approuver", "Ekena"), ("Assistant", "Assistant", "Mpanampy"),
     ("Back", "Retour", "Miverina"), ("Backup", "Sauvegarde", "Tahiry"), ("Backups", "Sauvegardes",
@@ -66,8 +67,9 @@ _add([
                                                                                                                  "annulé", "nofoanana"), ("collected", "récupéré", "efa naka"), ("no show", "absent", "tsy tonga"),
     ("operational", "en service", "miasa"), ("maintenance", "en maintenance", "amboarina"), ("closed",
                                                                                              "fermé", "mikatona"), ("posted", "validé", "voarakitra"), ("failed", "échoué", "tsy lasa"),
-    ("member", "membre", "mpikambana"), ("coordinator", "coordinateur", "mpandrindra"), ("admin", "administrateur",
-                                                                                         "mpitantana"), ("borehole", "forage", "forage"), ("well", "puits", "fantsakana"), ("tap", "borne-fontaine", "paompy rano"),
+    ("member", "membre", "mpikambana"), ("coordinator", "coordinateur", "mpandrindra"), ("coordinators waiting for approval",
+                                                                                         "coordinateurs en attente d'approbation", "mpandrindra miandry fankatoavana"),
+    ("admin", "administrateur", "mpitantana"), ("borehole", "forage", "forage"), ("well", "puits", "fantsakana"), ("tap", "borne-fontaine", "paompy rano"),
     ("standard", "standard", "mahazatra"), ("elevated", "élevée", "ambony"), ("high", "haute", "avo"), ("active",
                                                                                                         "actif", "miasa"), ("inactive", "inactif", "tsy miasa"), ("scheduled", "planifié", "voalahatra"),
     ("deposit", "dépôt", "fandefasana vola"), ("booking debit", "débit de réservation", "fanalana famandrihana"), ("booking refund",
@@ -180,6 +182,14 @@ _add([
      "Voatahiry {ref}. Voaloa {amount}. Sisa {balance}. Miandry fankatoavana. Ho arahin'ny SMS."),
     ("Booking cancelled. Your money is back in the wallet.", "Réservation annulée. Votre argent est de retour dans le portefeuille.",
      "Nofoanana ny famandrihana. Niverina tao amin'ny kitapom-bolanao ny vola."),
+    ("Booking {ref} from {name} is waiting for approval.", "La réservation {ref} de {name} attend une approbation.",
+     "Miandry fankatoavana ny famandrihana {ref} avy amin'i {name}."),
+    ("Booking {ref} marked as collected. The household was notified.", "Réservation {ref} marquée comme retirée. Le ménage a été informé.",
+     "Voamarika ho nalaina ny famandrihana {ref}. Nampandrenesina ny tokantrano."),
+    ("Booking {ref} marked as collected.", "Réservation {ref} marquée comme retirée.", "Voamarika ho nalaina ny famandrihana {ref}."),
+    ("Booking {ref} marked as not collected. The household was notified.", "Réservation {ref} marquée comme non retirée. Le ménage a été informé.",
+     "Voamarika ho tsy nalaina ny famandrihana {ref}. Nampandrenesina ny tokantrano."),
+    ("Booking {ref} marked as not collected.", "Réservation {ref} marquée comme non retirée.", "Voamarika ho tsy nalaina ny famandrihana {ref}."),
     ("Booking not found.", "Réservation introuvable.", "Tsy hita ny famandrihana."), (
         "Booking revenue", "Recettes de réservation", "Vola azo tamin'ny famandrihana"),
     ("Booking {ref} expired before review. {amount} returned to your wallet.", "La réservation {ref} a expiré avant examen. {amount} remboursés dans votre portefeuille.",
@@ -266,11 +276,18 @@ _add([
                                                                                "Prévision de la demande, 7 prochains jours", "Tombana ny fangatahana, 7 andro ho avy"),
     ("Demo households (PIN 1234) and coordinator (PIN 2468):", "Ménages de démonstration (PIN 1234) et coordinateur (PIN 2468) :",
      "Tokantrano fanehoana (PIN 1234) sy mpandrindra (PIN 2468):"), ("Denied {ref}. Household refunded.", "{ref} refusée. Ménage remboursé.", "Nolavina ny {ref}. Averina ny vola ho an'ny tokantrano."),
+    ("Deposit {ref} confirmed. The household was notified.", "Dépôt {ref} confirmé. Le ménage a été informé.",
+     "Voamarina ny fandefasana {ref}. Nampandrenesina ny tokantrano."),
+    ("Deposit {ref} from {name} for {amount} via {provider} is waiting for confirmation.",
+     "Le dépôt {ref} de {name}, d'un montant de {amount} via {provider}, attend une confirmation.",
+     "Miandry fanamafisana ny fandefasana {ref} avy amin'i {name}, mitentina {amount} amin'ny {provider}."),
     ("Deposit {ref} is pending until the provider confirms.", "Le dépôt {ref} reste en attente jusqu'à confirmation de l'opérateur.", "Miandry ny fanamafisan'ny mpamatsy ny fandefasana {ref}."), (
         "Deposit {ref} of {amount} posted. Balance {balance}.", "Dépôt {ref} de {amount} enregistré. Solde {balance}.", "Voarakitra ny fandefasana {ref} ho {amount}. Sisa {balance}."),
     ("Deposit {ref} posted. Balance {balance}.", "Dépôt {ref} enregistré. Solde {balance}.", "Voarakitra ny fandefasana {ref}. Sisa {balance}."), (
         "Deposit {ref} posted. New balance {balance}.", "Dépôt {ref} enregistré. Nouveau solde {balance}.", "Voarakitra ny fandefasana {ref}. Sisa vaovao {balance}."),
-    ("Deposit {ref} recorded and waiting for confirmation.", "Dépôt {ref} enregistré, en attente de confirmation.", "Voarakitra ny fandefasana {ref} ary miandry fanamafisana."), (
+    ("Deposit {ref} recorded and waiting for confirmation.", "Dépôt {ref} enregistré, en attente de confirmation.", "Voarakitra ny fandefasana {ref} ary miandry fanamafisana."),
+    ("Deposit {ref} rejected. The household was notified.", "Dépôt {ref} rejeté. Le ménage a été informé.",
+     "Nolavina ny fandefasana {ref}. Nampandrenesina ny tokantrano."), (
         "Deposits by Orange Money or Airtel Money, and a full ledger.", "Dépôts par Orange Money ou Airtel Money, et un registre complet.", "Fandefasana vola amin'ny Orange Money na Airtel Money, miaraka amin'ny bokin-drakitra feno."),
     ("Deposits to confirm", "Dépôts à confirmer", "Fandefasana hamafisina"), ("Deposits waiting for confirmation. Confirm only when the money has reached you or the provider.",
                                                                               "Dépôts en attente de confirmation. Confirmez seulement quand l'argent vous est parvenu ou est arrivé chez l'opérateur.", "Fandefasana miandry fanamafisana. Hamafiso rehefa tonga aminao na any amin'ny mpamatsy ny vola ihany."),
@@ -377,7 +394,9 @@ _add([
      "Famandrihana manaraka {ref}: {source}, {date} {time}, {litres} L ({status})."), ("Next page", "Page suivante", "Pejy manaraka"), ("Next page of a long list", "Page suivante d'une longue liste", "Pejy manaraka amin'ny lisitra lava"),
     ("No backups yet.", "Aucune sauvegarde pour l'instant.", "Tsy mbola misy tahiry."), ("No booking can be cancelled.", "Aucune réservation ne peut être annulée.",
                                                                                          "Tsy misy famandrihana azo foanana."), ("No bookings found.", "Aucune réservation trouvée.", "Tsy misy famandrihana hita."),
-    ("No bookings yet.", "Aucune réservation pour l'instant.", "Tsy mbola misy famandrihana."), ("No free slot that day.", "Aucun créneau libre ce jour-là.",
+    ("No bookings yet.", "Aucune réservation pour l'instant.", "Tsy mbola misy famandrihana."),
+    ("No deposits are waiting for confirmation.", "Aucun dépôt n’attend de confirmation.", "Tsy misy fandefasana miandry fanamafisana."),
+    ("No free slot that day.", "Aucun créneau libre ce jour-là.",
                                                                                                  "Tsy misy ora malalaka amin'io andro io."), ("No group is treated noticeably differently.", "Aucun groupe n'est traité de façon sensiblement différente.", "Tsy misy vondrona mahazo fitondrana hafa mibaribary."),
     ("No households found.", "Aucun ménage trouvé.", "Tsy misy tokantrano hita."), ("No member with that number.", "Aucun membre avec ce numéro.", "Tsy misy mpikambana manana io laharana io."), (
         "No messages yet.", "Aucun message pour l'instant.", "Tsy mbola misy hafatra."), ("No movements yet.", "Aucun mouvement pour l'instant.", "Tsy mbola misy fihetsiketsehana."),
@@ -427,8 +446,11 @@ _add([
                                                                    "Mifidiara ora sy ny litatra ilainao"), ("Pilot scope", "Périmètre du pilote", "Sahan'ny fitsapana"), ("Post deposit", "Enregistrer le dépôt", "Ampidiro ny fandefasana"),
     ("Pregnant or infant", "Femme enceinte ou nourrisson", "Bevohoka na zazakely"), ("Print again", "Imprimer à nouveau", "Avoaka indray"), ("Priority points come from need: vulnerability, household size, distance and fair share. Every point has a stated reason, and approval rates are compared across groups so the system does not repeat old unfairness.",
                                                                                                                                              "Les points de priorité viennent du besoin : vulnérabilité, taille du ménage, distance et part équitable. Chaque point a une raison indiquée, et les taux d'approbation sont comparés entre groupes pour que le système ne reproduise pas les anciennes injustices.", "Avy amin'ny filàna ny isa laharam-pahamehana: fahalemena, habetsaky ny tokantrano, halavirana ary anjara mitovy. Misy antony voalaza ny isa rehetra, ary ampitahana ny tahan'ny fankatoavana eo amin'ny vondrona mba tsy hamerina ny tsy rariny taloha ny rafitra."),
+    ("Priority details updated for {name}.", "Les informations de priorité de {name} ont été mises à jour.",
+     "Nohavaozina ny antsipirian'ny laharam-pahamehana ho an'i {name}."),
     ("Priority saved.", "Priorité enregistrée.", "Voatahiry ny laharam-pahamehana."), ("Privacy and data",
-                                                                                       "Confidentialité et données", "Fiainana manokana sy angona"), ("Profile saved.", "Profil enregistré.", "Voatahiry ny mombamomba."),
+                                                                                       "Confidentialité et données", "Fiainana manokana sy angona"),
+    ("Profile saved.", "Profil enregistré.", "Voatahiry ny mombamomba."), ("Profile updated.", "Profil mis à jour.", "Nohavaozina ny mombamomba."),
     ("RECEIPT <ref>", "RECEIPT <ref>", "RECEIPT <ref>"), ("Reactive maintenance", "Maintenance réactive", "Fanamboarana aorian'ny fahasimbana"), (
         "Read a tamper-evident audit trail", "Lire un journal d'audit infalsifiable", "Vakio ny diarin'ny fanaraha-maso tsy azo ovaina"),
     ("Read receipts and notices in Malagasy, French or English", "Lire reçus et avis en malgache, français ou anglais",
@@ -493,7 +515,9 @@ _add([
      "Ny laharan-telefaona no mampiharihary ny mpampiasa; tsy tehirizina ao amin'ny diarin'ny fifandraisana mihitsy ny PIN."),
     ("The pilot engine is rules-based on purpose, so a coordinator can always say why. Models trained on pilot data come later; the checks below already run today.", "Le moteur du pilote repose volontairement sur des règles, pour qu'un coordinateur puisse toujours expliquer pourquoi. Les modèles entraînés sur les données du pilote viendront plus tard ; les contrôles ci-dessous fonctionnent déjà.",
      "Tsy an-tsokosoko ny fitsipika no mifototra ny motera amin'ny fitsapana, mba hahafahan'ny mpandrindra manazava foana ny antony. Ho avy any aoriana ny modely nampiofanina tamin'ny angon'ny fitsapana; mandeha ankehitriny ny fanamarinana etsy ambany."),
-    ("The price, including any subsidy for your household, is shown before you confirm.", "Le prix, subvention éventuelle comprise, est affiché avant que vous confirmiez.", "Aseho alohan'ny hanamafisanao ny vidiny, anisan'izany ny fanampiana ho an'ny tokantranonao."), ("This account is not active yet. Ask the administrator to activate it.",
+    ("The price, including any subsidy for your household, is shown before you confirm.", "Le prix, subvention éventuelle comprise, est affiché avant que vous confirmiez.", "Aseho alohan'ny hanamafisanao ny vidiny, anisan'izany ny fanampiana ho an'ny tokantranonao."),
+    ("This account has been deactivated. Contact the administrator.", "Ce compte a été désactivé. Contactez l'administrateur.",
+     "Natsahatra ity kaonty ity. Mifandraisa amin'ny mpitantana."), ("This account is not active yet. Ask the administrator to activate it.",
                                                                                                                                                                                                                                                                               "Ce compte n'est pas encore actif. Demandez à l'administrateur de l'activer.",
                                                                                                                                                                                                                                                                               "Mbola tsy mavitrika ity kaonty ity. Angataho ny mpitantana hampavitrika azy."), ("Your coordinator account is now active. You can now access CWAS.",
                                                                                                                                                                                                                                                                                                                                                                 "Votre compte de coordinateur est maintenant actif. Vous pouvez maintenant accéder à CWAS.",
@@ -719,6 +743,13 @@ _add([
         "pending approval", "en attente d'approbation", "miandry fankatoavana"), ("via {provider}", "via {provider}", "amin'ny {provider}"),
     ("Your PIN was set. If this was not you, contact your coordinator.", "Votre PIN a été défini. Si ce n'était pas vous, contactez votre coordinateur.",
      "Napetraka ny PIN-nao. Raha tsy ianao no nanao izany dia miantsoa ny mpandrindra."),
+    ("Your PIN was set. If this was not you, contact the administrator.", "Votre PIN a été défini. Si ce n'était pas vous, contactez l'administrateur.",
+     "Napetraka ny PIN-nao. Raha tsy ianao no nanao izany dia mifandraisa amin'ny mpitantana."),
+    ("Your PIN was changed. If this was not you, contact the administrator.", "Votre PIN a été modifié. Si ce n'était pas vous, contactez l'administrateur.",
+     "Voaova ny PIN-nao. Raha tsy ianao no nanao izany dia mifandraisa amin'ny mpitantana."),
+    ("Your recovery code was changed. If this was not you, contact the administrator.",
+     "Votre code de récupération a été modifié. Si ce n'était pas vous, contactez l'administrateur.",
+     "Voaova ny kaody famerenanao. Raha tsy ianao no nanao izany dia mifandraisa amin'ny mpitantana."),
     ("Water collected for booking {ref}. Thank you!", "Eau récupérée pour la réservation {ref}. Merci !", "Voaray ny rano ho an'ny famandrihana {ref}. Misaotra!"), (
         "Booking {ref} was marked as not collected.", "La réservation {ref} a été marquée comme non récupérée.", "Nomarihana ho tsy noraisina ny famandrihana {ref}."),
     ("Booked {ref}: {source} {date} {time}, {litres} L, {amount}. Status: pending approval.", "Réservé {ref} : {source} {date} {time}, {litres} L, {amount}. Statut : en attente d'approbation.",
@@ -1370,38 +1401,3 @@ _add([
     ("Visual walkthrough only. No account changes are made.", "Démonstration visuelle uniquement. Aucune modification de compte.", "Fampisehoana fotsiny. Tsy misy fanovana atao amin'ny kaonty."),
     ("Live requests appear here. Guided runs do not send requests.", "Les requêtes réelles apparaissent ici. Les démonstrations guidées n'en envoient pas.", "Eto no miseho ny fangatahana tena izy. Tsy mandefa fangatahana ny fampisehoana tari-dalana."),
 ])
-
-
-TR.update({
-    "Your PIN was set. If this was not you, contact the administrator.": (
-        "Votre PIN a été défini. Si ce n'était pas vous, contactez l'administrateur.",
-        "Napetraka ny PIN-nao. Raha tsy ianao no nanao izany dia mifandraisa amin'ny mpitantana."),
-    "Your PIN was changed. If this was not you, contact the administrator.": (
-        "Votre PIN a été modifié. Si ce n'était pas vous, contactez l'administrateur.",
-        "Voaova ny PIN-nao. Raha tsy ianao no nanao izany dia mifandraisa amin'ny mpitantana."),
-    "Your recovery code was changed. If this was not you, contact the administrator.": (
-        "Votre code de récupération a été modifié. Si ce n'était pas vous, contactez l'administrateur.",
-        "Voaova ny kaody famerenanao. Raha tsy ianao no nanao izany dia mifandraisa amin'ny mpitantana."),
-})
-TR.update({
-    "Booking {ref} from {name} is waiting for approval.": (
-        "La réservation {ref} de {name} attend une approbation.",
-        "Miandry fankatoavana ny famandrihana {ref} avy amin'i {name}."),
-    "Deposit {ref} from {name} for {amount} via {provider} is waiting for confirmation.": (
-        "Le dépôt {ref} de {name}, d'un montant de {amount} via {provider}, attend une confirmation.",
-        "Miandry fanamafisana ny fandefasana {ref} avy amin'i {name}, mitentina {amount} amin'ny {provider}."),
-})
-
-
-TR.update({
-    "All statuses": ("Tous les statuts", "Toe-javatra rehetra"),
-    "This account has been deactivated. Contact the administrator.": (
-        "Ce compte a été désactivé. Contactez l'administrateur.",
-        "Natsahatra ity kaonty ity. Mifandraisa amin'ny mpitantana."),
-})
-
-TR.update({
-    "coordinators waiting for approval": (
-        "coordinateurs en attente d'approbation",
-        "mpandrindra miandry fankatoavana"),
-})
