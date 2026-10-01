@@ -7,6 +7,11 @@
             name="role" aria-label="{{ t('Role') }}">
             <option value="">{{ t('All roles') }}</option>{% for r in ('member','coordinator','admin') %}<option
                 value="{{ r }}" {{ 'selected' if role==r }}>{{ t(r) }}</option>{% endfor %}
+        </select><select class="field !w-auto" name="status" aria-label="{{ t('Status') }}">
+            <option value="">{{ t('All statuses') }}</option>
+            <option value="pending" {{ 'selected' if status=='pending' }}>{{ t('pending approval') }}</option>
+            <option value="active" {{ 'selected' if status=='active' }}>{{ t('active') }}</option>
+            <option value="inactive" {{ 'selected' if status=='inactive' }}>{{ t('inactive') }}</option>
         </select><button class="btn btn-primary">{{ t('Filter') }}</button></form><button type="button"
         class="btn btn-primary ml-auto" popovertarget="user-new">{{ icon('plus') }}{{ t('Create account') }}</button>
 </div>
@@ -32,8 +37,8 @@
                             ('member','coordinator','admin') %}<option value="{{ r }}" {{ 'selected' if u.role==r }}>{{
                                 t(r) }}</option>{% endfor %}</select></form>
                 </td>
-                <td><span class="chip {{ 'chip-ok' if u.is_active_flag else 'chip-hot' }}">{{ t('active') if
-                        u.is_active_flag else t('inactive') }}</span></td>
+                <td><span class="chip {{ 'chip-ok' if u.is_active_flag else ('chip-hot' if u.approval_pending else '') }}">{{ t('active') if
+                        u.is_active_flag else (t('pending approval') if u.approval_pending else t('inactive')) }}</span></td>
                 <td class="text-right">
                     <div class="inline-flex flex-wrap justify-end gap-1">
                         {% for act, label in (('activate' if not u.is_active_flag else 'deactivate', 'Activate' if not
@@ -44,10 +49,12 @@
                                 type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button
                                 class="btn btn-ghost btn-sm">{{ t(label) }}</button></form>{% endif %}{% endfor %}</div>
                 </td>
+            </tr>{% else %}<tr>
+                <td colspan="4" class="py-10 text-center text-mute">{% if status == 'pending' %}{{ t('No accounts are waiting for approval.') }}{% elif status == 'active' %}{{ t('No active accounts found.') }}{% elif status == 'inactive' %}{{ t('No inactive accounts found.') }}{% elif q or role %}{{ t('No users match these filters.') }}{% else %}{{ t('No users found.') }}{% endif %}</td>
             </tr>{% endfor %}</tbody>
     </table>
 </div>
-{{ pager(page, 'admin_users', q=q, role=role) }}
+{{ pager(page, 'admin_users', q=q, role=role, status=status) }}
 <div id="user-new" popover class="dialog" role="dialog" data-notype aria-labelledby="user-new-title">
     <form method="post" action="{{ url_for('admin_user_create') }}" class="user-form grid gap-4 p-6 md:grid-cols-3">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

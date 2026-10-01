@@ -1302,6 +1302,10 @@ _add([
      "Tongasoa eto amin'ny CWAS, {name}."),
     ("You are logged out.", "Vous êtes déconnecté.", "Efa nivoaka ianao."),
     ("No users found.", "Aucun utilisateur trouvé.", "Tsy misy mpampiasa hita."),
+    ("No accounts are waiting for approval.", "Aucun compte n’attend d’approbation.", "Tsy misy kaonty miandry fankatoavana."),
+    ("No active accounts found.", "Aucun compte actif trouvé.", "Tsy misy kaonty mavitrika hita."),
+    ("No inactive accounts found.", "Aucun compte inactif trouvé.", "Tsy misy kaonty tsy mavitrika hita."),
+    ("No users match these filters.", "Aucun utilisateur ne correspond à ces filtres.", "Tsy misy mpampiasa mifanaraka amin’ireo sivana ireo."),
 ])
 
 
@@ -1388,3 +1392,16 @@ TR.update({
         "Miandry fanamafisana ny fandefasana {ref} avy amin'i {name}, mitentina {amount} amin'ny {provider}."),
 })
 
+
+TR.update({
+    "All statuses": ("Tous les statuts", "Toe-javatra rehetra"),
+    "This account has been deactivated. Contact the administrator.": (
+        "Ce compte a été désactivé. Contactez l'administrateur.",
+        "Natsahatra ity kaonty ity. Mifandraisa amin'ny mpitantana."),
+})
+
+TR.update({
+    "coordinators waiting for approval": (
+        "coordinateurs en attente d'approbation",
+        "mpandrindra miandry fankatoavana"),
+})

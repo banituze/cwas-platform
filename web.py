@@ -226,7 +226,8 @@ def register_routes(app):
                 say("Too many attempts. Try again in 15 minutes.", "err")
             elif user and user.password_hash and check_password_hash(user.password_hash, pw):
                 if not user.is_active_flag:
-                    say("This account is not active yet. Ask the administrator to activate it.", "err")
+                    say("This account is not active yet. Ask the administrator to activate it." if user.approval_pending
+                        else "This account has been deactivated. Contact the administrator.", "err")
                 elif user.mfa_enabled:
                     session.clear()
                     session["mfa_uid"], session["mfa_next"], session["mfa_tries"] = user.id, request.form.get(
@@ -237,7 +238,8 @@ def register_routes(app):
             elif user and user.role in ("member", "coordinator") and not user.password_hash and user.pin_hash and check_password_hash(user.pin_hash, pw):
                 # registered by USSD: the PIN opens the web account once, then the person chooses the password for next time
                 if not user.is_active_flag:
-                    say("This account is not active yet. Ask the administrator to activate it.", "err")
+                    say("This account is not active yet. Ask the administrator to activate it." if user.approval_pending
+                        else "This account has been deactivated. Contact the administrator.", "err")
                 else:
                     user.must_change_password = True
                     return finish_login(user, request.form.get("next"))
@@ -343,7 +345,8 @@ def register_routes(app):
             if not errors:
                 u = User(role="coordinator" if want_coord else "member", name=name, phone=phone, email=email or None, language=g.lang,
                          password_hash=generate_password_hash(pw), pin_hash=generate_password_hash(pin) if pin else None,
-                         recovery_hash=generate_password_hash(recovery) if recovery else None, is_active_flag=not want_coord)
+                         recovery_hash=generate_password_hash(recovery) if recovery else None, is_active_flag=not want_coord,
+                         approval_pending=want_coord)
                 db.session.add(u)
                 db.session.flush()
                 if not want_coord:
@@ -977,7 +980,7 @@ def register_routes(app):
         S.audit("account.delete", "user", uid,
                 f"self-service, refund due {due} MGA", actor=u, channel=channel)
         u.name, u.email, u.phone, u.password_hash, u.pin_hash = f"Deleted user {uid}", None, None, None, None
-        u.mfa_enabled, u.mfa_secret, u.is_active_flag = False, None, False
+        u.mfa_enabled, u.mfa_secret, u.is_active_flag, u.approval_pending = False, None, False, False
         return due
 
     # USSD "Delete account" runs the same erasure
@@ -1353,7 +1356,8 @@ def register_routes(app):
     @admin_required
     def admin_home():
         ok, bad, n = S.verify_audit_chain()
-        return render_template("admin/home.html", users=User.query.count(), households=Household.query.count(), waiting=User.query.filter_by(is_active_flag=False).count(),
+        return render_template("admin/home.html", users=User.query.count(), households=Household.query.count(),
+                               waiting=User.query.filter_by(role="coordinator", is_active_flag=False, approval_pending=True).count(),
                                bookings=Booking.query.count(), chain=(ok, bad, n), sessions=UssdSession.query.count(), sms=SmsLog.query.count(),
                                held=db.session.query(db.func.coalesce(db.func.sum(Household.balance), 0)).scalar(), db_kind=current_app.config["DB_KIND"],
                                recent=AuditLog.query.order_by(AuditLog.id.desc()).limit(6).all(), followers=PilotFollower.query.count())
@@ -1397,16 +1401,22 @@ def register_routes(app):
     @app.get("/admin/users")
     @admin_required
     def admin_users():
-        q, term, role = User.query, S.clean_text(
-            request.args.get("q"), 60), request.args.get("role", "")
+        q, term, role, status = User.query, S.clean_text(
+            request.args.get("q"), 60), request.args.get("role", ""), request.args.get("status", "")
         if term:
             q = q.filter(or_(User.name.ilike(f"%{term}%"), User.email.ilike(
                 f"%{term}%"), User.phone.ilike(f"%{term}%")))
         if role in ("member", "coordinator", "admin"):
             q = q.filter_by(role=role)
-        page = q.order_by(User.is_active_flag, User.id.desc()).paginate(
+        if status == "active":
+            q = q.filter(User.is_active_flag.is_(True))
+        elif status == "pending":
+            q = q.filter(User.role == "coordinator", User.is_active_flag.is_(False), User.approval_pending.is_(True))
+        elif status == "inactive":
+            q = q.filter(User.is_active_flag.is_(False), User.approval_pending.is_(False))
+        page = q.order_by(User.is_active_flag, User.approval_pending.desc(), User.id.desc()).paginate(
             page=int_arg("page", 1, 1, 9999, request.args), per_page=20, error_out=False)
-        return render_template("admin/users.html", page=page, q=term, role=role)
+        return render_template("admin/users.html", page=page, q=term, role=role, status=status)
 
     @app.post("/admin/users/create")
     @admin_required
@@ -1444,6 +1454,7 @@ def register_routes(app):
             say("You cannot do that to your own account.", "err")
         elif action == "activate":
             u.is_active_flag = True
+            u.approval_pending = False
             S.audit("user.activate", "user", u.id)
             S.event(u, "Your coordinator account is now active. You can now access CWAS.", "system",
                     sms=True) if u.role == "coordinator" else S.notify(u, "Your account is now active.", "system")
@@ -1453,6 +1464,7 @@ def register_routes(app):
                 say("At least one active administrator is required.", "err")
             else:
                 u.is_active_flag = False
+                u.approval_pending = False
                 S.audit("user.deactivate", "user", u.id)
                 say("Account deactivated.")
         elif action == "delete":
@@ -1460,6 +1472,7 @@ def register_routes(app):
                 say("At least one active administrator is required.", "err")
             elif u.household and (Booking.query.filter_by(household_id=u.household.id).first() or WalletTxn.query.filter_by(household_id=u.household.id).first()):
                 u.is_active_flag = False
+                u.approval_pending = False
                 S.audit("user.deactivate", "user", u.id,
                         "delete refused: has records")
                 say("This person has bookings or money records, so the account was deactivated instead of deleted.")
@@ -1481,6 +1494,7 @@ def register_routes(app):
                 T("Temporary password for {name}: {pw} (shown once).", name=u.name, pw=temp), "dev")
         elif action == "role" and request.form.get("role") in ("member", "coordinator", "admin"):
             u.role = request.form["role"]
+            u.approval_pending = False
             # the member welcome (dial to book a slot) no longer applies
             if u.role != "member":
                 Notification.query.filter(Notification.user_id == u.id, Notification.key.like(

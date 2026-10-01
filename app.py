@@ -402,6 +402,29 @@ def _upgrade_schema():
         if "recovery_hash" not in users:
             conn.execute(
                 text(f"ALTER TABLE {User.__tablename__} ADD COLUMN recovery_hash VARCHAR(255)"))
+        if "approval_pending" not in users:
+            conn.execute(text(
+                f"ALTER TABLE {User.__tablename__} ADD COLUMN approval_pending BOOLEAN NOT NULL DEFAULT {false}"))
+            true = "TRUE" if db.engine.dialect.name == "postgresql" else "1"
+            conn.execute(text(f"""
+                UPDATE {User.__tablename__} AS u
+                SET approval_pending = {true}
+                WHERE u.role = 'coordinator'
+                  AND u.is_active = {false}
+                  AND EXISTS (
+                      SELECT 1 FROM audit_logs a
+                      WHERE a.entity = 'user'
+                        AND a.entity_id = CAST(u.id AS TEXT)
+                        AND a.action = 'user.register'
+                        AND a.detail LIKE 'coordinator%'
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1 FROM audit_logs a
+                      WHERE a.entity = 'user'
+                        AND a.entity_id = CAST(u.id AS TEXT)
+                        AND a.action IN ('user.activate','user.deactivate','user.delete','account.delete')
+                  )
+            """))
         for col, ddl in (("vuln_flags", "VARCHAR(80) NOT NULL DEFAULT ''"), ("needs_review", f"BOOLEAN NOT NULL DEFAULT {false}"),
                          ("home_source_id", "INTEGER"), ("home_source_note", "VARCHAR(80) NOT NULL DEFAULT ''")):
             if col not in homes:

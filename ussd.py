@@ -274,7 +274,8 @@ def session_flow(ctx):
     if user is None:
         return (yield from register_flow(ctx))
     if not user.is_active_flag:
-        return END(ctx, ctx.L("This account is not active yet. Ask the administrator to activate it."))
+        return END(ctx, ctx.L("This account is not active yet. Ask the administrator to activate it." if user.approval_pending
+                              else "This account has been deactivated. Contact the administrator."))
     if user.role == "member" and not user.household:
         return END(ctx, ctx.L("Something went wrong."))
     if not user.pin_hash:
@@ -425,7 +426,8 @@ def register_flow(ctx):
     if User.query.filter_by(phone=ctx.phone).first():
         return END(ctx, ctx.L("An account with this phone or email already exists."))
     u = User(role=role, name=name, phone=ctx.phone, language=ctx.lang, pin_hash=generate_password_hash(pin),
-             recovery_hash=generate_password_hash(recovery), is_active_flag=(role != "coordinator"))
+             recovery_hash=generate_password_hash(recovery), is_active_flag=(role != "coordinator"),
+             approval_pending=(role == "coordinator"))
     db.session.add(u)
     db.session.flush()
     if role == "member":

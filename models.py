@@ -25,6 +25,7 @@ class User(UserMixin, db.Model):
     language = db.Column(db.String(2), nullable=False, default="mg")
     is_active_flag = db.Column(
         "is_active", db.Boolean, nullable=False, default=True)
+    approval_pending = db.Column(db.Boolean, nullable=False, default=False, index=True)
     must_change_password = db.Column(db.Boolean, nullable=False, default=False)
     mfa_secret = db.Column(db.String(64), nullable=True)
     mfa_enabled = db.Column(db.Boolean, nullable=False, default=False)
