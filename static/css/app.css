@@ -9780,3 +9780,8 @@ html[data-theme="saina"] .p-body::before {
     text-decoration: underline;
     text-underline-offset: .18em
 }
+
+[data-scroll-latest] {
+  direction: ltr;
+  scroll-behavior: auto;
+}

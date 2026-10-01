@@ -21,11 +21,11 @@
   {% if hint %}<p class="hint">{{ t(hint) }}</p>{% endif %}
 </div>
 {% endmacro %}
-{% macro bars(items, height=120, unit="") %}
+{% macro bars(items, height=120, unit="", latest=False) %}
 {% set top = (items|map(attribute=1)|max) if items else 0 %}{% set wide = items|length > 12 %}
 {# a long series scrolls inside its card; the padding keeps room for the tooltips drawn above the columns #}
-{% if wide %}<div class="-mx-2 -mt-11 overflow-x-auto px-2 pt-11">{% endif %}<div
-    class="flex {{ 'w-max min-w-full ' if wide }}items-end gap-2" style="height:{{ height }}px" role="img"
+{% if wide %}<div class="-mx-2 -mt-11 overflow-x-auto px-2 pt-11"{{ ' data-scroll-latest' if latest else '' }}>{% endif %}<div
+    class="flex {{ 'w-max min-w-full ' if wide }}{{ 'in ' if latest }}items-end gap-2" style="height:{{ height }}px" role="img"
     aria-label="chart" data-bars>
     {% for label, v in items %}
     <div class="flex h-full flex-1 flex-col items-center justify-end gap-1" data-tip="{{ v }}{{ unit }}" data-tip-up>

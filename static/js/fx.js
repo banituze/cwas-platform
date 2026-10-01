@@ -12,6 +12,34 @@
   const io = (cb, o) => ("IntersectionObserver" in window ? new IntersectionObserver(cb, o) : { observe: e => cb([{ isIntersecting: true, target: e }]), unobserve() { } });
   const safe = fn => { try { fn(); } catch (e) { if (window.console) console.warn("fx:", e); } };
 
+  /* ── long usage charts open on the newest data immediately ── */
+  function latestBars() {
+    $$('[data-scroll-latest]').forEach(scroller => {
+      let initialLayout = true;
+      const pinLatest = () => {
+        scroller.scrollLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+      };
+
+      pinLatest();
+
+      let ro = null;
+      if ('ResizeObserver' in window) {
+        ro = new ResizeObserver(() => { if (initialLayout) pinLatest(); });
+        ro.observe(scroller);
+        const chart = $('[data-bars]', scroller);
+        if (chart) ro.observe(chart);
+      }
+
+      addEventListener('load', () => {
+        pinLatest();
+        initialLayout = false;
+        if (ro) ro.disconnect();
+      }, { once: true });
+
+      addEventListener('pageshow', pinLatest, { once: true });
+    });
+  }
+
   /* ── liquid reveal + type reveal + bars ── */
   function reveal() {
     /* dashboards show their content at once: no entrance animation on working pages */
@@ -294,7 +322,7 @@
 
   /* every bold page title rises letter by letter: page headings and section titles, on the site and in the dashboards */
   $$("main h1, main h2").forEach(h => { if (!h.children.length && !h.hasAttribute("data-type") && !h.closest("[data-notype],.gt-copy,dialog,.sr-only") && h.textContent.trim().length > 1) h.setAttribute("data-type", ""); });
-  [reveal, types, liquid, letters, tilt, counts].forEach(f => safe(f));
+  [latestBars, reveal, types, liquid, letters, tilt, counts].forEach(f => safe(f));
   $$("[data-typeline]").forEach(e => safe(() => typeline(e)));
   $$("[data-griddeck]").forEach(e => safe(() => griddeck(e)));
   $$("[data-orbit]").forEach(e => safe(() => orbit(e)));

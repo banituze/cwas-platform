@@ -27,7 +27,7 @@
 <div class="mt-5 grid gap-5 lg:grid-cols-2">
     <section class="glass-strong p-6">
         <h2 class="text-xl font-bold">{{ t('Usage by day') }}</h2>
-        <div class="mt-5">{{ bars(by_day) }}</div>
+        <div class="mt-5">{{ bars(by_day, latest=True) }}</div>
     </section>
     <section class="glass-strong p-6">
         <h2 class="text-xl font-bold">{{ t('Equity by priority') }}</h2>
