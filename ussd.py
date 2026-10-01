@@ -438,6 +438,9 @@ def register_flow(ctx):
     if role == "coordinator":
         S.event(u, "Welcome {name}! Your coordinator account is waiting for approval.",
                 "system", sms=True, name=S.first_name(name))
+        S.notify_roles(("admin",),
+                       "{name} asked for coordinator access. Approve in Users.",
+                       "system", name=name)
     else:
         S.event(u, "Welcome {name}! Dial {dial} to book a slot.",
                 "system", sms=True, name=S.first_name(name), dial=DIAL)

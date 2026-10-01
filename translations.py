@@ -1379,3 +1379,12 @@ TR.update({
         "Votre code de récupération a été modifié. Si ce n'était pas vous, contactez l'administrateur.",
         "Voaova ny kaody famerenanao. Raha tsy ianao no nanao izany dia mifandraisa amin'ny mpitantana."),
 })
+TR.update({
+    "Booking {ref} from {name} is waiting for approval.": (
+        "La réservation {ref} de {name} attend une approbation.",
+        "Miandry fankatoavana ny famandrihana {ref} avy amin'i {name}."),
+    "Deposit {ref} from {name} for {amount} via {provider} is waiting for confirmation.": (
+        "Le dépôt {ref} de {name}, d'un montant de {amount} via {provider}, attend une confirmation.",
+        "Miandry fanamafisana ny fandefasana {ref} avy amin'i {name}, mitentina {amount} amin'ny {provider}."),
+})
+

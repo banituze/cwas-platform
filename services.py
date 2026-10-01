@@ -417,6 +417,18 @@ def event(user, template, kind="system", sms=False, **params):
     return n
 
 
+def notify_roles(roles, template, kind="system", exclude_id=None, **params):
+    """Create the same in-app notification for active users in the requested staff roles."""
+    from models import User
+    q = User.query.filter(User.role.in_(tuple(roles)), User.is_active_flag.is_(True))
+    if exclude_id is not None:
+        q = q.filter(User.id != exclude_id)
+    rows = q.all()
+    for user in rows:
+        notify(user, template, kind, **params)
+    return len(rows)
+
+
 def payment_mode():
     """live keeps deposits pending until the provider confirms; simulation posts at once. Production defaults to live so
     nobody can mint money by accident."""
@@ -486,6 +498,9 @@ def deposit(h, amount, provider, actor=None, channel="web"):
     else:
         event(h.user, "Deposit {ref} of {amount} via {provider} is waiting for confirmation.", "wallet", sms=True, ref=txn.reference,
               amount=fmt_ar(amount), provider=label)
+        notify_roles(("coordinator", "admin"),
+                     "Deposit {ref} from {name} for {amount} via {provider} is waiting for confirmation.",
+                     "wallet", ref=txn.reference, name=h.name, amount=fmt_ar(amount), provider=label)
     return txn
 
 
@@ -905,6 +920,9 @@ def create_booking(h, source_id, day, start_min, litres, channel="web", actor=No
     else:
         event(h.user, "Booked {ref}: {source} {date} {time}, {litres} L, {amount}. Status: pending approval.", "booking", sms=True,
               ref=ref, source=src.name, date=f"{day:%d/%m}", time=fmt_min(b.start_min), litres=litres, amount=fmt_ar(amount))
+        notify_roles(("coordinator", "admin"),
+                     "Booking {ref} from {name} is waiting for approval.",
+                     "booking", ref=ref, name=h.name)
     return b
 
 

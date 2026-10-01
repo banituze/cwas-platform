@@ -358,10 +358,10 @@ def register_routes(app):
                 else:
                     S.event(u, "Welcome {name}! Dial {dial} to book a slot.",
                             "system", sms=True, name=S.first_name(name), dial=S.DIAL)
-                for a in User.query.filter_by(role="admin"):
-                    if want_coord:
-                        S.notify(
-                            a, "{name} asked for coordinator access. Approve in Users.", "system", name=name)
+                if want_coord:
+                    S.notify_roles(("admin",),
+                                   "{name} asked for coordinator access. Approve in Users.",
+                                   "system", name=name)
                 db.session.commit()
                 if want_coord:
                     say("Request sent. An administrator will activate your coordinator account.")
