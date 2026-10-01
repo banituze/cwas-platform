@@ -262,7 +262,7 @@
   function tilt() {
     if (reduce || matchMedia("(hover: none)").matches) return;
     $$(".kpi,[data-tilt]").forEach(el => {
-      el.classList.add("glow", "tilt"); let raf = 0;
+      el.classList.add("tilt"); let raf = 0;
       el.addEventListener("pointermove", e => {
         if (el.hasAttribute("data-reveal") && !el.classList.contains("done")) return;
         const r = el.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;

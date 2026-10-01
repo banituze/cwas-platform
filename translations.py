@@ -1366,3 +1366,16 @@ _add([
     ("Visual walkthrough only. No account changes are made.", "Démonstration visuelle uniquement. Aucune modification de compte.", "Fampisehoana fotsiny. Tsy misy fanovana atao amin'ny kaonty."),
     ("Live requests appear here. Guided runs do not send requests.", "Les requêtes réelles apparaissent ici. Les démonstrations guidées n'en envoient pas.", "Eto no miseho ny fangatahana tena izy. Tsy mandefa fangatahana ny fampisehoana tari-dalana."),
 ])
+
+
+TR.update({
+    "Your PIN was set. If this was not you, contact the administrator.": (
+        "Votre PIN a été défini. Si ce n'était pas vous, contactez l'administrateur.",
+        "Napetraka ny PIN-nao. Raha tsy ianao no nanao izany dia mifandraisa amin'ny mpitantana."),
+    "Your PIN was changed. If this was not you, contact the administrator.": (
+        "Votre PIN a été modifié. Si ce n'était pas vous, contactez l'administrateur.",
+        "Voaova ny PIN-nao. Raha tsy ianao no nanao izany dia mifandraisa amin'ny mpitantana."),
+    "Your recovery code was changed. If this was not you, contact the administrator.": (
+        "Votre code de récupération a été modifié. Si ce n'était pas vous, contactez l'administrateur.",
+        "Voaova ny kaody famerenanao. Raha tsy ianao no nanao izany dia mifandraisa amin'ny mpitantana."),
+})

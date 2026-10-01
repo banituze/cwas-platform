@@ -533,8 +533,10 @@ def set_pin(user, pin, actor=None, channel="web"):
         pin), 0, None
     audit("user.pin_change", "user", user.id, channel,
           actor=actor or user, channel=channel)
-    event(user, "Your PIN was changed. If this was not you, contact your coordinator.",
-          "system", sms=True)
+    template = ("Your PIN was changed. If this was not you, contact your coordinator."
+                if user.role == "member" else
+                "Your PIN was changed. If this was not you, contact the administrator.")
+    event(user, template, "system", sms=True)
 
 
 def set_recovery(user, code, actor=None, channel="web"):
@@ -542,7 +544,10 @@ def set_recovery(user, code, actor=None, channel="web"):
     user.recovery_hash = generate_password_hash(code)
     audit("user.recovery_set", "user", user.id,
           channel, actor=actor or user, channel=channel)
-    event(user, "Your recovery code was changed. If this was not you, contact your coordinator.", "system", sms=True)
+    template = ("Your recovery code was changed. If this was not you, contact your coordinator."
+                if user.role == "member" else
+                "Your recovery code was changed. If this was not you, contact the administrator.")
+    event(user, template, "system", sms=True)
 
 
 def reset_pin_by_staff(target, actor, channel="web"):

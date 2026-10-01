@@ -1465,6 +1465,8 @@ def register_routes(app):
                 say("This person has bookings or money records, so the account was deactivated instead of deleted.")
             else:
                 Notification.query.filter_by(user_id=u.id).delete()
+                Booking.query.filter_by(decided_by=u.id).update(
+                    {Booking.decided_by: None}, synchronize_session=False)
                 S.audit("user.delete", "user", u.id,
                         u.email or u.phone or u.name)
                 db.session.delete(u)

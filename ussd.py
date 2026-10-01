@@ -315,8 +315,10 @@ def pin_setup_flow(ctx, user):
     user.recovery_hash = generate_password_hash(code)
     S.audit("user.pin_set", "user", user.id,
             "ussd", actor=user, channel="ussd")
-    S.event(user, "Your PIN was set. If this was not you, contact your coordinator.",
-            "system", sms=True)
+    notice = ("Your PIN was set. If this was not you, contact your coordinator."
+              if user.role == "member" else
+              "Your PIN was set. If this was not you, contact the administrator.")
+    S.event(user, notice, "system", sms=True)
     db.session.commit()
     return END(ctx, ctx.L("PIN saved."), ctx.L("Dial {dial} again to continue.", dial=DIAL))
 

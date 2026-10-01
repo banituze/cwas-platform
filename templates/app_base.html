@@ -23,8 +23,8 @@ SMS','phone'),('coord_deposits','Deposits','wallet'),('coord_home','Coordinator 
           class="ml-auto rounded-full bg-hot px-1.5 text-[10px] font-bold text-white">{{ unread() }}</span>{% endif
         %}</a>{% endfor %}
       {% if current_user.role == 'admin' %}<div class="my-2 border-t border-ink/10"></div><a
-        href="{{ url_for('coord_queue') }}">{{ icon('check') }}<span>{{ t('Approval queue') }}</span></a><a
-        href="{{ url_for('coord_reports') }}">{{ icon('chart') }}<span>{{ t('Reports') }}</span></a>{% endif %}
+        href="{{ url_for('coord_queue') }}" {% if request.endpoint=='coord_queue' %}aria-current="page" {% endif %}>{{ icon('check') }}<span>{{ t('Approval queue') }}</span></a><a
+        href="{{ url_for('coord_reports') }}" {% if request.endpoint=='coord_reports' %}aria-current="page" {% endif %}>{{ icon('chart') }}<span>{{ t('Reports') }}</span></a>{% endif %}
     </nav>
   </aside>
   <div class="min-w-0">{% block app %}{% endblock %}</div>

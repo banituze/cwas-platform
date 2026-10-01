@@ -576,7 +576,7 @@ html[data-theme=saina] :is(.glass-pill, .glass-strong) {
     background-color: rgb(var(--brand)/var(--tw-bg-opacity, 1));
     --tw-text-opacity: 1;
     color: rgb(var(--onbrand)/var(--tw-text-opacity, 1));
-    box-shadow: inset 0 1px 0 hsla(0, 0%, 100%, .35), 0 8px 24px -10px rgb(var(--brand)/.7)
+    box-shadow: inset 0 1px 0 hsla(0, 0%, 100%, .35), 0 8px 24px -10px rgba(0, 0, 0, .28)
 }
 
 .btn-primary:hover {
@@ -1820,7 +1820,7 @@ dialog.modal[open] {
     letter-spacing: .1em;
     color: #7cffb2;
     background: #07130c;
-    text-shadow: 0 0 6px #35e07f;
+    text-shadow: none;
     box-shadow: inset 0 2px 5px #000, 0 1px 0 hsla(0, 0%, 100%, .85), 0 0 0 2px #2a2f35
 }
 
@@ -1835,7 +1835,7 @@ dialog.modal[open] {
 
 .printer[data-state=printing] .p-led {
     background: #22e07a;
-    box-shadow: 0 0 12px #22e07a, inset 0 -1px 2px rgba(0, 0, 0, .4);
+    box-shadow: inset 0 -1px 2px rgba(0, 0, 0, .4);
     animation: blink .35s steps(2) infinite
 }
 
@@ -2887,7 +2887,7 @@ dialog.modal[open] {
     place-items: center;
     margin: 6px auto;
     cursor: pointer;
-    box-shadow: 0 6px 14px rgba(37, 179, 90, .5)
+    box-shadow: 0 6px 14px rgba(0, 0, 0, .28)
 }
 
 .callbtn svg {
@@ -3802,29 +3802,6 @@ html[data-theme=saina] .tframe {
     filter: url(#liquid)
 }
 
-.glow {
-    position: relative;
-    transform-style: preserve-3d
-}
-
-.glow:after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1.5px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity .3s;
-    background: radial-gradient(240px circle at var(--gx, 50%) var(--gy, 50%), rgb(var(--active, var(--hot))), transparent 62%);
-    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0)
-}
-
-.glow:hover:after {
-    opacity: 1
-}
 
 html[data-theme=saina]:root {
     --glass: hsla(0, 0%, 100%, .1);
@@ -4701,7 +4678,9 @@ a:hover .lt {
 }
 
 .foot-links a:hover {
-    color: #fff
+    color: #fff;
+    text-decoration: underline;
+    text-underline-offset: .18em
 }
 
 .foot-bar {
@@ -4825,12 +4804,12 @@ a:hover .lt {
 
 .p-lcd {
     color: var(--lcd);
-    text-shadow: 0 0 6px var(--lcd)
+    text-shadow: none
 }
 
 .printer[data-state=printing] .p-led {
     background: var(--led);
-    box-shadow: 0 0 12px var(--led), inset 0 -1px 2px rgba(0, 0, 0, .4)
+    box-shadow: inset 0 -1px 2px rgba(0, 0, 0, .4)
 }
 
 .p-keys i {
@@ -5411,14 +5390,14 @@ input:checked+.slot {
     background: rgb(var(--fill));
     color: rgb(var(--onfill));
     border: 1px solid var(--fill-line);
-    box-shadow: 0 6px 18px -10px rgba(0, 0, 0, .5)
+    box-shadow: none
 }
 
 [data-theme=fotsy] .bottomnav a[aria-current=page],
 [data-theme=fotsy] .side a[aria-current=page],
 [data-theme=fotsy] input:checked+.pick,
 [data-theme=fotsy] input:checked+.slot {
-    box-shadow: 0 0 0 1.5px rgb(var(--brand)), 0 8px 20px -12px rgba(0, 0, 0, .4)
+    box-shadow: none
 }
 
 .tframe {
@@ -5436,17 +5415,19 @@ input:checked+.slot {
     font-weight: 650;
     text-decoration: none;
     border-radius: .3em;
-    transition: background-color .15s, box-shadow .15s, color .15s
+    transition: color .15s
 }
 
 .lnk:hover {
-    background: rgb(var(--link)/.12);
-    box-shadow: 0 0 0 .2em rgb(var(--link)/.12)
+    background: transparent;
+    text-decoration: underline;
+    text-underline-offset: .18em;
+    box-shadow: none
 }
 
 .lnk:active {
-    background: rgb(var(--link)/.2);
-    box-shadow: 0 0 0 .2em rgb(var(--link)/.2)
+    background: transparent;
+    box-shadow: none
 }
 
 .lnk:focus-visible {
@@ -6354,7 +6335,7 @@ form:has(select[name=home_source] option[value=other]:checked) .other-src {
 [data-theme=saina] .side a[aria-current=page],
 [data-theme=saina] input:checked+.pick,
 [data-theme=saina] input:checked+.slot {
-    box-shadow: 0 0 0 1.5px rgb(var(--brand)), 0 8px 20px -12px rgba(0, 0, 0, .4)
+    box-shadow: none
 }
 
 [data-theme=saina] .dev-max .wb-mark,
@@ -8713,7 +8694,7 @@ html.is-ios .install-card [data-install-ios] {
     --oncta: 255 255 255;
     --menu-bg: rgba(3, 52, 26, .9);
     --tint: 2 34 16;
-    --amb1: rgba(40, 190, 110, .22);
+    --amb1: transparent;
     --amb2: rgba(0, 0, 0, .25);
     --pb: rgba(0, 126, 58, .72);
     --pb-line: hsla(0, 0%, 100%, .3);
@@ -9792,3 +9773,10 @@ html[data-theme="saina"] .p-body::before {
     touch-action: pan-y
   }
 
+
+
+.legal nav a:hover {
+    background: transparent !important;
+    text-decoration: underline;
+    text-underline-offset: .18em
+}
