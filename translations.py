@@ -35,7 +35,7 @@ _add([
                                                                       "Fonctionnalités", "Endrika"), ("Filter", "Filtrer", "Sivano"), ("From", "Du", "Manomboka"),
     ("Français", "Français", "Français"), ("HELP", "HELP", "HELP"), ("Home", "Accueil", "Fandraisana"), ("Hours",
                                                                                                          "Horaires", "Ora"), ("Household", "Ménage", "Tokantrano"), ("Households", "Ménages", "Tokantrano"),
-    ("Kept.", "Conservé.", "Voatahiry."), ("Language", "Langue", "Fiteny"), ("Latitude", "Latitude",
+    ("Kept.", "Conservé.", "Voatazona."), ("Language", "Langue", "Fiteny"), ("Latitude", "Latitude",
                                                                              "Latitude"), ("Ledger", "Registre", "Bokin-drakitra"), ("Level", "Niveau", "Sehatra"), ("Litres", "Litres", "Litatra"),
     ("Longitude", "Longitude", "Longitude"), ("Main", "Menu principal", "Menio lehibe"), ("Your account is now a household account.", "Votre compte est désormais un compte de ménage.", "Kaontin'ny tokantrano izao ny kaontinao."), ("Your account is now a coordinator account.", "Votre compte est désormais un compte de coordinateur.", "Kaontin'ny mpandrindra izao ny kaontinao."), ("Your account is now an administrator account.", "Votre compte est désormais un compte d'administrateur.", "Kaontin'ny mpitantana izao ny kaontinao."), ("Welcome {name}! Your coordinator account is waiting for approval.", "Bienvenue {name} ! Votre compte de coordinateur attend une validation.", "Tongasoa {name}! Miandry fankatoavana ny kaontinao mpandrindra."), ("Enter your email address.", "Saisissez votre adresse e-mail.", "Ampidiro ny adiresy mailakao."), ("Registered by USSD? Sign in once with your USSD PIN, then choose a password.", "Inscrit par USSD ? Connectez-vous une fois avec votre code PIN USSD, puis choisissez un mot de passe.", "Nisoratra tamin'ny USSD? Midira indray mandeha amin'ny PIN USSD-nao, dia mifidiana tenimiafina."), (
         "Choose the password you will use from now on. Your USSD PIN stays the same.", "Choisissez le mot de passe que vous utiliserez désormais. Votre code PIN USSD ne change pas.", "Mifidiana ny tenimiafina hampiasainao manomboka izao. Tsy miova ny PIN USSD-nao."), ("Country code", "Indicatif du pays", "Kaody firenena"), ("Search countries", "Rechercher un pays", "Hitady firenena"), ("Enter a valid number for {country}.", "Saisissez un numéro valide pour {country}.", "Ampidiro laharana marina ho an'i {country}."), ("you@example.com or {example}", "vous@exemple.com ou {example}", "ianao@ohatra.com na {example}"), ("Password or USSD PIN", "Mot de passe ou code PIN USSD", "Tenimiafina na PIN USSD"), ("you@example.com", "vous@exemple.com", "ianao@ohatra.com"), ("e.g. Rasoa Rakoto", "ex. Rasoa Rakoto", "oh. Rasoa Rakoto"), ("e.g. Ampotaka", "ex. Ampotaka", "oh. Ampotaka"), ("At least 8 characters", "Au moins 8 caractères", "Litera 8 farafahakeliny"), ("All rights reserved.", "Tous droits réservés.", "Zo rehetra voatokana."), ("Maintenance", "Maintenance", "Fanamboarana"), ("Malagasy", "Malagasy", "Malagasy"), ("Menu", "Menu", "Menio"),
@@ -85,7 +85,7 @@ _add([
     ("no free slot this week", "aucun créneau libre cette semaine", "tsy misy ora malalaka amin'ity herinandro ity"), (
         "waiting for activation", "en attente d'activation", "miandry ny fampandehanana"),
     ("water points open", "points d'eau ouverts", "toeram-pakàna rano misokatra"), ("free places shown",
-                                                                                    "places libres affichées", "aseho ny toerana malalaka"), ("water points", "points d'eau", "toeram-pakàna rano"),
+                                                                                    "places libres affichées", "aseho ny toerana malalaka"),
 ])
 
 # ── sentences A to D ────────────────────────────────────────────────────────
@@ -574,8 +574,7 @@ _add([
                                                            "Voatahiry ao amin'ny app ny rosianao ary azo vakiana indray amin'ny SMS na USSD."), ("Your session expired. Reload the page and try again.", "Votre session a expiré. Rechargez la page et réessayez.", "Lany daty ny fotoana. Avereno ny pejy dia andramo indray."),
     ("Your village", "Votre village", "Ny tanànanao"), ("Your wallet balance is {balance}.", "Le solde de votre portefeuille est {balance}.", "Ny sisa ao amin'ny kitapom-bolanao dia {balance}."), (
         "Your wallet pays, the coordinator approves", "Votre portefeuille paie, le coordinateur approuve", "Ny kitapom-bolanao no mandoa, ny mpandrindra no manaiky"), ("Zero transparency", "Aucune transparence", "Tsy misy mangarahara"),
-    ("free places shown", "places libres affichées", "aseho ny toerana malalaka"), (
-        "includes {p}% subsidy", "dont {p} % de subvention", "anisan'izany ny fanampiana {p}%"),
+    ("includes {p}% subsidy", "dont {p} % de subvention", "anisan'izany ny fanampiana {p}%"),
     ("not set: set AT_WEBHOOK_TOKEN to receive provider confirmations", "non défini : définissez AT_WEBHOOK_TOKEN pour recevoir les confirmations de l'opérateur", "tsy voafaritra: faritana ny AT_WEBHOOK_TOKEN handraisana ny fanamafisan'ny mpamatsy"), (
         "of households have a conflict over water at least once a month", "des ménages ont un conflit lié à l'eau au moins une fois par mois", "amin'ny tokantrano no misy fifandirana momba ny rano farafahakeliny in-dray isam-bolana"),
     ("of informal water payments are never collected, so pumps are not repaired", "des paiements informels d'eau ne sont jamais perçus, donc les pompes ne sont pas réparées", "amin'ny saram-pakàna rano tsy ofisialy no tsy voaray mihitsy, ka tsy amboarina ny paompy"), (
@@ -761,7 +760,7 @@ _add([
     ("Booking expired", "Réservation expirée", "Lany daty ny famandrihana"), ("Not collected", "Non récupérée", "Tsy noraisina"), ("Deposit confirmed", "Dépôt confirmé",
                                                                                                                                    "Voamafy ny fandefasana"), ("Water collected", "Eau récupérée", "Voaray ny rano"), ("Maintenance notice", "Avis de maintenance", "Filazana fanamboarana"),
     ("Welcome", "Bienvenue", "Tonga soa"), ("PIN set", "PIN défini", "Napetraka ny PIN"), ("Priority updated", "Priorité mise à jour",
-                                                                                           "Voavao ny laharam-pahamehana"), ("Announcement", "Annonce", "Fanamarihana"), ("Kept.", "Conservé.", "Voatazona."),
+                                                                                           "Voavao ny laharam-pahamehana"),
 ])
 
 # ── files, SMS help, landing content ────────────────────────────────────────

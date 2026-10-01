@@ -355,16 +355,11 @@ def register_routes(app):
                     S.set_needs(hh, flags, band, home)
                     db.session.add(hh)
                 S.audit("user.register", "user", u.id, u.role, actor=u)
-                if want_coord:  # a welcome by SMS as soon as the account exists
-                    S.event(u, "Welcome {name}! Your coordinator account is waiting for approval.",
-                            "system", sms=True, name=S.first_name(name))
+                if want_coord:
+                    S.coordinator_registration_notifications(u)
                 else:
                     S.event(u, "Welcome {name}! Dial {dial} to book a slot.",
                             "system", sms=True, name=S.first_name(name), dial=S.DIAL)
-                if want_coord:
-                    S.notify_roles(("admin",),
-                                   "{name} asked for coordinator access. Approve in Users.",
-                                   "system", name=name)
                 db.session.commit()
                 if want_coord:
                     say("Request sent. An administrator will activate your coordinator account.")

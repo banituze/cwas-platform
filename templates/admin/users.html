@@ -50,7 +50,13 @@
                                 class="btn btn-ghost btn-sm">{{ t(label) }}</button></form>{% endif %}{% endfor %}</div>
                 </td>
             </tr>{% else %}<tr>
-                <td colspan="4" class="py-10 text-center text-mute">{% if status == 'pending' %}{{ t('No accounts are waiting for approval.') }}{% elif status == 'active' %}{{ t('No active accounts found.') }}{% elif status == 'inactive' %}{{ t('No inactive accounts found.') }}{% elif q or role %}{{ t('No users match these filters.') }}{% else %}{{ t('No users found.') }}{% endif %}</td>
+                <td colspan="4" class="py-10 text-center text-mute">
+                    {% if status == 'pending' %}{{ t('No accounts are waiting for approval.') }}
+                    {% elif status == 'active' %}{{ t('No active accounts found.') }}
+                    {% elif status == 'inactive' %}{{ t('No inactive accounts found.') }}
+                    {% elif q or role %}{{ t('No users match these filters.') }}
+                    {% else %}{{ t('No users found.') }}{% endif %}
+                </td>
             </tr>{% endfor %}</tbody>
     </table>
 </div>

@@ -429,6 +429,14 @@ def notify_roles(roles, template, kind="system", exclude_id=None, **params):
     return len(rows)
 
 
+def coordinator_registration_notifications(user):
+    event(user, "Welcome {name}! Your coordinator account is waiting for approval.",
+          "system", sms=True, name=first_name(user.name))
+    notify_roles(("admin",),
+                 "{name} asked for coordinator access. Approve in Users.",
+                 "system", name=user.name)
+
+
 def payment_mode():
     """live keeps deposits pending until the provider confirms; simulation posts at once. Production defaults to live so
     nobody can mint money by accident."""

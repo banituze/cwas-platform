@@ -438,11 +438,7 @@ def register_flow(ctx):
     S.audit("user.register", "user", u.id,
             f"{role} via ussd", actor=u, channel="ussd")
     if role == "coordinator":
-        S.event(u, "Welcome {name}! Your coordinator account is waiting for approval.",
-                "system", sms=True, name=S.first_name(name))
-        S.notify_roles(("admin",),
-                       "{name} asked for coordinator access. Approve in Users.",
-                       "system", name=name)
+        S.coordinator_registration_notifications(u)
     else:
         S.event(u, "Welcome {name}! Dial {dial} to book a slot.",
                 "system", sms=True, name=S.first_name(name), dial=DIAL)
